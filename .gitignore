@@ -1,0 +1,16 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+*.pyc
+
+# Node
+dashboard/node_modules/
+website/node_modules/
+**/dist/
+
+# Datos locales del asistente
+data/
+backend/data/
+**/vectordb/
+**/*.sqlite
+**/*.db
