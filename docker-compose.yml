@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: viernes_postgres
+    environment:
+      POSTGRES_DB: viernes
+      POSTGRES_USER: viernes
+      POSTGRES_PASSWORD: viernes_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - viernes_pgdata:/var/lib/postgresql/data
+
+volumes:
+  viernes_pgdata:
