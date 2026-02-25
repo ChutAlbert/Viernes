@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "src"),
       "@apis": path.resolve(__dirname, "src/lib/apis"),
+      "@components": path.resolve(__dirname, "src/components"),
     },
   },
 });
