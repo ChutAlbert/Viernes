@@ -7,6 +7,10 @@ export * from "./components/dashboard/StatCard";
 export * from "./components/nav/SidebarShell";
 export * from "./components/nav/NavItem";
 export * from "./components/nav/TopbarShell";
+export * from "./components/layout/AppShell";
+export * from "./components/ui/Surface";
+export * from "./components/dashboard/StatCardDark";
+export * from "./components/overlay/Drawer";
 
 // forms
 export * from "./components/form/Label";
