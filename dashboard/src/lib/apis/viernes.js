@@ -1,11 +1,17 @@
 import { apiRequest } from "./client";
 
 export const viernesApi = {
-    health: () => apiRequest("get", "/health"),
+  health: () => apiRequest("get", "/health"),
 
-    chat: (message) => apiRequest("post", "/chat", { message }),
+  // sessions
+  listSessions: () => apiRequest("get", "/chat/sessions"),
+  createSession: () => apiRequest("post", "/chat/sessions"),
+  getMessages: (sessionId) => apiRequest("get", `/chat/sessions/${sessionId}/messages`),
+  renameSession: (id, title) => apiRequest("patch", `/chat/sessions/${id}`, { title }),
 
-    ingest: (filename) => apiRequest("post", "/ingest", { filename }),
+  // chat
+  chat: (payload) => apiRequest("post", "/chat", payload),
 
-  // (luego) upload: (file) => ...
+  ingest: (filename) => apiRequest("post", "/ingest", { filename }),
+
 };
