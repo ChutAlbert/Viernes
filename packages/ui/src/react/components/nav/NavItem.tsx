@@ -38,7 +38,7 @@ export function NavItem({
         cn(base, isActive ? styles.active : styles.idle, className)
       }
     >
-      {icon ? <span className="w-5 flex justify-center">{icon}</span> : null}
+      {icon ? <span className="w-4 flex justify-center">{icon}</span> : null}
       <span>{label}</span>
     </NavLink>
   );

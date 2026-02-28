@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, DateTime, String, Boolean
+from sqlalchemy import Column, DateTime, String, Boolean, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -14,6 +14,6 @@ class ChatSession(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     last_message_at = Column(DateTime(timezone=True), nullable=True)
     is_title_auto_generated = Column(Boolean, default=True, nullable=True)  # Puedes cambiar a Boolean si prefieres
-
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
     def touch_last_message(self):
         self.last_message_at = func.now()

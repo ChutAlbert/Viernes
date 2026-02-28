@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiRequest, apiRequestRaw } from "./client";
 
 export const viernesApi = {
   health: () => apiRequest("get", "/health"),
@@ -9,9 +9,11 @@ export const viernesApi = {
   getMessages: (sessionId) => apiRequest("get", `/chat/sessions/${sessionId}/messages`),
   renameSession: (id, title) => apiRequest("patch", `/chat/sessions/${id}`, { title }),
 
-  // chat
+  // chat normal
   chat: (payload) => apiRequest("post", "/chat", payload),
 
-  ingest: (filename) => apiRequest("post", "/ingest", { filename }),
+  // ✅ stream SSE
+  chatStream: (payload) => apiRequestRaw("post", "/chat/stream", payload),
 
+  ingest: (filename) => apiRequest("post", "/ingest", { filename }),
 };

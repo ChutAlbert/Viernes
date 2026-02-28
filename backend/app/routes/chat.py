@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import json
+import time
+
+import uuid
+from fastapi.responses import StreamingResponse
+from fastapi import APIRouter
 
 from app.db import get_db
 from app.schemas.chat import ChatIn, ChatOut
@@ -9,6 +15,15 @@ from app.services.ollama_service import OllamaService
 
 from app.models.chat_sessions import ChatSession
 from app.models.chat_messages import ChatMessage
+
+from app.core.deps import get_current_user
+from app.models.user import User
+
+from typing import Optional, Literal
+
+from datetime import datetime, date
+from decimal import Decimal
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 rag = RagService()
@@ -156,3 +171,127 @@ def rename_session(session_id: str, payload: SessionUpdate, db: Session = Depend
 
     db.commit()
     return {"id": str(s.id), "title": s.title}
+
+def json_safe(obj):
+    if isinstance(obj, (uuid.UUID, datetime, date, Decimal)):
+        return str(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+def sse(data: dict) -> str:
+  # SSE format: "data: <json>\n\n"
+  return f"data: {json.dumps(data, ensure_ascii=False, default=json_safe)}\n\n"
+class ChatStreamIn(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    memory_mode: Literal["auto", "ask", "off"] = "auto"
+    
+@router.post("/stream")
+def chat_stream(payload: ChatStreamIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    user_msg = payload.message.strip()
+    user_id = user.id
+    # 1) Asegurar sesión
+    if payload.session_id:
+        session = db.query(ChatSession).filter(ChatSession.id == payload.session_id).first()
+    else:
+        session = None
+
+    if not session:
+        session = ChatSession(
+            id=uuid.uuid4(),
+            title=None,
+            is_title_auto_generated=True,
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+    # 2) guardar user msg
+    user_message = ChatMessage(
+        id=uuid.uuid4(),
+        session_id=session.id,
+        role="user",
+        content=user_msg,
+    )
+    db.add(user_message)
+
+    # 3) placeholder assistant
+    assistant_message = ChatMessage(
+        id=uuid.uuid4(),
+        session_id=session.id,
+        role="assistant",
+        content="",  # válido porque Text nullable=False pero "" sí cuenta como string
+    )
+    db.add(assistant_message)
+
+    # 4) marca last_message_at
+    session.touch_last_message()
+    db.add(session)
+
+    db.commit()
+    db.refresh(assistant_message)
+
+    # 4) Preparar prompt/contexto
+    context = rag.retrieve_context(user_msg, k=4)
+    system = "Eres Viernes, un asistente personal útil, conciso y orientado a tareas."
+    if context:
+        system += (
+            "\n\nUsa el CONTEXTO para responder. "
+            "Si el contexto no contiene la respuesta, dilo y sugiere qué documento falta."
+        )
+
+    messages = [{"role": "system", "content": system}]
+    if context:
+        messages.append({"role": "system", "content": f"CONTEXTO:\n{context}"})
+    messages.append({"role": "user", "content": user_msg})
+
+    def generator():
+        full = []
+        try:
+            # Evento inicial (le sirve al frontend para setear IDs)
+            yield sse({
+                "type": "start",
+                "session_id": session.id,
+                "assistant_message_id": assistant_message.id,
+                "used_context": bool(context),
+            })
+
+            # 5) Streaming desde LLM
+            for delta in llm.chat_stream(messages):
+                full.append(delta)
+                yield sse({"type": "delta", "delta": delta})
+
+            final_text = "".join(full)
+
+            # 6) Actualizar mensaje assistant con el texto completo
+            assistant_message.content = final_text
+            db.add(assistant_message)
+
+            # title auto solo si sigue en auto
+            if (not session.title) or session.is_title_auto_generated:
+                session.title = (user_msg[:48] + "…") if len(user_msg) > 48 else user_msg
+                session.is_title_auto_generated = True
+
+            session.touch_last_message()
+            db.add(session)
+
+            db.commit() 
+
+            # 7) Evento done con ids
+            yield sse({
+                "type": "done",
+                "session_id": session.id,
+                "assistant_message_id": assistant_message.id,
+            })
+
+        except Exception as e:
+            # si truena, guarda lo que lleve
+            try:
+                assistant_message.content = "".join(full) or "(Error al generar respuesta)"
+                db.add(assistant_message)
+                db.commit()
+            except Exception:
+                pass
+
+            yield sse({"type": "error", "message": str(e)})
+
+    return StreamingResponse(generator(), media_type="text/event-stream")

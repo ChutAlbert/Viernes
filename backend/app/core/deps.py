@@ -1,30 +1,43 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+import jwt  # PyJWT
+import os
 
 from app.db import get_db
-from app.core.security import JWT_SECRET, JWT_ALG
-from app.services.auth_service import AuthService
+from app.models.user import User  # AJUSTA a tu ruta real
 
-security = HTTPBearer()
-auth = AuthService()
+bearer = HTTPBearer(auto_error=False)
+
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
+JWT_ALG = os.getenv("JWT_ALG", "HS256")
 
 def get_current_user(
-    creds: HTTPAuthorizationCredentials = Depends(security),
+    creds: HTTPAuthorizationCredentials = Depends(bearer),
     db: Session = Depends(get_db),
-):
+) -> User:
+    if not creds:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
     token = creds.credentials
+
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-        sub = payload.get("sub")
-        if not sub:
-            raise HTTPException(status_code=401, detail="Token inválido")
-        user_id = int(sub)
-    except (JWTError, ValueError):
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user = auth.get_user_by_id(db, user_id)
-    if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="Usuario no válido")
+    raw_user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
+    if raw_user_id is None:
+        raise HTTPException(status_code=401, detail="Token missing user id")
+
+    # ✅ IMPORTANTÍSIMO: tu users.id es INT
+    try:
+        user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid user id in token")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
     return user
