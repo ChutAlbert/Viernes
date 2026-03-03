@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestRaw } from "./client";
+import { apiRequest, apiRequestRaw, apiRequestDocs } from "./client";
 
 export const viernesApi = {
   health: () => apiRequest("get", "/health"),
@@ -16,4 +16,8 @@ export const viernesApi = {
   chatStream: (payload) => apiRequestRaw("post", "/chat/stream", payload),
 
   ingest: (filename) => apiRequest("post", "/ingest", { filename }),
+  ingestText: (payload) => apiRequest("post", "/ingest/text", payload),
+
+  uploadDocument: (formData) => apiRequestDocs("post", "/documents/upload", formData),
+  listDocuments: () => apiRequest("get", "/documents"),
 };

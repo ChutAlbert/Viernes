@@ -58,4 +58,48 @@ export const apiRequestRaw = async (method, url, payload) => {
   return res; // 👈 Response real (tiene ok, status, body.getReader, text(), etc.)
 };
 
+
+// ---------- AXIOS (DOCS / multipart) ----------
+const docsClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 180000,
+  headers: {
+    "X-Requested-With": "XMLHttpRequest",
+    // NO pongas Content-Type aquí, axios lo setea solo para multipart con boundary
+    Accept: "application/json",
+  },
+});
+
+docsClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("viernes_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+/**
+ * apiRequestDocs:
+ * - Para subir archivos (FormData)
+ * - No forza JSON
+ */
+export const apiRequestDocs = async (method, url, formData) => {
+  try {
+    const config = {
+      method,
+      url,
+      data: formData,
+    };
+
+    const { data } = await docsClient(config);
+    return data;
+  } catch (error) {
+    const message =
+      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "Error desconocido";
+
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+};
+
 export default apiClient;

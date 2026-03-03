@@ -1,3 +1,4 @@
+# app/services/rag_service.py
 from chromadb.config import Settings
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -27,16 +28,18 @@ class RagService:
     def embed_texts(self, texts):
         return self.embedder.encode(texts, normalize_embeddings=True).tolist()
 
-    def upsert_document(self, source: str, text: str):
+    # ✅ Nuevo: upsert por doc_id (NO por source)
+    def upsert_text(self, doc_id: str, text: str, metadata: dict | None = None):
+        metadata = metadata or {}
         chunks = self.chunk_text(text)
         embeddings = self.embed_texts(chunks)
 
-        ids = [f"{source}::chunk::{i}" for i in range(len(chunks))]
-        metadatas = [{"source": source, "chunk": i} for i in range(len(chunks))]
+        ids = [f"{doc_id}::chunk::{i}" for i in range(len(chunks))]
+        metadatas = [{**metadata, "doc_id": doc_id, "chunk": i} for i in range(len(chunks))]
 
-        # upsert simple: borrar por source y reinsertar
+        # borrar solo lo de ese doc_id
         try:
-            self.collection.delete(where={"source": source})
+            self.collection.delete(where={"doc_id": doc_id})
         except Exception:
             pass
 
@@ -46,8 +49,20 @@ class RagService:
             embeddings=embeddings,
             metadatas=metadatas
         )
-
         return len(chunks)
+
+    # ✅ Nuevo: borrar por doc_id
+    def delete_doc(self, doc_id: str):
+        self.collection.delete(where={"doc_id": doc_id})
+
+    # 🔁 Compatibilidad: tu código actual sigue funcionando
+    def upsert_document(self, source: str, text: str):
+        # antes “source” era el identificador; ahora lo tratamos como doc_id
+        return self.upsert_text(
+            doc_id=f"file::{source}",
+            text=text,
+            metadata={"source": source, "namespace": "files"}
+        )
 
     def retrieve_context(self, query: str, k: int = 4) -> str:
         q_emb = self.embed_texts([query])[0]
@@ -56,3 +71,21 @@ class RagService:
         if not docs:
             return ""
         return "\n\n---\n\n".join(docs)
+
+    # ✅ Útil para /search: regresa hits con metadata
+    def retrieve_hits(self, query: str, k: int = 6):
+        q_emb = self.embed_texts([query])[0]
+        results = self.collection.query(query_embeddings=[q_emb], n_results=k)
+        docs = results.get("documents", [[]])[0]
+        metas = results.get("metadatas", [[]])[0]
+        ids = results.get("ids", [[]])[0]
+        dists = results.get("distances", [[]])[0]
+        hits = []
+        for i in range(len(ids)):
+            hits.append({
+                "id": ids[i],
+                "distance": dists[i] if i < len(dists) else None,
+                "metadata": metas[i] if i < len(metas) else None,
+                "text": docs[i] if i < len(docs) else None,
+            })
+        return hits
