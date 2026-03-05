@@ -1,30 +1,39 @@
 from fastapi import FastAPI
-
-from app.routes.health import router as health_router
-from app.routes.chat import router as chat_router
-from app.routes.ingest import router as ingest_router
-from app.routes.auth import router as auth_router
-from app.routes.documents import router as documents_router
-
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import threading
 
-app = FastAPI(title="Viernes")
+from app.routes import auth, chat, documents, ingest, health
+from app.services.ollama_service import OllamaService
 
-app.include_router(health_router)
-app.include_router(chat_router)
-app.include_router(ingest_router)
-app.include_router(auth_router)
-app.include_router(documents_router)
+
+def _warmup_model():
+    """Corre en background para no bloquear el arranque del servidor."""
+    llm = OllamaService()
+    llm.warmup()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Al arrancar: precarga el modelo en Ollama en un thread aparte
+    t = threading.Thread(target=_warmup_model, daemon=True)
+    t.start()
+    yield
+    # Al apagar: nada por ahora
+
+
+app = FastAPI(title="Viernes API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(chat.router)
+app.include_router(documents.router)
+app.include_router(ingest.router)

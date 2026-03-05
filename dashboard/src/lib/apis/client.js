@@ -48,16 +48,14 @@ export const apiRequestRaw = async (method, url, payload) => {
     method: method.toUpperCase(),
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      // para SSE
       Accept: "text/event-stream, application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: payload !== undefined ? JSON.stringify(payload) : undefined,
   });
 
-  return res; // 👈 Response real (tiene ok, status, body.getReader, text(), etc.)
+  return res;
 };
-
 
 // ---------- AXIOS (DOCS / multipart) ----------
 const docsClient = axios.create({
@@ -65,7 +63,6 @@ const docsClient = axios.create({
   timeout: 180000,
   headers: {
     "X-Requested-With": "XMLHttpRequest",
-    // NO pongas Content-Type aquí, axios lo setea solo para multipart con boundary
     Accept: "application/json",
   },
 });
@@ -76,20 +73,26 @@ docsClient.interceptors.request.use((config) => {
   return config;
 });
 
-/**
- * apiRequestDocs:
- * - Para subir archivos (FormData)
- * - No forza JSON
- */
 export const apiRequestDocs = async (method, url, formData) => {
   try {
-    const config = {
-      method,
-      url,
-      data: formData,
-    };
-
+    const config = { method, url, data: formData };
     const { data } = await docsClient(config);
+    return data;
+  } catch (error) {
+    const message =
+      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "Error desconocido";
+
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+};
+
+// ---------- DELETE (sin body, con token) ----------
+export const apiRequestDelete = async (url) => {
+  try {
+    const { data } = await apiClient.delete(url);
     return data;
   } catch (error) {
     const message =

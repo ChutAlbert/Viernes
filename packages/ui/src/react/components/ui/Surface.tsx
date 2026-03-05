@@ -4,9 +4,11 @@ import { cn } from "../../utils/cn";
 export function Surface({
   children,
   className,
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
 }) {
   return (
     <div
@@ -14,6 +16,7 @@ export function Surface({
         "rounded-2xl border border-white/10 bg-[#0f1a2e]/70 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]",
         className
       )}
+      onClick={onClick}
     >
       {children}
     </div>

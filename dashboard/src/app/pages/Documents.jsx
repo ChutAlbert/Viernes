@@ -1,233 +1,316 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Surface,
+  Button,
+  FileInput,
+  SearchSelect,
+  Textarea,
+  Input,
+  Spinner,
+  DocRow,
+  PreviewPane,
+  ConfirmModal,
+} from "@viernes/ui";
 import { viernesApi } from "@apis/viernes";
 
-export default function Documents() {
-  const [file, setFile] = useState(null);
-  const [uploadedFilename, setUploadedFilename] = useState(null);
+const NAMESPACE_OPTIONS = [
+  { value: "notes",  label: "notes" },
+  { value: "docs",   label: "docs" },
+  { value: "memory", label: "memory" },
+];
 
+export default function Documents() {
+  // upload
+  const [files, setFiles] = useState([]);
+  const [uploadedFilename, setUploadedFilename] = useState(null);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, msg: "" });
 
-  // notas
+  // lista
+  const [docs, setDocs] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // preview
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // delete
+  const [deleting, setDeleting] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // nota
   const [namespace, setNamespace] = useState("notes");
   const [docId, setDocId] = useState(() => `note-${Date.now()}`);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [textStatus, setTextStatus] = useState({ loading: false, msg: "" });
 
-  const canUploadFile = useMemo(() => !!file, [file]);
-  const canIngestUploaded = useMemo(() => !!uploadedFilename, [uploadedFilename]);
+  const filteredDocs = useMemo(() => {
+    if (!search.trim()) return docs;
+    return docs.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+  }, [docs, search]);
 
-  const canIngestText = useMemo(() => docId.trim() && text.trim(), [docId, text]);
+  const fetchDocs = useCallback(async () => {
+    setDocsLoading(true);
+    try {
+      const res = await viernesApi.listDocuments();
+      setDocs(res.files ?? []);
+    } catch (e) { console.error(e); }
+    finally { setDocsLoading(false); }
+  }, []);
 
-  async function handleUploadFile() {
-    if (!file) return;
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
+  async function handleSelect(doc) {
+    if (selectedDoc?.name === doc.name) { setSelectedDoc(null); setPreview(null); return; }
+    setSelectedDoc(doc); setPreview(null); setPreviewLoading(true);
+    try {
+      const res = await viernesApi.previewDocument(doc.name);
+      setPreview(res);
+    } catch (e) {
+      setPreview({ preview: `Error: ${e.message}`, truncated: false });
+    } finally { setPreviewLoading(false); }
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) return;
+    setDeleteLoading(true); setDeleting(confirmDelete);
+    try {
+      await viernesApi.deleteDocument(confirmDelete);
+      if (selectedDoc?.name === confirmDelete) { setSelectedDoc(null); setPreview(null); }
+      await fetchDocs();
+    } catch (e) { console.error(e); }
+    finally { setDeleteLoading(false); setDeleting(null); setConfirmDelete(null); }
+  }
+
+  async function handleUpload() {
+    if (!files[0]) return;
     setUploadStatus({ loading: true, msg: "" });
     try {
       const form = new FormData();
-      form.append("file", file);
-      const res = await viernesApi.uploadDocument(form); // <- multipart
+      form.append("file", files[0]);
+      const res = await viernesApi.uploadDocument(form);
       setUploadedFilename(res.filename);
-
-      setUploadStatus({
-        loading: false,
-        msg: `✅ Subido: ${res.filename} (${res.bytes} bytes)`,
-      });
-    } catch (e) {
-      setUploadStatus({
-        loading: false,
-        msg: `❌ Error upload: ${e.message}`,
-      });
-    }
+      setUploadStatus({ loading: false, msg: `✅ Subido: ${res.filename}` });
+      await fetchDocs();
+    } catch (e) { setUploadStatus({ loading: false, msg: `❌ ${e.message}` }); }
   }
 
-  async function handleIngestUploadedFile() {
+  async function handleIngest() {
     if (!uploadedFilename) return;
-
     setUploadStatus({ loading: true, msg: "" });
     try {
       const res = await viernesApi.ingest(uploadedFilename);
-      setUploadStatus({
-        loading: false,
-        msg: `✅ Indexado: ${res.chunks_indexed} chunks (${res.file})`,
-      });
-    } catch (e) {
-      setUploadStatus({
-        loading: false,
-        msg: `❌ Error ingest: ${e.message}`,
-      });
-    }
+      setUploadStatus({ loading: false, msg: `✅ Indexado: ${res.chunks_indexed} chunks` });
+    } catch (e) { setUploadStatus({ loading: false, msg: `❌ ${e.message}` }); }
   }
+
+  const canIngestText = useMemo(() => docId.trim() && text.trim(), [docId, text]);
 
   async function handleIngestText() {
     if (!canIngestText) return;
-
     setTextStatus({ loading: true, msg: "" });
     try {
-      const res = await viernesApi.ingestText({
-        doc_id: docId.trim(),
-        text,
-        namespace,
-        title: title.trim() || null,
-      });
-      setTextStatus({
-        loading: false,
-        msg: `✅ Nota indexada: ${res.chunks_indexed} chunks`,
-      });
-    } catch (e) {
-      setTextStatus({
-        loading: false,
-        msg: `❌ Error: ${e.message}`,
-      });
-    }
+      const res = await viernesApi.ingestText({ doc_id: docId.trim(), text, namespace, title: title.trim() || null });
+      setTextStatus({ loading: false, msg: `✅ ${res.chunks_indexed} chunks indexados` });
+      setDocId(`note-${Date.now()}`); setText(""); setTitle("");
+    } catch (e) { setTextStatus({ loading: false, msg: `❌ ${e.message}` }); }
   }
 
-
   return (
-    <div className="h-full w-full p-6">
-      <div className="grid grid-cols-12 gap-6">
-        <aside className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Upload */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-white/90">Subir documento</h2>
-              <span className="text-xs text-white/50">PDF/TXT/MD/DOCX</span>
+    <div className="h-full w-full p-4 flex flex-col gap-4 min-h-0">
+
+      <ConfirmModal
+        open={!!confirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+        loading={deleteLoading}
+        title="¿Eliminar documento?"
+        confirmText="Eliminar"
+        variant="danger"
+        description={
+          confirmDelete && (
+            <span>
+              Se borrará <span className="text-white/85 font-medium break-all">{confirmDelete}</span> del
+              disco y todos sus chunks del vectordb. Esta acción no se puede deshacer.
+            </span>
+          )
+        }
+      />
+
+      {/* fila superior */}
+      <div className="grid grid-cols-12 gap-4 shrink-0">
+
+        {/* Upload */}
+        <div className="col-span-12 lg:col-span-6">
+          <Surface className="p-4 h-full flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white/90">Subir documento</p>
+              <span className="text-xs text-white/35">PDF · TXT · MD · DOCX</span>
             </div>
 
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-center hover:bg-white/7">
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] || null;
-                  setFile(f);
-                  setUploadedFilename(null); // reset si eliges otro
-                  setUploadStatus({ loading: false, msg: "" });
-                }}
+            <FileInput
+              variant="dark"
+              accept=".pdf,.txt,.md,.docx"
+              maxBytes={25 * 1024 * 1024}
+              size="sm"
+              onChange={(fs) => {
+                setFiles(fs);
+                setUploadedFilename(null);
+                setUploadStatus({ loading: false, msg: "" });
+              }}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                text="Subir"
+                loadingText="Subiendo…"
+                loading={uploadStatus.loading && !uploadedFilename}
+                disabled={!files[0] || uploadStatus.loading}
+                onClick={handleUpload}
+                className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2"
               />
-              <p className="text-sm text-white/80">
-                {file ? `📄 ${file.name}` : "Arrastra o selecciona un archivo"}
-              </p>
-              {uploadedFilename && (
-                <p className="mt-1 text-xs text-white/60">Subido como: {uploadedFilename}</p>
-              )}
-            </label>
+              <Button
+                text="Indexar"
+                loadingText="Indexando…"
+                loading={uploadStatus.loading && !!uploadedFilename}
+                disabled={!uploadedFilename || uploadStatus.loading}
+                onClick={handleIngest}
+                className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2"
+              />
+            </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={handleUploadFile}
-                disabled={!canUploadFile || uploadStatus.loading}
-                className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 hover:bg-white/15 disabled:opacity-40"
-              >
-                {uploadStatus.loading ? "..." : "Subir"}
-              </button>
+            {uploadStatus.msg && <p className="text-xs text-white/55">{uploadStatus.msg}</p>}
+          </Surface>
+        </div>
 
-              <button
-                onClick={handleIngestUploadedFile}
-                disabled={!canIngestUploaded || uploadStatus.loading}
-                className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 hover:bg-white/15 disabled:opacity-40"
-              >
-                {uploadStatus.loading ? "..." : "Indexar"}
+        {/* Notas */}
+        <div className="col-span-12 lg:col-span-6">
+          <Surface className="p-4 h-full flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-semibold text-white/90">Notas</p>
+              <span className="text-xs text-white/35">/ingest/text</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* ← SearchSelect en lugar de Select nativo */}
+              <SearchSelect
+                label="Namespace"
+                variant="dark"
+                options={NAMESPACE_OPTIONS}
+                value={namespace}
+                onChange={setNamespace}
+              />
+              <Input
+                label="Doc ID"
+                variant="dark"
+                value={docId}
+                onChange={setDocId}
+                placeholder="note-123"
+              />
+            </div>
+
+            <Input
+              label="Título (opcional)"
+              variant="dark"
+              value={title}
+              onChange={setTitle}
+              placeholder="Mi nota sobre X"
+            />
+
+            <Textarea
+              label="Texto"
+              variant="dark"
+              value={text}
+              onChange={setText}
+              placeholder="Pega aquí tus notas..."
+              rows={3}
+            />
+
+            <Button
+              text="Guardar e indexar nota"
+              loadingText="Indexando…"
+              loading={textStatus.loading}
+              disabled={!canIngestText}
+              onClick={handleIngestText}
+              className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2 mt-1"
+            />
+
+            {textStatus.msg && <p className="text-xs text-white/55">{textStatus.msg}</p>}
+          </Surface>
+        </div>
+      </div>
+
+      {/* fila inferior: lista + preview */}
+      <div className="flex-1 min-h-0 grid grid-cols-12 gap-4">
+
+        {/* Lista */}
+        <div className="col-span-12 lg:col-span-4 min-h-0 flex flex-col">
+          <Surface className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-white/10">
+              <svg className="w-4 h-4 text-white/35 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 bg-transparent text-sm text-white/75 placeholder:text-white/25 outline-none"
+                placeholder="Buscar…"
+              />
+              <button onClick={fetchDocs} title="Recargar"
+                className="text-white/30 hover:text-white/65 transition p-1 rounded-lg hover:bg-white/5">
+                {docsLoading
+                  ? <Spinner size="sm" />
+                  : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                }
               </button>
             </div>
 
-            {uploadStatus.msg && <p className="mt-3 text-xs text-white/70">{uploadStatus.msg}</p>}
-          </div>
-
-          {/* Notes */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-white/90">Notas</h2>
-              <span className="text-xs text-white/50">/ingest/text</span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-12 gap-3">
-                <div className="col-span-12 md:col-span-6">
-                  <label className="text-xs text-white/60">Namespace</label>
-                  <select
-                    value={namespace}
-                    onChange={(e) => setNamespace(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 outline-none"
-                  >
-                    <option value="notes">notes</option>
-                    <option value="docs">docs</option>
-                    <option value="memory">memory</option>
-                  </select>
+            <div className="flex-1 min-h-0 overflow-auto p-2 space-y-0.5">
+              {docsLoading && docs.length === 0 && (
+                <div className="flex items-center justify-center py-10 gap-2 text-white/25 text-sm">
+                  <Spinner /> Cargando…
                 </div>
-
-                <div className="col-span-12 md:col-span-6">
-                  <label className="text-xs text-white/60">Doc ID</label>
-                  <input
-                    value={docId}
-                    onChange={(e) => setDocId(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 outline-none"
-                    placeholder="note-123"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-white/60">
-                  Título (opcional)
-                </label>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 outline-none"
-                  placeholder="Mi nota sobre X"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-white/60">Texto</label>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className="mt-1 h-40 w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 outline-none"
-                  placeholder="Pega aquí tus notas..."
-                />
-              </div>
-
-              <button
-                onClick={handleIngestText}
-                disabled={!canIngestText || textStatus.loading}
-                className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 hover:bg-white/15 disabled:opacity-40"
-              >
-                {textStatus.loading ? "Indexando..." : "Guardar e indexar nota"}
-              </button>
-
-              {textStatus.msg && (
-                <p className="text-xs text-white/70">{textStatus.msg}</p>
               )}
+              {!docsLoading && filteredDocs.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-white/20">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                      d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  <p className="text-xs">{search ? "Sin resultados" : "No hay documentos aún"}</p>
+                </div>
+              )}
+              {filteredDocs.map((doc) => (
+                <DocRow
+                  key={doc.name}
+                  doc={doc}
+                  isSelected={selectedDoc?.name === doc.name}
+                  onSelect={handleSelect}
+                  onDelete={(name) => setConfirmDelete(name)}
+                  deleting={deleting === doc.name}
+                />
+              ))}
             </div>
-          </div>
-        </aside>
 
-        {/* RIGHT */}
-        <main className="col-span-12 lg:col-span-8">
-          <div className="h-[calc(100vh-170px)] rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm backdrop-blur">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-white/90">Documents</h2>
-              <span className="text-xs text-white/50">Vista / Preview</span>
+            <div className="shrink-0 px-3 py-2 border-t border-white/10 text-xs text-white/25">
+              {filteredDocs.length} documento{filteredDocs.length !== 1 ? "s" : ""}
             </div>
+          </Surface>
+        </div>
 
-            <div className="h-full rounded-xl border border-white/10 bg-black/10 p-4">
-              <p className="text-sm text-white/70">Aquí puedes mostrar:</p>
-              <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-white/60">
-                <li>
-                  Lista de archivos del servidor (cuando tengamos endpoint).
-                </li>
-                <li>Preview del texto extraído.</li>
-                <li>Metadatos: namespace, title, chunks, etc.</li>
-              </ul>
-              <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-                Tip: primero te recomiendo habilitar upload + listar documentos
-                en backend (abajo te lo dejo).
-              </div>
-            </div>
-          </div>
-        </main>
+        {/* Preview */}
+        <div className="col-span-12 lg:col-span-8 min-h-0">
+          <Surface className="h-full p-4 overflow-hidden flex flex-col">
+            <PreviewPane doc={selectedDoc} preview={preview} loading={previewLoading} />
+          </Surface>
+        </div>
       </div>
     </div>
   );

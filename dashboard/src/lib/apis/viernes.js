@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestRaw, apiRequestDocs } from "./client";
+import { apiRequest, apiRequestRaw, apiRequestDocs, apiRequestDelete } from "./client";
 
 export const viernesApi = {
   health: () => apiRequest("get", "/health"),
@@ -20,4 +20,6 @@ export const viernesApi = {
 
   uploadDocument: (formData) => apiRequestDocs("post", "/documents/upload", formData),
   listDocuments: () => apiRequest("get", "/documents"),
+  previewDocument: (filename) => apiRequest("get", `/documents/${encodeURIComponent(filename)}/preview`),
+  deleteDocument: (filename) => apiRequestDelete(`/documents/${encodeURIComponent(filename)}`),
 };
