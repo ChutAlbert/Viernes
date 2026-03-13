@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health
+from app.routes import auth, chat, documents, ingest, health, gmail
 from app.services.ollama_service import OllamaService
 
 
@@ -37,3 +37,4 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(ingest.router)
+app.include_router(gmail.router)

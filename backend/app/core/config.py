@@ -11,7 +11,7 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_CHAT_URL = f"{OLLAMA_BASE_URL}/api/chat"
 
 # Modelo de chat (texto)
-MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 
 # Modelo de visión para OCR de documentos escaneados
 VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava:7b")

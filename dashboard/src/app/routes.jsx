@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Documents from "./pages/Documents";
 
+import Gmail from "./pages/Gmail";
+
 // guard súper simple (por ahora)
 function RequireAuth({ children }) {
   const token = localStorage.getItem("viernes_token");
@@ -31,6 +33,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="gmail" element={<Gmail />} />
         <Route path="chat" element={<Chat />} />
         <Route path="docs" element={<Documents />} />
       </Route>

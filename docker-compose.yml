@@ -1,15 +1,66 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: viernes_postgres
+
+  # ── Base de datos PostgreSQL ───────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: viernes_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: viernes
-      POSTGRES_USER: viernes
-      POSTGRES_PASSWORD: viernes_pass
+      POSTGRES_USER:     ${DB_USER:-viernes}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-viernes}
+      POSTGRES_DB:       ${DB_NAME:-viernes}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-viernes}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend FastAPI ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: viernes_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL:          postgresql://${DB_USER:-viernes}:${DB_PASSWORD:-viernes}@db:5432/${DB_NAME:-viernes}
+      SECRET_KEY:            ${SECRET_KEY:-cambiar_en_produccion}
+      OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL:          ${OLLAMA_MODEL:-qwen2.5:3b}
+      OLLAMA_VISION_MODEL:   ${OLLAMA_VISION_MODEL:-llava:7b}
     volumes:
-      - viernes_pgdata:/var/lib/postgresql/data
+      - ./backend:/app                        # hot reload en desarrollo
+      - viernes_data:/data                    # documentos y vectordb persistentes
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # acceso a Ollama en el host Windows
+
+  # ── Dashboard React ────────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .                              # contexto = raíz del monorepo
+      dockerfile: dashboard/Dockerfile
+    container_name: viernes_dashboard
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    volumes:
+      - ./dashboard:/app/dashboard            # hot reload
+      - ./packages:/app/packages              # @viernes/ui en vivo
+      - /app/dashboard/node_modules           # no sobreescribir node_modules del container
+    ports:
+      - "5173:5173"
 
 volumes:
-  viernes_pgdata:
+  postgres_data:
+  viernes_data:
