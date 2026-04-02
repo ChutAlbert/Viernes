@@ -8,7 +8,7 @@ class OllamaService:
         self.base_url = base_url
         self.model = model
         self._options = {
-            "num_ctx": 2048,
+            "num_ctx": 4096,
             "num_predict": 1024,
             "temperature": 0.7,
             "top_p": 0.9,

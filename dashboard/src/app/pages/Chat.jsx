@@ -11,6 +11,13 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Buenos días, señor.";
+    if (hour < 19) return "Buenas tardes, señor.";
+    return "Buenas noches, señor.";
+  }
+
   async function refreshSessions() {
     const s = await viernesApi.listSessions();
     setSessions(s);
@@ -240,6 +247,14 @@ export default function Chat() {
 
         {/* SOLO MENSAJES SCROLLEAN */}
         <div className="flex-1 min-h-0 overflow-auto overflow-x-hidden p-4 space-y-3">
+          {messages.length === 0 && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-2">
+                <p className="text-2xl font-semibold text-white/80">{getGreeting()}</p>
+                <p className="text-sm text-white/50">¿En qué puedo asistirle?</p>
+              </div>
+            </div>
+          )}
           {messages.map((m) => (
             <div
               key={m.id}

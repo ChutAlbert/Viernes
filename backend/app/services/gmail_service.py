@@ -10,9 +10,11 @@ El token se guarda automáticamente en:
 """
 
 import os
+import re
 import base64
 import json
 from pathlib import Path
+from html import unescape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Optional
@@ -40,6 +42,10 @@ class GmailService:
     def __init__(self):
         self._service = None
 
+    def reset(self):
+        """Fuerza re-conexión en la próxima llamada."""
+        self._service = None
+
     def _get_service(self):
         """Obtiene o refresca el servicio de Gmail."""
         if self._service:
@@ -53,8 +59,14 @@ class GmailService:
         # Si no hay token válido, autenticar
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    creds.refresh(Request())
+                except Exception as e:
+                    print(f"[Gmail] Refresh falló ({e}), re-autenticando...")
+                    TOKEN_FILE.unlink(missing_ok=True)
+                    creds = None
+
+            if not creds or not creds.valid:
                 if not CREDENTIALS_FILE.exists():
                     raise FileNotFoundError(
                         f"No se encontró {CREDENTIALS_FILE}. "
@@ -63,7 +75,6 @@ class GmailService:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(CREDENTIALS_FILE), SCOPES
                 )
-                # Abre el navegador para autorizar
                 creds = flow.run_local_server(port=0)
 
             # Guardar token para la próxima vez
@@ -105,7 +116,7 @@ class GmailService:
 
     def get_inbox(self, max_results: int = 10, unread_only: bool = False) -> List[Dict]:
         """
-        Obtiene los últimos correos del inbox.
+        Obtiene los últimos correos del inbox usando batch request.
         Retorna lista de { id, subject, from, date, snippet, unread }
         """
         service = self._get_service()
@@ -121,19 +132,37 @@ class GmailService:
             ).execute()
 
             messages = result.get("messages", [])
-            emails = []
+            if not messages:
+                return []
 
+            # Batch request: obtener todos los detalles en paralelo
+            details = {}
+
+            def callback(request_id, response, exception):
+                if exception is None:
+                    details[request_id] = response
+
+            batch = service.new_batch_http_request(callback=callback)
             for msg in messages:
-                detail = service.users().messages().get(
-                    userId="me",
-                    id=msg["id"],
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"]
-                ).execute()
+                batch.add(
+                    service.users().messages().get(
+                        userId="me",
+                        id=msg["id"],
+                        format="metadata",
+                        metadataHeaders=["Subject", "From", "Date"]
+                    ),
+                    request_id=msg["id"]
+                )
+            batch.execute()
 
+            # Mantener el orden original
+            emails = []
+            for msg in messages:
+                detail = details.get(msg["id"])
+                if not detail:
+                    continue
                 headers = {h["name"]: h["value"] for h in detail["payload"]["headers"]}
                 labels = detail.get("labelIds", [])
-
                 emails.append({
                     "id":       msg["id"],
                     "subject":  headers.get("Subject", "(sin asunto)"),
@@ -147,6 +176,9 @@ class GmailService:
 
         except HttpError as e:
             raise Exception(f"Error al leer inbox: {e}")
+        except Exception as e:
+            self._service = None
+            raise Exception(f"Error inesperado al leer inbox: {e}")
 
     def get_email_body(self, message_id: str) -> Dict:
         """
@@ -160,8 +192,13 @@ class GmailService:
                 format="full"
             ).execute()
 
-            headers = {h["name"]: h["value"] for h in detail["payload"]["headers"]}
-            body = self._extract_body(detail["payload"])
+            payload = detail.get("payload")
+            if payload and "headers" in payload:
+                headers = {h["name"]: h["value"] for h in payload["headers"]}
+                body = self._extract_body(payload)
+            else:
+                headers = {}
+                body = detail.get("snippet", "(Sin contenido)")
 
             return {
                 "id":      message_id,
@@ -173,33 +210,67 @@ class GmailService:
             }
         except HttpError as e:
             raise Exception(f"Error al leer correo: {e}")
+        except Exception as e:
+            # Resetear servicio ante errores inesperados
+            self._service = None
+            raise Exception(f"Error inesperado al leer correo: {e}")
+
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        """Convierte HTML a texto plano legible."""
+        text = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', html, flags=re.IGNORECASE)
+        text = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</li>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', '', text)
+        text = unescape(text)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r' {2,}', ' ', text)
+        return text.strip()
 
     def _extract_body(self, payload: dict) -> str:
         """Extrae el texto del payload del correo (puede ser multipart)."""
-        body = ""
+        plain = ""
+        html = ""
 
         if "parts" in payload:
             for part in payload["parts"]:
-                if part["mimeType"] == "text/plain":
-                    data = part["body"].get("data", "")
-                    if data:
-                        body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
-                        break
-                elif part["mimeType"] == "text/html" and not body:
-                    data = part["body"].get("data", "")
-                    if data:
-                        # Fallback a HTML si no hay texto plano
-                        body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                mime = part.get("mimeType", "")
+                data = part.get("body", {}).get("data", "")
+                if not data:
+                    # Multipart anidado
+                    if "parts" in part:
+                        nested = self._extract_body(part)
+                        if nested:
+                            return nested
+                    continue
+                decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                if mime == "text/plain" and not plain:
+                    plain = decoded
+                elif mime == "text/html" and not html:
+                    html = decoded
         else:
             data = payload.get("body", {}).get("data", "")
             if data:
-                body = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                decoded = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                mime = payload.get("mimeType", "")
+                if mime == "text/html":
+                    html = decoded
+                else:
+                    plain = decoded
 
-        return body[:5000]  # Limitar a 5000 chars para no saturar el LLM
+        if plain:
+            return plain[:5000]
+        if html:
+            return self._html_to_text(html)[:5000]
+        return ""
 
     def search_emails(self, query: str, max_results: int = 10) -> List[Dict]:
         """
-        Busca correos con una query de Gmail.
+        Busca correos con una query de Gmail usando batch request.
         Soporta: from:, to:, subject:, after:, before:, has:attachment, etc.
         """
         service = self._get_service()
@@ -211,16 +282,33 @@ class GmailService:
             ).execute()
 
             messages = result.get("messages", [])
-            emails = []
+            if not messages:
+                return []
 
+            details = {}
+
+            def callback(request_id, response, exception):
+                if exception is None:
+                    details[request_id] = response
+
+            batch = service.new_batch_http_request(callback=callback)
             for msg in messages:
-                detail = service.users().messages().get(
-                    userId="me",
-                    id=msg["id"],
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"]
-                ).execute()
+                batch.add(
+                    service.users().messages().get(
+                        userId="me",
+                        id=msg["id"],
+                        format="metadata",
+                        metadataHeaders=["Subject", "From", "Date"]
+                    ),
+                    request_id=msg["id"]
+                )
+            batch.execute()
 
+            emails = []
+            for msg in messages:
+                detail = details.get(msg["id"])
+                if not detail:
+                    continue
                 headers = {h["name"]: h["value"] for h in detail["payload"]["headers"]}
                 emails.append({
                     "id":      msg["id"],

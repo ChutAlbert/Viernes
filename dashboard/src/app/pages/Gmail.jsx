@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Surface } from "@viernes/ui/react";
+import { viernesApi } from "@apis/viernes";
 
 // ─── Micro SVG icons ──────────────────────────────────────────────────────────
 const Ic = ({ d, size = 16, className = "" }) => (
@@ -22,6 +23,41 @@ const ICONS = {
   forward:  "M5 12h14M12 5l7 7-7 7",
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function parseFromHeader(from) {
+  const match = from.match(/^"?(.+?)"?\s*<(.+?)>$/);
+  if (match) return { name: match[1].trim(), email: match[2] };
+  return { name: from, email: from };
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    const oneDay = 86400000;
+
+    if (diff < oneDay && d.getDate() === now.getDate()) {
+      return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+    }
+    if (diff < oneDay * 2) return "Ayer";
+    return d.toLocaleDateString("es-MX", { month: "short", day: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
+function guessTag(from, subject) {
+  const f = (from + " " + subject).toLowerCase();
+  if (/github|vercel|linear|gitlab|netlify|docker|npm/.test(f)) return "dev";
+  if (/google cloud|aws|azure|cloudflare/.test(f)) return "cloud";
+  if (/stripe|invoice|factura|payment|statement/.test(f)) return "finance";
+  if (/notion|slack|trello|jira|asana/.test(f)) return "work";
+  if (/amazon|mercadolibre|uber|rappi|pedido|envio/.test(f)) return "personal";
+  return null;
+}
+
 // ─── Colores por tag ──────────────────────────────────────────────────────────
 const TAG = {
   dev:      "bg-cyan-500/15 text-cyan-300 border-cyan-500/20",
@@ -30,20 +66,6 @@ const TAG = {
   finance:  "bg-amber-500/15 text-amber-300 border-amber-500/20",
   cloud:    "bg-blue-500/15 text-blue-300 border-blue-500/20",
 };
-
-// ─── Mock emails ──────────────────────────────────────────────────────────────
-const EMAILS = [
-  { id:"1",  from:"GitHub",       email:"noreply@github.com",         subject:"PR merged: feat/gmail-integration",             snippet:"Your pull request was merged into main successfully.",                      date:"10:42",  unread:true,  tag:"dev",      starred:false },
-  { id:"2",  from:"Vercel",       email:"notifications@vercel.com",   subject:"Deployment successful – viernes-dashboard",     snippet:"Your latest deployment is live at viernes.vercel.app.",                    date:"09:15",  unread:true,  tag:"dev",      starred:true  },
-  { id:"3",  from:"Google Cloud", email:"noreply@google.com",         subject:"Action required: Verify OAuth consent screen",  snippet:"To continue using Gmail API please verify your app.",                      date:"Ayer",   unread:false, tag:"cloud",    starred:false },
-  { id:"4",  from:"Notion",       email:"team@notion.so",             subject:"Weekly digest: 3 updates en Viernes workspace", snippet:"Aquí está lo que pasó esta semana en tu workspace.",                       date:"Ayer",   unread:false, tag:"work",     starred:false },
-  { id:"5",  from:"Amazon",       email:"shipment@amazon.com.mx",     subject:"Tu pedido ha sido enviado 📦",                  snippet:"Tu pedido #123-456 será entregado mañana entre 10am-2pm.",                 date:"Mar 5",  unread:false, tag:"personal", starred:false },
-  { id:"6",  from:"Linear",       email:"notifications@linear.app",   subject:"[Viernes] Issue assigned: WhatsApp integration",snippet:"Jesus assigned you to VIE-42: Implement WhatsApp integration.",            date:"Mar 5",  unread:false, tag:"dev",      starred:true  },
-  { id:"7",  from:"Stripe",       email:"support@stripe.com",         subject:"Monthly statement available",                   snippet:"Your March 2026 statement is now available in your dashboard.",             date:"Mar 4",  unread:false, tag:"finance",  starred:false },
-  { id:"8",  from:"OpenAI",       email:"billing@openai.com",         subject:"Invoice #INV-2026-03",                          snippet:"Your monthly invoice for API usage is ready to download.",                  date:"Mar 4",  unread:false, tag:"finance",  starred:false },
-  { id:"9",  from:"Linear",       email:"notifications@linear.app",   subject:"[Viernes] Weekly update",                      snippet:"3 issues completed, 2 in progress, 1 blocked this week.",                  date:"Mar 3",  unread:false, tag:"dev",      starred:false },
-  { id:"10", from:"Cloudflare",   email:"noreply@cloudflare.com",     subject:"DNS records updated for viernes.app",           snippet:"Your DNS changes have been propagated successfully.",                       date:"Mar 3",  unread:false, tag:"cloud",    starred:false },
-];
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 const Avatar = ({ name, size = "md" }) => {
@@ -65,57 +87,84 @@ const Avatar = ({ name, size = "md" }) => {
 };
 
 // ─── Email Row ────────────────────────────────────────────────────────────────
-const EmailRow = ({ email, selected, onClick }) => (
-  <button onClick={() => onClick(email)}
-    className={`w-full flex items-start gap-2.5 px-3 py-3 text-left transition-all duration-100 border-b border-white/[0.05]
-      ${selected
-        ? "bg-white/[0.09] border-l-2 border-l-purple-400/50"
-        : "hover:bg-white/[0.04] border-l-2 border-l-transparent"}`}>
+const EmailRow = ({ email, selected, onClick }) => {
+  const { name } = parseFromHeader(email.from);
+  const tag = guessTag(email.from, email.subject);
 
-    {/* unread dot */}
-    <div className="w-2 pt-2 shrink-0">
-      {email.unread && (
-        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 6px rgba(34,211,238,0.7)" }} />
-      )}
-    </div>
+  return (
+    <button onClick={() => onClick(email)}
+      className={`w-full flex items-start gap-2.5 px-3 py-3 text-left transition-all duration-100 border-b border-white/[0.05]
+        ${selected
+          ? "bg-white/[0.09] border-l-2 border-l-purple-400/50"
+          : "hover:bg-white/[0.04] border-l-2 border-l-transparent"}`}>
 
-    <Avatar name={email.from} />
-
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center justify-between gap-1">
-        <span className={`text-xs truncate ${email.unread ? "text-white font-semibold" : "text-white/55"}`}>
-          {email.from}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
-          {email.starred && (
-            <Ic d={ICONS.star} size={9} className="text-amber-400 fill-amber-400" />
-          )}
-          <span className="text-white/25 text-[10px]">{email.date}</span>
-        </div>
-      </div>
-      <div className={`text-[11px] truncate mt-0.5 ${email.unread ? "text-white/85 font-medium" : "text-white/45"}`}>
-        {email.subject}
-      </div>
-      <div className="flex items-center gap-1.5 mt-1">
-        <span className="text-white/22 text-[10px] truncate flex-1">{email.snippet}</span>
-        {email.tag && (
-          <span className={`text-[9px] px-1.5 py-px rounded-full border shrink-0 font-medium ${TAG[email.tag] || "bg-white/10 text-white/40 border-white/10"}`}>
-            {email.tag}
-          </span>
+      <div className="w-2 pt-2 shrink-0">
+        {email.unread && (
+          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 6px rgba(34,211,238,0.7)" }} />
         )}
       </div>
-    </div>
-  </button>
-);
+
+      <Avatar name={name} />
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1">
+          <span className={`text-xs truncate ${email.unread ? "text-white font-semibold" : "text-white/55"}`}>
+            {name}
+          </span>
+          <span className="text-white/25 text-[10px] shrink-0">{formatDate(email.date)}</span>
+        </div>
+        <div className={`text-[11px] truncate mt-0.5 ${email.unread ? "text-white/85 font-medium" : "text-white/45"}`}>
+          {email.subject}
+        </div>
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className="text-white/22 text-[10px] truncate flex-1">{email.snippet}</span>
+          {tag && (
+            <span className={`text-[9px] px-1.5 py-px rounded-full border shrink-0 font-medium ${TAG[tag] || "bg-white/10 text-white/40 border-white/10"}`}>
+              {tag}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+};
 
 // ─── Email Detail Panel ───────────────────────────────────────────────────────
 const EmailDetail = ({ email, onClose }) => {
+  const [body, setBody] = useState(null);
+  const [loadingBody, setLoadingBody] = useState(false);
+
+  useEffect(() => {
+    if (!email) return;
+    let cancelled = false;
+
+    const fetchBody = async () => {
+      try {
+        const data = await viernesApi.gmailEmail(email.id);
+        if (!cancelled) setBody(data.body || "(Sin contenido)");
+      } catch {
+        if (!cancelled) setBody("Error al cargar el contenido del correo.");
+      } finally {
+        if (!cancelled) setLoadingBody(false);
+      }
+    };
+
+    setBody(null);
+    setLoadingBody(true);
+    fetchBody();
+
+    return () => { cancelled = true; };
+  }, [email?.id]);
+
   if (!email) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/12">
       <Ic d={ICONS.inbox} size={48} />
       <p className="text-sm tracking-wide">Selecciona un correo para leerlo</p>
     </div>
   );
+
+  const { name, email: emailAddr } = parseFromHeader(email.from);
+  const tag = guessTag(email.from, email.subject);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -128,17 +177,17 @@ const EmailDetail = ({ email, onClose }) => {
           </button>
         </div>
         <div className="flex items-center gap-2.5 mt-3">
-          <Avatar name={email.from} size="sm" />
+          <Avatar name={name} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-white/70 text-xs font-medium">{email.from}</span>
-              <span className="text-white/25 text-[10px]">&lt;{email.email}&gt;</span>
+              <span className="text-white/70 text-xs font-medium">{name}</span>
+              <span className="text-white/25 text-[10px]">&lt;{emailAddr}&gt;</span>
             </div>
-            <div className="text-white/25 text-[10px] mt-0.5">{email.date}</div>
+            <div className="text-white/25 text-[10px] mt-0.5">{formatDate(email.date)}</div>
           </div>
-          {email.tag && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${TAG[email.tag] || ""}`}>
-              {email.tag}
+          {tag && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${TAG[tag] || ""}`}>
+              {tag}
             </span>
           )}
         </div>
@@ -146,16 +195,16 @@ const EmailDetail = ({ email, onClose }) => {
 
       {/* Cuerpo */}
       <div className="flex-1 overflow-y-auto px-5 py-5">
-        <p className="text-white/55 text-sm leading-relaxed">{email.snippet}</p>
-        <p className="text-white/38 text-sm leading-relaxed mt-4">
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-        </p>
-        <p className="text-white/38 text-sm leading-relaxed mt-3">
-          Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
-        </p>
-        <div className="mt-6 pt-4 border-t border-white/8 text-white/25 text-xs">
-          — {email.from} Team
-        </div>
+        {loadingBody ? (
+          <div className="flex items-center gap-2 text-white/30 text-sm">
+            <div className="w-4 h-4 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
+            Cargando...
+          </div>
+        ) : (
+          <div className="text-white/55 text-sm leading-relaxed whitespace-pre-wrap">
+            {body}
+          </div>
+        )}
       </div>
 
       {/* Acciones */}
@@ -183,12 +232,12 @@ const EmailDetail = ({ email, onClose }) => {
 // ─── Compose Modal — panel lateral izquierdo con chat IA ──────────────────────
 const ComposeModal = ({ onClose }) => {
   const [msgs, setMsgs]     = useState([
-    { role: "ai", text: "Hola! Dime a quién le quieres escribir, el tema y el tono. Yo redacto el correo por ti." }
+    { role: "ai", text: "Hola! Dime a quien le quieres escribir, el tema y el tono. Yo redacto el correo por ti." }
   ]);
   const [input, setInput]   = useState("");
   const [loading, setLoading] = useState(false);
   const [draft, setDraft]   = useState(null);
-  const [view, setView]     = useState("chat");   // "chat" | "draft"
+  const [view, setView]     = useState("chat");
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -203,15 +252,11 @@ const ComposeModal = ({ onClose }) => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `Redacta un correo. El usuario dice: "${txt}".
+      const res = await viernesApi.chatStream({
+        message: `Redacta un correo. El usuario dice: "${txt}".
 Responde SOLO con JSON sin texto extra:
 {"to":"correo/nombre","subject":"asunto","body":"cuerpo completo"}
-Si necesitas más info antes de redactar, responde en texto normal.`
-        }),
+Si necesitas mas info antes de redactar, responde en texto normal.`
       });
 
       const reader = res.body.getReader();
@@ -233,7 +278,7 @@ Si necesitas más info antes de redactar, responde en texto normal.`
           if (p.subject || p.body) {
             setDraft(p);
             setView("draft");
-            setMsgs(prev => [...prev, { role: "ai", text: "✓ Borrador listo — puedes editarlo antes de enviar." }]);
+            setMsgs(prev => [...prev, { role: "ai", text: "Borrador listo - puedes editarlo antes de enviar." }]);
             setLoading(false);
             return;
           }
@@ -246,12 +291,23 @@ Si necesitas más info antes de redactar, responde en texto normal.`
     setLoading(false);
   };
 
+  const handleSend = async () => {
+    if (!draft?.to || !draft?.subject) return;
+    try {
+      await viernesApi.gmailSend({ to: draft.to, subject: draft.subject, body: draft.body || "" });
+      setMsgs(prev => [...prev, { role: "ai", text: "Correo enviado correctamente." }]);
+      setDraft(null);
+      setView("chat");
+    } catch (err) {
+      setMsgs(prev => [...prev, { role: "ai", text: `Error al enviar: ${err.message}` }]);
+      setView("chat");
+    }
+  };
+
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px]" onClick={onClose} />
 
-      {/* Panel lateral izquierdo */}
       <div className="fixed left-0 top-0 h-full z-50 w-[390px] flex flex-col"
         style={{
           background: "linear-gradient(160deg,rgba(10,18,38,0.99) 0%,rgba(5,10,24,0.99) 100%)",
@@ -259,7 +315,6 @@ Si necesitas más info antes de redactar, responde en texto normal.`
           boxShadow: "12px 0 48px rgba(0,0,0,0.55), inset -1px 0 0 rgba(139,92,246,0.08)",
         }}>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/8 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10"
@@ -268,7 +323,7 @@ Si necesitas más info antes de redactar, responde en texto normal.`
             </div>
             <div>
               <div className="text-white/80 text-sm font-medium leading-none">Redactar con Viernes</div>
-              <div className="text-white/28 text-[10px] mt-0.5">IA · asistente de correo</div>
+              <div className="text-white/28 text-[10px] mt-0.5">IA - asistente de correo</div>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -286,7 +341,6 @@ Si necesitas más info antes de redactar, responde en texto normal.`
 
         {view === "chat" ? (
           <>
-            {/* Mensajes */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {msgs.map((m, i) => (
                 <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -325,18 +379,17 @@ Si necesitas más info antes de redactar, responde en texto normal.`
               <div ref={bottomRef} />
             </div>
 
-            {/* Input chat */}
             <div className="px-3 pb-3 shrink-0">
               <div className="rounded-xl border border-white/10 focus-within:border-purple-400/30 transition-colors overflow-hidden"
                 style={{ background: "rgba(255,255,255,0.04)" }}>
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
-                  placeholder="Ej: Escríbele a mi jefe que no iré el viernes, tono formal..."
+                  placeholder="Ej: Escribele a mi jefe que no ire el viernes, tono formal..."
                   rows={3}
                   className="w-full bg-transparent text-white/72 text-xs placeholder:text-white/18 resize-none outline-none px-3 pt-3 pb-1 leading-relaxed"
                 />
                 <div className="flex items-center justify-between px-3 pb-2.5">
-                  <span className="text-white/18 text-[9px]">Enter para enviar · Shift+Enter nueva línea</span>
+                  <span className="text-white/18 text-[9px]">Enter para enviar - Shift+Enter nueva linea</span>
                   <button onClick={sendMsg} disabled={!input.trim() || loading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white/82 text-xs border border-white/10 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
                     style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.4),rgba(6,182,212,0.32))" }}>
@@ -348,7 +401,6 @@ Si necesitas más info antes de redactar, responde en texto normal.`
             </div>
           </>
         ) : (
-          /* Vista de borrador */
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {[
@@ -375,7 +427,8 @@ Si necesitas más info antes de redactar, responde en texto normal.`
             </div>
 
             <div className="px-4 pb-4 flex gap-2 shrink-0">
-              <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium text-white/82 border border-white/10 transition-all hover:opacity-90"
+              <button onClick={handleSend}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium text-white/82 border border-white/10 transition-all hover:opacity-90"
                 style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(6,182,212,0.22))" }}>
                 <Ic d={ICONS.send} size={12} />
                 Enviar correo
@@ -392,29 +445,51 @@ Si necesitas más info antes de redactar, responde en texto normal.`
   );
 };
 
-// ─── Página principal Gmail ───────────────────────────────────────────────────
+// ─── Pagina principal Gmail ───────────────────────────────────────────────────
 export default function Gmail() {
-  const [emails, setEmails]     = useState(EMAILS);
-  const [selected, setSelected] = useState(null);
-  const [filter, setFilter]     = useState("all");
-  const [search, setSearch]     = useState("");
+  const [emails, setEmails]       = useState([]);
+  const [selected, setSelected]   = useState(null);
+  const [filter, setFilter]       = useState("all");
+  const [search, setSearch]       = useState("");
   const [composing, setComposing] = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState(null);
+
+  const fetchEmails = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await viernesApi.gmailInbox(20);
+      setEmails(data.emails || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmails();
+  }, [fetchEmails]);
 
   const unread = emails.filter(e => e.unread).length;
 
   const filtered = emails.filter(e => {
-    if (filter === "unread"  && !e.unread)   return false;
-    if (filter === "starred" && !e.starred)  return false;
+    if (filter === "unread"  && !e.unread) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (![e.from, e.subject, e.snippet].some(s => s.toLowerCase().includes(q))) return false;
+      if (![e.from, e.subject, e.snippet].some(s => (s || "").toLowerCase().includes(q))) return false;
     }
     return true;
   });
 
   const selectEmail = (email) => {
     setSelected(email);
-    setEmails(p => p.map(e => e.id === email.id ? { ...e, unread: false } : e));
+    if (email.unread) {
+      setEmails(p => p.map(e => e.id === email.id ? { ...e, unread: false } : e));
+      // Fire-and-forget: no bloquear la UI esperando mark-read
+      viernesApi.gmailMarkRead(email.id).catch(() => {});
+    }
   };
 
   return (
@@ -426,12 +501,16 @@ export default function Gmail() {
           <h1 className="text-white font-semibold text-base">Gmail</h1>
           {unread > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] border border-cyan-500/20 font-medium">
-              {unread} no leídos
+              {unread} no leidos
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-lg hover:bg-white/8 text-white/35 hover:text-white/65 transition-colors">
+          <button
+            onClick={fetchEmails}
+            disabled={loading}
+            className={`p-2 rounded-lg hover:bg-white/8 text-white/35 hover:text-white/65 transition-colors ${loading ? "animate-spin" : ""}`}
+          >
             <Ic d={ICONS.refresh} size={14} />
           </button>
           <button onClick={() => setComposing(true)}
@@ -443,13 +522,18 @@ export default function Gmail() {
         </div>
       </div>
 
+      {error && (
+        <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
+          {error}
+        </div>
+      )}
+
       {/* Dos paneles */}
       <div className="flex-1 min-h-0 flex gap-4">
 
         {/* Lista */}
         <Surface className="w-[340px] shrink-0 flex flex-col overflow-hidden !p-0">
 
-          {/* Toolbar */}
           <div className="px-3 pt-3 pb-2.5 border-b border-white/8 space-y-2 shrink-0">
             <div className="flex items-center gap-2 rounded-xl px-2.5 py-2 border border-white/8 focus-within:border-white/15 transition-colors"
               style={{ background: "rgba(255,255,255,0.04)" }}>
@@ -462,8 +546,7 @@ export default function Gmail() {
             <div className="flex gap-0.5">
               {[
                 { k: "all",     l: "Todos"      },
-                { k: "unread",  l: "No leídos"  },
-                { k: "starred", l: "★ Destacados" },
+                { k: "unread",  l: "No leidos"  },
               ].map(({ k, l }) => (
                 <button key={k} onClick={() => setFilter(k)}
                   className={`flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors
@@ -476,9 +559,13 @@ export default function Gmail() {
             </div>
           </div>
 
-          {/* Emails */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
+            {loading && emails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/30 gap-2 py-10">
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
+                <p className="text-xs">Cargando correos...</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-white/15 gap-2 py-10">
                 <Ic d={ICONS.inbox} size={32} />
                 <p className="text-xs">Sin correos</p>

@@ -11,6 +11,8 @@ Rutas:
     POST /gmail/mark-read/{id}  → marcar como leído
 """
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
@@ -20,16 +22,35 @@ from app.services.gmail_service import GmailService
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 gmail = GmailService()
 
+# Thread pool para ejecutar llamadas síncronas de Gmail sin bloquear el event loop
+_gmail_executor = ThreadPoolExecutor(max_workers=4)
+
+# Timeout en segundos para llamadas a la API de Gmail
+GMAIL_TIMEOUT = 15
+
+
+async def _run_gmail(func, *args):
+    """Ejecuta una función síncrona de Gmail en un thread con timeout."""
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(_gmail_executor, func, *args),
+            timeout=GMAIL_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        gmail.reset()
+        raise HTTPException(status_code=504, detail="Tiempo de espera agotado al contactar Gmail.")
+
 
 # ─── Status y autenticación ───────────────────────────────────────────────────
 
 @router.get("/status")
-def gmail_status():
+async def gmail_status():
     """Verifica si Gmail está autenticado y listo."""
     authenticated = gmail.is_authenticated()
     if authenticated:
         try:
-            count = gmail.get_unread_count()
+            count = await _run_gmail(gmail.get_unread_count)
             return {
                 "authenticated": True,
                 "unread_count": count,
@@ -51,8 +72,6 @@ def gmail_auth():
     Después el token se guarda automáticamente.
     """
     try:
-        # Inicia el flujo OAuth abriendo el navegador directamente
-        # Esto bloquea hasta que el usuario autoriza
         service = gmail._get_service()
         return {"success": True, "message": "Gmail autenticado correctamente ✓"}
     except Exception as e:
@@ -62,39 +81,43 @@ def gmail_auth():
 # ─── Leer correos ─────────────────────────────────────────────────────────────
 
 @router.get("/inbox")
-def get_inbox(
+async def get_inbox(
     limit: int = Query(default=10, ge=1, le=50),
     unread_only: bool = Query(default=False)
 ):
     """Obtiene los últimos correos del inbox."""
     try:
-        emails = gmail.get_inbox(max_results=limit, unread_only=unread_only)
+        emails = await _run_gmail(gmail.get_inbox, limit, unread_only)
         return {
             "count": len(emails),
             "emails": emails,
             "summary": gmail.format_for_context(emails)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/unread")
-def get_unread():
+async def get_unread():
     """Obtiene correos no leídos."""
     try:
-        emails = gmail.get_inbox(max_results=20, unread_only=True)
-        count = gmail.get_unread_count()
+        emails = await _run_gmail(gmail.get_inbox, 20, True)
+        count = await _run_gmail(gmail.get_unread_count)
         return {
             "unread_count": count,
             "emails": emails,
             "summary": gmail.format_for_context(emails)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/search")
-def search_emails(
+async def search_emails(
     q: str = Query(..., description="Query de Gmail. Ej: from:amazon subject:pedido"),
     limit: int = Query(default=10, ge=1, le=50)
 ):
@@ -107,23 +130,27 @@ def search_emails(
     - is:unread
     """
     try:
-        emails = gmail.search_emails(query=q, max_results=limit)
+        emails = await _run_gmail(gmail.search_emails, q, limit)
         return {
             "query": q,
             "count": len(emails),
             "emails": emails,
             "summary": gmail.format_for_context(emails)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/email/{message_id}")
-def get_email(message_id: str):
+async def get_email(message_id: str):
     """Obtiene el contenido completo de un correo por ID."""
     try:
-        email = gmail.get_email_body(message_id)
+        email = await _run_gmail(gmail.get_email_body, message_id)
         return email
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -137,25 +164,27 @@ class SendEmailRequest(BaseModel):
     html: bool = False
 
 @router.post("/send")
-def send_email(payload: SendEmailRequest):
+async def send_email(payload: SendEmailRequest):
     """Envía un correo."""
     try:
-        result = gmail.send_email(
-            to=payload.to,
-            subject=payload.subject,
-            body=payload.body,
-            html=payload.html
+        result = await _run_gmail(
+            gmail.send_email,
+            payload.to, payload.subject, payload.body, payload.html
         )
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/mark-read/{message_id}")
-def mark_as_read(message_id: str):
+async def mark_as_read(message_id: str):
     """Marca un correo como leído."""
     try:
-        gmail.mark_as_read(message_id)
+        await _run_gmail(gmail.mark_as_read, message_id)
         return {"success": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

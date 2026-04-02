@@ -6,15 +6,15 @@ services:
     container_name: viernes_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     ${DB_USER:-viernes}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-viernes}
-      POSTGRES_DB:       ${DB_NAME:-viernes}
+      POSTGRES_USER:     ${POSTGRES_USER:-viernes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-viernes}
+      POSTGRES_DB:       ${POSTGRES_DB:-viernes}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-viernes}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-viernes}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,7 +30,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL:          postgresql://${DB_USER:-viernes}:${DB_PASSWORD:-viernes}@db:5432/${DB_NAME:-viernes}
+      DATABASE_URL:          postgresql://${POSTGRES_USER:-viernes}:${POSTGRES_PASSWORD:-viernes}@db:5432/${POSTGRES_DB:-viernes}
       SECRET_KEY:            ${SECRET_KEY:-cambiar_en_produccion}
       OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL:          ${OLLAMA_MODEL:-qwen2.5:3b}

@@ -15,6 +15,14 @@ export const viernesApi = {
   // ✅ stream SSE
   chatStream: (payload) => apiRequestRaw("post", "/chat/stream", payload),
 
+  // gmail
+  gmailStatus: () => apiRequest("get", "/gmail/status"),
+  gmailInbox: (limit = 15) => apiRequest("get", "/gmail/inbox", { limit }),
+  gmailEmail: (id) => apiRequest("get", `/gmail/email/${id}`),
+  gmailSearch: (q, limit = 15) => apiRequest("get", "/gmail/search", { q, limit }),
+  gmailMarkRead: (id) => apiRequest("post", `/gmail/mark-read/${id}`),
+  gmailSend: (payload) => apiRequest("post", "/gmail/send", payload),
+
   ingest: (filename) => apiRequest("post", "/ingest", { filename }),
   ingestText: (payload) => apiRequest("post", "/ingest/text", payload),
 
