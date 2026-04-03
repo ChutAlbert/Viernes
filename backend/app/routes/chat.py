@@ -21,9 +21,10 @@ from datetime import datetime, date
 from decimal import Decimal
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-rag = RagService()
-llm = OllamaService()
-web = WebSearchService(max_results=4)
+rag  = RagService()
+llm  = OllamaService.for_chat()       # modelo principal
+llmr = OllamaService.for_reasoning()  # modelo de razonamiento
+web  = WebSearchService(max_results=4)
 
 # ─── System prompts ───────────────────────────────────────────────────────────
 
@@ -75,6 +76,26 @@ Ejemplos:
 "cómo hacer un for loop" → ANSWER"""
 
 
+SYSTEM_MODEL_SELECTOR = """Decide si este mensaje requiere razonamiento profundo o es una conversación normal.
+
+USA REASONING cuando el mensaje implique:
+- Análisis complejo de código, arquitectura o diseño de sistemas
+- Depuración difícil o errores complicados
+- Matemáticas, algoritmos o lógica elaborada
+- Comparación técnica detallada con pros/contras
+- Planificación de proyectos o estrategias
+
+USA CHAT para todo lo demás:
+- Preguntas simples o conversación
+- Pokémon GO o consultas de datos
+- Búsquedas de información
+- Tareas rápidas
+
+Responde SOLO con una palabra:
+REASONING
+CHAT"""
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def cheap_title(text: str, max_words: int = 8) -> str:
@@ -91,6 +112,20 @@ def sse(data: dict) -> str:
 
 
 # ─── ReAct: decisión de búsqueda ─────────────────────────────────────────────
+
+def decide_model(user_msg: str) -> OllamaService:
+    """
+    Elige entre el modelo de chat y el de razonamiento según la complejidad.
+    Usa chat_fast (20 tokens) para que la decisión sea casi instantánea.
+    """
+    decision = llm.chat_fast([
+        {"role": "system",  "content": SYSTEM_MODEL_SELECTOR},
+        {"role": "user",    "content": user_msg},
+    ]).strip().upper()
+
+    print(f"[ModelRouter] Decisión: {decision!r}")
+    return llmr if decision.startswith("REASONING") else llm
+
 
 def decide_search(user_msg: str) -> str | None:
     """
@@ -113,42 +148,40 @@ def decide_search(user_msg: str) -> str | None:
     return None  # ANSWER o cualquier otra cosa → no busca
 
 
-def run_with_react(messages: list) -> tuple[str, bool]:
+def run_with_react(messages: list) -> tuple[list, bool, OllamaService]:
     """
-    Flujo ReAct:
-    1. Modelo decide si necesita buscar (prompt rápido)
-    2. Si necesita: busca, persiste en vectordb, añade resultado al contexto
-    3. Modelo genera respuesta final con el contexto enriquecido
-    Retorna: (respuesta_final, usó_web)
+    Flujo ReAct + selección de modelo:
+    1. Selecciona modelo (chat vs reasoning) según complejidad del mensaje
+    2. Decide si necesita buscar en internet
+    3. Si sí: busca, persiste en vectordb y añade contexto
+    Retorna: (messages_enriquecidos, usó_web, modelo_a_usar)
     """
-    # Extraer el último mensaje del usuario para la decisión
     user_msg = ""
     for m in reversed(messages):
         if m["role"] == "user":
             user_msg = m["content"]
             break
 
-    used_web = False
-    current_messages = list(messages)
+    # Ambas decisiones usan chat_fast → muy rápido
+    selected_llm = decide_model(user_msg)
+    query        = decide_search(user_msg)
 
-    # Fase 1: decidir
-    query = decide_search(user_msg)
+    used_web         = False
+    current_messages = list(messages)
 
     if query:
         print(f"[ReAct] Buscando: '{query}'")
-        results = web.search_and_persist(query, rag)
+        results    = web.search_and_persist(query, rag)
         web_context = web.format_for_context(results)
-        used_web = bool(results)
+        used_web   = bool(results)
 
         if web_context:
-            # Inyectar contexto web como mensaje de sistema adicional
             current_messages.append({
-                "role": "system",
+                "role":    "system",
                 "content": f"Resultados de búsqueda web para '{query}':\n\n{web_context}\n\nUsa esta información para responder.",
             })
 
-    # Fase 2: respuesta final con streaming
-    return current_messages, used_web
+    return current_messages, used_web, selected_llm
 
 
 # ─── Session endpoints ────────────────────────────────────────────────────────
@@ -258,16 +291,20 @@ def chat_stream(
                 "used_context": bool(rag_context),
             })
 
-            # ReAct: decide si buscar y enriquece los messages
+            # ReAct: selecciona modelo y decide si buscar
             yield sse({"type": "status", "message": "Pensando…"})
-            final_messages, used_web = run_with_react(messages)
+            final_messages, used_web, active_llm = run_with_react(messages)
 
             if used_web:
                 yield sse({"type": "status", "message": "Buscando en internet…"})
 
+            using_reasoning = active_llm.model != llm.model
+            if using_reasoning:
+                yield sse({"type": "status", "message": "Razonamiento profundo…"})
+
             # Stream de la respuesta final
             full = []
-            for delta in llm.chat_stream(final_messages):
+            for delta in active_llm.chat_stream(final_messages):
                 full.append(delta)
                 yield sse({"type": "delta", "delta": delta})
 
@@ -286,10 +323,11 @@ def chat_stream(
             db.commit()
 
             yield sse({
-                "type": "done",
-                "session_id": session.id,
+                "type":                 "done",
+                "session_id":           session.id,
                 "assistant_message_id": assistant_message.id,
-                "used_web": used_web,
+                "used_web":             used_web,
+                "model":                active_llm.model,
             })
 
         except Exception as e:
@@ -340,8 +378,8 @@ def chat(payload: ChatIn, db: Session = Depends(get_db)):
             messages.append({"role": r.role, "content": r.content})
     messages.append({"role": "user", "content": user_msg})
 
-    final_messages, used_web = run_with_react(messages)
-    reply = llm.chat(final_messages)
+    final_messages, used_web, active_llm = run_with_react(messages)
+    reply = active_llm.chat(final_messages)
 
     m_assistant = ChatMessage(session_id=session.id, role="assistant", content=reply)
     db.add(m_assistant)

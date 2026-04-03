@@ -32,9 +32,11 @@ services:
     environment:
       DATABASE_URL:          postgresql://${POSTGRES_USER:-viernes}:${POSTGRES_PASSWORD:-viernes}@db:5432/${POSTGRES_DB:-viernes}
       SECRET_KEY:            ${SECRET_KEY:-cambiar_en_produccion}
-      OLLAMA_BASE_URL:       ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL:          ${OLLAMA_MODEL:-qwen2.5:3b}
-      OLLAMA_VISION_MODEL:   ${OLLAMA_VISION_MODEL:-llava:7b}
+      OLLAMA_BASE_URL:          ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_CHAT_MODEL:        ${OLLAMA_CHAT_MODEL:-qwen3:8b}
+      OLLAMA_REASONING_MODEL:   ${OLLAMA_REASONING_MODEL:-deepseek-r1:8b}
+      OLLAMA_EMBED_MODEL:       ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      OLLAMA_VISION_MODEL:      ${OLLAMA_VISION_MODEL:-llava:7b}
     volumes:
       - ./backend:/app                        # hot reload en desarrollo
       - viernes_data:/data                    # documentos y vectordb persistentes

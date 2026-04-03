@@ -3,30 +3,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail
+from app.routes import auth, chat, documents, ingest, health, gmail, website
 from app.services.ollama_service import OllamaService
 
 
-def _warmup_model():
-    """Corre en background para no bloquear el arranque del servidor."""
-    llm = OllamaService()
-    llm.warmup()
+def _warmup_models():
+    """Pre-carga chat + reasoning en paralelo para eliminar el delay inicial."""
+    threads = [
+        threading.Thread(target=OllamaService.for_chat().warmup,      daemon=True),
+        threading.Thread(target=OllamaService.for_reasoning().warmup,  daemon=True),
+    ]
+    for t in threads:
+        t.start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Al arrancar: precarga el modelo en Ollama en un thread aparte
-    t = threading.Thread(target=_warmup_model, daemon=True)
-    t.start()
+    _warmup_models()
     yield
-    # Al apagar: nada por ahora
 
 
 app = FastAPI(title="Viernes API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:4173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,3 +39,4 @@ app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(ingest.router)
 app.include_router(gmail.router)
+app.include_router(website.router)

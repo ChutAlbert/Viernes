@@ -10,6 +10,7 @@ export default function AppSidebar() {
         <NavItem to="/app/gmail" label="Gmail" variant="dark" className="text-white/80" />
         <NavItem to="/app/chat" label="Chat" variant="dark" className="text-white/80" />
         <NavItem to="/app/docs" label="Documentos" variant="dark" className="text-white/80" />
+        <NavItem to="/app/website" label="Website" variant="dark" className="text-white/80" />
         <NavItem to="/app/settings" label="Settings" variant="dark" className="text-white/80" />
       </div>
     </aside>

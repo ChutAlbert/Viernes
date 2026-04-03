@@ -1,0 +1,199 @@
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useServices } from '../../composables/useWebsiteContent'
+
+const { services } = useServices()
+
+const scrolled = ref(false)
+const mobileOpen = ref(false)
+const servicesOpen = ref(false)
+
+const navLinks = [
+  { label: 'Nosotros', href: '#about' },
+  { label: 'Contacto', href: '#contact' },
+]
+
+function onScroll() {
+  scrolled.value = window.scrollY > 20
+}
+
+function scrollTo(href: string) {
+  mobileOpen.value = false
+  servicesOpen.value = false
+  document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function toggleServices(e: Event) {
+  e.stopPropagation()
+  servicesOpen.value = !servicesOpen.value
+}
+
+function closeServices() {
+  servicesOpen.value = false
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  document.addEventListener('click', closeServices)
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
+  document.removeEventListener('click', closeServices)
+})
+</script>
+
+<template>
+  <nav class="navbar" :class="{ scrolled }">
+    <div class="container nav-inner">
+      <a class="nav-logo" href="#home" @click.prevent="scrollTo('#home')">
+        <span class="logo-dot"></span>
+        Viernes
+      </a>
+
+      <ul class="nav-links">
+        <li style="position: relative;">
+          <button class="nav-btn" @click.stop="toggleServices">
+            Servicios
+            <svg class="chevron" :class="{ open: servicesOpen }" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <Transition name="dropdown">
+            <div v-if="servicesOpen" class="services-dropdown" @click.stop>
+              <div v-if="services.length === 0" class="dropdown-empty">Cargando servicios...</div>
+              <a
+                v-for="svc in services"
+                :key="svc.id"
+                class="dropdown-item"
+                href="#services"
+                @click.prevent="scrollTo('#services')"
+              >
+                <span class="dropdown-icon">◈</span>
+                <div>
+                  <div class="dropdown-title">{{ svc.title }}</div>
+                  <div class="dropdown-desc">{{ svc.description.slice(0, 60) }}…</div>
+                </div>
+              </a>
+            </div>
+          </Transition>
+        </li>
+
+        <li v-for="link in navLinks" :key="link.href">
+          <a class="nav-link" :href="link.href" @click.prevent="scrollTo(link.href)">{{ link.label }}</a>
+        </li>
+      </ul>
+
+      <a class="btn btn-primary nav-cta hidden-mobile" href="#contact" @click.prevent="scrollTo('#contact')">
+        Contáctanos
+      </a>
+
+      <button class="hamburger" :class="{ open: mobileOpen }" @click="mobileOpen = !mobileOpen">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <Transition name="mobile-menu">
+      <div v-if="mobileOpen" class="mobile-menu">
+        <button class="mobile-link" @click="scrollTo('#services')">Servicios</button>
+        <a v-for="link in navLinks" :key="link.href" class="mobile-link" :href="link.href"
+          @click.prevent="scrollTo(link.href)">{{ link.label }}</a>
+        <a class="btn btn-primary mobile-cta" href="#contact" @click.prevent="scrollTo('#contact')">Contáctanos</a>
+      </div>
+    </Transition>
+  </nav>
+</template>
+
+<style scoped>
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 1.1rem 0;
+  transition: background 0.3s, box-shadow 0.3s, padding 0.3s;
+}
+.navbar.scrolled {
+  background: rgba(5, 13, 31, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 rgba(34, 211, 238, 0.08);
+  padding: 0.75rem 0;
+}
+.nav-inner { display: flex; align-items: center; gap: 2rem; }
+.nav-logo {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em;
+  color: var(--text); flex-shrink: 0;
+}
+.logo-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan), var(--amber));
+  animation: pulse-dot 2.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(34, 211, 238, 0); }
+}
+.nav-links {
+  display: flex; align-items: center; gap: 0.25rem;
+  list-style: none; margin-left: auto;
+}
+.nav-link, .nav-btn {
+  padding: 0.5rem 0.875rem; border-radius: 8px;
+  font-size: 0.9rem; font-weight: 500; color: var(--text-soft);
+  transition: var(--transition); cursor: pointer;
+  background: none; border: none; font-family: inherit;
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.nav-link:hover, .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.chevron { transition: transform 0.25s ease; }
+.chevron.open { transform: rotate(180deg); }
+.services-dropdown {
+  position: absolute; top: calc(100% + 0.75rem); left: 50%;
+  transform: translateX(-50%); width: 320px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 0.5rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.dropdown-item {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.875rem; border-radius: var(--radius); transition: background 0.2s; cursor: pointer;
+}
+.dropdown-item:hover { background: rgba(34,211,238,0.07); }
+.dropdown-icon { color: var(--cyan); font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+.dropdown-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.dropdown-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.dropdown-empty { padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.nav-cta { margin-left: 0.75rem; }
+.hidden-mobile { display: inline-flex; }
+.hamburger {
+  display: none; flex-direction: column; gap: 5px;
+  cursor: pointer; background: none; border: none; padding: 0.5rem; margin-left: auto;
+}
+.hamburger span {
+  display: block; width: 22px; height: 2px;
+  background: var(--text); border-radius: 2px; transition: var(--transition);
+}
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.mobile-menu {
+  display: flex; flex-direction: column;
+  padding: 1rem 1.5rem 1.5rem;
+  background: var(--bg-surface); border-top: 1px solid var(--border-soft); gap: 0.25rem;
+}
+.mobile-link {
+  display: block; padding: 0.875rem 1rem; border-radius: var(--radius);
+  font-size: 1rem; font-weight: 500; color: var(--text-soft);
+  background: none; border: none; font-family: inherit;
+  cursor: pointer; text-align: left; transition: var(--transition);
+}
+.mobile-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.mobile-cta { margin-top: 0.75rem; justify-content: center; }
+.dropdown-enter-active, .dropdown-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+.mobile-menu-enter-active, .mobile-menu-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.mobile-menu-enter-from, .mobile-menu-leave-to { opacity: 0; transform: translateY(-8px); }
+@media (max-width: 768px) {
+  .nav-links, .hidden-mobile { display: none; }
+  .hamburger { display: flex; }
+}
+</style>

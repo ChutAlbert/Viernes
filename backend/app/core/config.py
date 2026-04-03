@@ -8,14 +8,24 @@ VECTOR_DIR = DATA_DIR / "vectordb"
 
 # ─── Ollama ───────────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_CHAT_URL = f"{OLLAMA_BASE_URL}/api/chat"
 
-# Modelo de chat (texto)
-MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+OLLAMA_CHAT_URL  = f"{OLLAMA_BASE_URL}/api/chat"
+OLLAMA_EMBED_URL = f"{OLLAMA_BASE_URL}/api/embed"
+
+# Modelo principal de chat (conversación general)
+CHAT_MODEL      = os.getenv("OLLAMA_CHAT_MODEL",      "qwen3:8b")
+
+# Modelo de razonamiento (análisis complejo, código, arquitectura)
+REASONING_MODEL = os.getenv("OLLAMA_REASONING_MODEL", "deepseek-r1:8b")
+
+# Modelo de embeddings (RAG)
+EMBED_MODEL     = os.getenv("OLLAMA_EMBED_MODEL",     "nomic-embed-text")
 
 # Modelo de visión para OCR de documentos escaneados
-VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava:7b")
+VISION_MODEL    = os.getenv("OLLAMA_VISION_MODEL",    "llava:7b")
 
-# ─── Embeddings / RAG ────────────────────────────────────────────────────────
-EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+# Alias legacy (no romper código que ya usaba MODEL)
+MODEL = CHAT_MODEL
+
+# ─── RAG ─────────────────────────────────────────────────────────────────────
 COLLECTION_NAME = "viernes_docs"

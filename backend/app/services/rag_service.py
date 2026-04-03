@@ -1,9 +1,9 @@
-# app/services/rag_service.py
 from chromadb.config import Settings
 import chromadb
-from sentence_transformers import SentenceTransformer
 
-from app.core.config import VECTOR_DIR, EMBED_MODEL_NAME, COLLECTION_NAME
+from app.core.config import VECTOR_DIR, COLLECTION_NAME
+from app.services.ollama_service import OllamaService
+
 
 class RagService:
     def __init__(self):
@@ -11,33 +11,35 @@ class RagService:
 
         self.chroma = chromadb.PersistentClient(
             path=str(VECTOR_DIR),
-            settings=Settings(anonymized_telemetry=False)
+            settings=Settings(anonymized_telemetry=False),
         )
         self.collection = self.chroma.get_or_create_collection(name=COLLECTION_NAME)
-        self.embedder = SentenceTransformer(EMBED_MODEL_NAME)
 
-    def chunk_text(self, text: str, chunk_size: int = 900, overlap: int = 150):
+    # ── Chunking ──────────────────────────────────────────────────────────────
+
+    def chunk_text(self, text: str, chunk_size: int = 900, overlap: int = 150) -> list[str]:
         text = " ".join(text.split())
-        chunks = []
-        i = 0
+        chunks, i = [], 0
         while i < len(text):
-            chunks.append(text[i:i+chunk_size])
+            chunks.append(text[i:i + chunk_size])
             i += chunk_size - overlap
         return chunks
 
-    def embed_texts(self, texts):
-        return self.embedder.encode(texts, normalize_embeddings=True).tolist()
+    # ── Embeddings via Ollama ─────────────────────────────────────────────────
 
-    # ✅ Nuevo: upsert por doc_id (NO por source)
-    def upsert_text(self, doc_id: str, text: str, metadata: dict | None = None):
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return OllamaService.embed(texts)
+
+    # ── Upsert por doc_id ─────────────────────────────────────────────────────
+
+    def upsert_text(self, doc_id: str, text: str, metadata: dict | None = None) -> int:
         metadata = metadata or {}
-        chunks = self.chunk_text(text)
+        chunks     = self.chunk_text(text)
         embeddings = self.embed_texts(chunks)
 
-        ids = [f"{doc_id}::chunk::{i}" for i in range(len(chunks))]
+        ids       = [f"{doc_id}::chunk::{i}" for i in range(len(chunks))]
         metadatas = [{**metadata, "doc_id": doc_id, "chunk": i} for i in range(len(chunks))]
 
-        # borrar solo lo de ese doc_id
         try:
             self.collection.delete(where={"doc_id": doc_id})
         except Exception:
@@ -47,45 +49,40 @@ class RagService:
             ids=ids,
             documents=chunks,
             embeddings=embeddings,
-            metadatas=metadatas
+            metadatas=metadatas,
         )
         return len(chunks)
 
-    # ✅ Nuevo: borrar por doc_id
-    def delete_doc(self, doc_id: str):
+    def delete_doc(self, doc_id: str) -> None:
         self.collection.delete(where={"doc_id": doc_id})
 
-    # 🔁 Compatibilidad: tu código actual sigue funcionando
-    def upsert_document(self, source: str, text: str):
-        # antes “source” era el identificador; ahora lo tratamos como doc_id
+    # ── Compatibilidad legacy ─────────────────────────────────────────────────
+
+    def upsert_document(self, source: str, text: str) -> int:
         return self.upsert_text(
             doc_id=f"file::{source}",
             text=text,
-            metadata={"source": source, "namespace": "files"}
+            metadata={"source": source, "namespace": "files"},
         )
 
-    def retrieve_context(self, query: str, k: int = 4) -> str:
-        q_emb = self.embed_texts([query])[0]
-        results = self.collection.query(query_embeddings=[q_emb], n_results=k)
-        docs = results.get("documents", [[]])[0]
-        if not docs:
-            return ""
-        return "\n\n---\n\n".join(docs)
+    # ── Retrieval ─────────────────────────────────────────────────────────────
 
-    # ✅ Útil para /search: regresa hits con metadata
-    def retrieve_hits(self, query: str, k: int = 6):
-        q_emb = self.embed_texts([query])[0]
+    def retrieve_context(self, query: str, k: int = 4) -> str:
+        q_emb   = self.embed_texts([query])[0]
         results = self.collection.query(query_embeddings=[q_emb], n_results=k)
-        docs = results.get("documents", [[]])[0]
-        metas = results.get("metadatas", [[]])[0]
-        ids = results.get("ids", [[]])[0]
-        dists = results.get("distances", [[]])[0]
-        hits = []
-        for i in range(len(ids)):
-            hits.append({
-                "id": ids[i],
-                "distance": dists[i] if i < len(dists) else None,
-                "metadata": metas[i] if i < len(metas) else None,
-                "text": docs[i] if i < len(docs) else None,
-            })
-        return hits
+        docs    = results.get("documents", [[]])[0]
+        return "\n\n---\n\n".join(docs) if docs else ""
+
+    def retrieve_hits(self, query: str, k: int = 6) -> list[dict]:
+        q_emb   = self.embed_texts([query])[0]
+        results = self.collection.query(query_embeddings=[q_emb], n_results=k)
+        docs    = results.get("documents",  [[]])[0]
+        metas   = results.get("metadatas",  [[]])[0]
+        ids     = results.get("ids",        [[]])[0]
+        dists   = results.get("distances",  [[]])[0]
+        return [
+            {"id": ids[i], "distance": dists[i] if i < len(dists) else None,
+             "metadata": metas[i] if i < len(metas) else None,
+             "text": docs[i] if i < len(docs) else None}
+            for i in range(len(ids))
+        ]
