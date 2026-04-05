@@ -5,18 +5,18 @@ WORKDIR /app
 # Copiar manifests del monorepo antes de instalar
 COPY package*.json ./
 COPY packages/ ./packages/
-COPY dashboard/package*.json ./dashboard/
+COPY website/package*.json ./website/
 
-# Instalar dependencias (incluye workspace dashboard y sus devDeps como vite)
+# Instalar dependencias
 RUN npm install
 
 # Copiar código fuente
-COPY dashboard/ ./dashboard/
+COPY website/ ./website/
 
 ENV PATH=/app/node_modules/.bin:$PATH
 
-WORKDIR /app/dashboard
+WORKDIR /app/website
 
-EXPOSE 5173
+EXPOSE 4173
 
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
