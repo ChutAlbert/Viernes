@@ -8,7 +8,10 @@ class WebsiteService(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
+    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=True)
     description: Mapped[str] = mapped_column(Text)
+    long_description: Mapped[str] = mapped_column(Text, nullable=True)
+    image_urls: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array as string
     icon: Mapped[str] = mapped_column(String(100), default="code")
     category: Mapped[str] = mapped_column(String(100), default="general")
     order_index: Mapped[int] = mapped_column(Integer, default=0)

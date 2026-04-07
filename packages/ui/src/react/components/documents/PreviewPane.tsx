@@ -41,10 +41,9 @@ export function PreviewPane({
   emptyMessage?: string;
   className?: string;
 }) {
-  // ── empty ──────────────────────────────────────────────────────────────────
   if (!doc) {
     return (
-      <div className={cn("h-full flex flex-col items-center justify-center gap-3 text-white/20", className)}>
+      <div className={cn("h-full flex flex-col items-center justify-center gap-3", className)} style={{ color: "var(--c-text-4)" }}>
         <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
@@ -56,10 +55,9 @@ export function PreviewPane({
     );
   }
 
-  // ── loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className={cn("h-full flex items-center justify-center gap-2 text-white/30", className)}>
+      <div className={cn("h-full flex items-center justify-center gap-2", className)} style={{ color: "var(--c-text-3)" }}>
         <Spinner size="md" />
         <span className="text-sm">Cargando preview…</span>
       </div>
@@ -71,18 +69,17 @@ export function PreviewPane({
   const ext = doc.ext ?? `.${doc.name.split(".").pop()}`;
   const icon = EXT_ICON[ext] ?? "📎";
 
-  // ── content ────────────────────────────────────────────────────────────────
   return (
     <div className={cn("h-full flex flex-col min-h-0", className)}>
       {/* header */}
-      <div className="shrink-0 flex items-center gap-3 pb-3 border-b border-white/10 mb-4">
+      <div className="shrink-0 flex items-center gap-3 pb-3 mb-4" style={{ borderBottom: "1px solid var(--c-border)" }}>
         <span className="text-xl">{icon}</span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white/90 truncate">{doc.name}</p>
-          <p className="text-xs text-white/40">
+          <p className="text-sm font-semibold truncate" style={{ color: "var(--c-text)" }}>{doc.name}</p>
+          <p className="text-xs" style={{ color: "var(--c-text-3)" }}>
             {fmtBytes(doc.size)} · {fmtDate(doc.modified)}
             {preview.total_chars && (
-              <span className="ml-2 text-white/30">
+              <span className="ml-2" style={{ color: "var(--c-text-4)" }}>
                 {preview.total_chars.toLocaleString()} caracteres
               </span>
             )}
@@ -95,7 +92,7 @@ export function PreviewPane({
 
       {/* text */}
       <div className="flex-1 min-h-0 overflow-auto">
-        <pre className="text-xs text-white/65 leading-relaxed whitespace-pre-wrap font-mono">
+        <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono" style={{ color: "var(--c-text-2)" }}>
           {preview.preview}
         </pre>
       </div>

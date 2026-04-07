@@ -1,7 +1,5 @@
 import React, { useEffect } from "react";
 import { cn } from "../../utils/cn";
-import { Surface } from "../ui/Surface";
-import { Button } from "../form/Button";
 
 type ModalSize = "sm" | "md" | "lg" | "xl";
 
@@ -12,7 +10,6 @@ const sizeMap: Record<ModalSize, string> = {
   xl: "max-w-xl",
 };
 
-// ─── Modal base ───────────────────────────────────────────────────────────────
 export function Modal({
   open,
   onClose,
@@ -28,7 +25,6 @@ export function Modal({
   closeOnBackdrop?: boolean;
   className?: string;
 }) {
-  // cierra con Escape
   useEffect(() => {
     if (!open) return;
     function handle(e: KeyboardEvent) {
@@ -42,20 +38,21 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
       onClick={closeOnBackdrop ? onClose : undefined}
     >
-      <Surface
-        className={cn("w-full shadow-2xl", sizeMap[size], className)}
+      <div
+        className={cn("w-full rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]", sizeMap[size], className)}
+        style={{ background: "var(--c-surface)", border: "1px solid var(--c-border-med)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
-      </Surface>
+      </div>
     </div>
   );
 }
 
-// ─── ConfirmModal (el más común) ──────────────────────────────────────────────
 export function ConfirmModal({
   open,
   onConfirm,
@@ -74,38 +71,37 @@ export function ConfirmModal({
   description?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
-  /** "danger" → rojo, "default" → slate */
   variant?: "danger" | "default";
   loading?: boolean;
 }) {
-  const confirmClass =
-    variant === "danger"
-      ? "bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300"
-      : "bg-white/10 hover:bg-white/15 border border-white/15 text-white/90";
-
   return (
     <Modal open={open} onClose={onCancel} size="sm">
       <div className="p-6">
-        <h3 className="text-white font-semibold mb-2">{title}</h3>
-
+        <h3 className="font-semibold mb-2" style={{ color: "var(--c-text)" }}>{title}</h3>
         {description && (
-          <div className="text-sm text-white/55 mb-6">{description}</div>
+          <div className="text-sm mb-6" style={{ color: "var(--c-text-3)" }}>{description}</div>
         )}
-
         <div className="flex gap-3">
-          <Button
-            text={cancelText}
+          <button
             onClick={onCancel}
             disabled={loading}
-            className="bg-white/5 hover:bg-white/10 border border-white/15 text-white/70"
-          />
-          <Button
-            text={confirmText}
-            loadingText="Procesando…"
-            loading={loading}
+            className="flex-1 rounded-xl py-2 text-sm font-medium transition-colors hover:bg-[var(--c-hover)]"
+            style={{ border: "1px solid var(--c-border-med)", color: "var(--c-text-2)" }}
+          >
+            {cancelText}
+          </button>
+          <button
             onClick={onConfirm}
-            className={confirmClass}
-          />
+            disabled={loading}
+            className="flex-1 rounded-xl py-2 text-sm font-medium transition-colors"
+            style={
+              variant === "danger"
+                ? { background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.3)" }
+                : { background: "var(--c-accent-bg)", color: "var(--c-accent-text)", border: "1px solid var(--c-border-med)" }
+            }
+          >
+            {loading ? "Procesando…" : confirmText}
+          </button>
         </div>
       </div>
     </Modal>

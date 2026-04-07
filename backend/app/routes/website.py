@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import json
+import re
 
 from app.db import get_db
 from app.core.deps import get_current_user
@@ -15,16 +17,63 @@ from app.schemas.website import (
 router = APIRouter(prefix="/website", tags=["website"])
 
 
+def _slugify(text: str) -> str:
+    text = text.lower().strip()
+    text = re.sub(r'[áàäâ]', 'a', text)
+    text = re.sub(r'[éèëê]', 'e', text)
+    text = re.sub(r'[íìïî]', 'i', text)
+    text = re.sub(r'[óòöô]', 'o', text)
+    text = re.sub(r'[úùüû]', 'u', text)
+    text = re.sub(r'[ñ]', 'n', text)
+    text = re.sub(r'[^a-z0-9\s-]', '', text)
+    text = re.sub(r'[\s_]+', '-', text)
+    text = re.sub(r'-+', '-', text)
+    return text.strip('-')
+
+
+def _service_payload(payload: ServiceCreate | ServiceUpdate) -> dict:
+    data = payload.model_dump()
+    image_urls = data.pop("image_urls", None)
+    data["image_urls"] = json.dumps(image_urls) if image_urls is not None else None
+    if not data.get("slug") and data.get("title"):
+        data["slug"] = _slugify(data["title"])
+    return data
+
+
+def _service_out(svc: WebsiteService) -> ServiceOut:
+    # Auto-generate slug from title if missing
+    if not svc.slug and svc.title:
+        svc.slug = _slugify(svc.title)
+    return ServiceOut.from_orm_service(svc)
+
+
 # ── Public endpoints (no auth) ────────────────────────────────────────────────
 
 @router.get("/services", response_model=List[ServiceOut])
 def get_services(db: Session = Depends(get_db)):
-    return (
+    services = (
         db.query(WebsiteService)
         .filter(WebsiteService.is_active == True)
         .order_by(WebsiteService.order_index)
         .all()
     )
+    return [_service_out(s) for s in services]
+
+
+@router.get("/services/{slug}", response_model=ServiceOut)
+def get_service_by_slug(slug: str, db: Session = Depends(get_db)):
+    # Try exact slug match first
+    svc = db.query(WebsiteService).filter(WebsiteService.slug == slug, WebsiteService.is_active == True).first()
+    # Fallback: services with null slug — match by title-derived slug
+    if not svc:
+        all_svcs = db.query(WebsiteService).filter(WebsiteService.is_active == True, WebsiteService.slug == None).all()
+        for s in all_svcs:
+            if _slugify(s.title) == slug:
+                svc = s
+                break
+    if not svc:
+        raise HTTPException(status_code=404, detail="Service not found")
+    return _service_out(svc)
 
 
 @router.get("/contacts", response_model=List[ContactOut])
@@ -64,16 +113,17 @@ def get_setting(key: str, db: Session = Depends(get_db)):
 # Services CRUD
 @router.get("/admin/services", response_model=List[ServiceOut])
 def admin_get_services(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return db.query(WebsiteService).order_by(WebsiteService.order_index).all()
+    services = db.query(WebsiteService).order_by(WebsiteService.order_index).all()
+    return [_service_out(s) for s in services]
 
 
 @router.post("/admin/services", response_model=ServiceOut)
 def create_service(payload: ServiceCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    service = WebsiteService(**payload.model_dump())
+    service = WebsiteService(**_service_payload(payload))
     db.add(service)
     db.commit()
     db.refresh(service)
-    return service
+    return _service_out(service)
 
 
 @router.put("/admin/services/{service_id}", response_model=ServiceOut)
@@ -81,11 +131,11 @@ def update_service(service_id: int, payload: ServiceUpdate, db: Session = Depend
     service = db.query(WebsiteService).filter(WebsiteService.id == service_id).first()
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    for field, value in payload.model_dump().items():
+    for field, value in _service_payload(payload).items():
         setattr(service, field, value)
     db.commit()
     db.refresh(service)
-    return service
+    return _service_out(service)
 
 
 @router.delete("/admin/services/{service_id}")

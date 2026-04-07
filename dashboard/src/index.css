@@ -1,3 +1,67 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Dark theme (default) ──────────────────────────────────────────────────── */
+:root {
+  --c-bg:           #080e1a;
+  --c-shell:        #0b1120;
+  --c-card:         #0f1929;
+  --c-surface:      #0f1a2e;
+  --c-surface-2:    #162238;
+
+  --c-border:       rgba(255,255,255,0.06);
+  --c-border-med:   rgba(255,255,255,0.10);
+  --c-border-hi:    rgba(255,255,255,0.18);
+
+  --c-text:         #f1f5f9;
+  --c-text-2:       rgba(241,245,249,0.60);
+  --c-text-3:       rgba(241,245,249,0.35);
+  --c-text-4:       rgba(241,245,249,0.20);
+
+  --c-accent:       #7c3aed;
+  --c-accent-bg:    rgba(124,58,237,0.15);
+  --c-accent-text:  #a78bfa;
+  --c-cyan:         #22d3ee;
+  --c-cyan-bg:      rgba(34,211,238,0.12);
+
+  --c-hover:        rgba(255,255,255,0.05);
+  --c-hover-2:      rgba(255,255,255,0.08);
+  --c-input-bg:     rgba(255,255,255,0.05);
+}
+
+/* ── Light theme ───────────────────────────────────────────────────────────── */
+:root.light {
+  --c-bg:           #f0f4f8;
+  --c-shell:        #ffffff;
+  --c-card:         #f8fafc;
+  --c-surface:      #ffffff;
+  --c-surface-2:    #f1f5f9;
+
+  --c-border:       rgba(0,0,0,0.07);
+  --c-border-med:   rgba(0,0,0,0.12);
+  --c-border-hi:    rgba(0,0,0,0.20);
+
+  --c-text:         #0f172a;
+  --c-text-2:       rgba(15,23,42,0.65);
+  --c-text-3:       rgba(15,23,42,0.40);
+  --c-text-4:       rgba(15,23,42,0.20);
+
+  --c-accent:       #7c3aed;
+  --c-accent-bg:    rgba(124,58,237,0.10);
+  --c-accent-text:  #6d28d9;
+  --c-cyan:         #0891b2;
+  --c-cyan-bg:      rgba(8,145,178,0.10);
+
+  --c-hover:        rgba(0,0,0,0.04);
+  --c-hover-2:      rgba(0,0,0,0.07);
+  --c-input-bg:     rgba(0,0,0,0.04);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+html, body, #root {
+  height: 100%;
+  background: var(--c-bg);
+  color: var(--c-text);
+  transition: background 0.2s ease, color 0.2s ease;
+}

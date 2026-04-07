@@ -9,7 +9,7 @@ export { default as ServicesSection } from './components/sections/ServicesSectio
 export { default as ContactSection } from './components/sections/ContactSection.vue'
 
 // Composables
-export { useServices, useContacts, useMembers, useSiteSettings } from './composables/useWebsiteContent'
+export { useServices, useContacts, useMembers, useSiteSettings, useServiceBySlug } from './composables/useWebsiteContent'
 export { useScrollAnimation, useActiveSection } from './composables/useScrollAnimation'
 
 // Types

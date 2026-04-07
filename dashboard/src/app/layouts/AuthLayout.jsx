@@ -2,9 +2,9 @@ import { Outlet } from "react-router-dom";
 
 export default function AuthLayout() {
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2" style={{ background: "var(--c-bg)", color: "var(--c-text)" }}>
       {/* Left: Login */}
-      <div className="flex items-center justify-center p-6">
+      <div className="flex items-center justify-center p-6" style={{ background: "var(--c-shell)" }}>
         <div className="w-full max-w-md">
           <Outlet />
         </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useServices } from '../../composables/useWebsiteContent'
 
 const { services, loading } = useServices()
@@ -53,9 +54,10 @@ function scrollToContact() {
 
       <!-- Services grid -->
       <div v-else class="services-grid">
-        <div
+        <RouterLink
           v-for="(service, i) in services"
           :key="service.id"
+          :to="service.slug ? `/servicios/${service.slug}` : '#services'"
           class="service-card card animate-on-scroll"
           :class="`delay-${(i % 4) + 1}`"
         >
@@ -64,8 +66,11 @@ function scrollToContact() {
           </div>
           <h3 class="service-title">{{ service.title }}</h3>
           <p class="service-desc">{{ service.description }}</p>
-          <div class="service-category">{{ service.category }}</div>
-        </div>
+          <div class="service-footer">
+            <div class="service-category">{{ service.category }}</div>
+            <span class="service-arrow">Ver más →</span>
+          </div>
+        </RouterLink>
       </div>
 
       <!-- CTA -->
@@ -147,13 +152,29 @@ function scrollToContact() {
   flex: 1;
 }
 
+.service-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
 .service-category {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--cat-color, var(--cyan));
   font-weight: 600;
-  margin-top: auto;
+}
+
+.service-arrow {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: color 0.2s, transform 0.2s;
+}
+.service-card:hover .service-arrow {
+  color: var(--cyan);
+  transform: translateX(3px);
 }
 
 /* Loading skeleton */

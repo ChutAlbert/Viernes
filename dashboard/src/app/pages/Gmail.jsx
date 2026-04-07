@@ -37,7 +37,6 @@ function formatDate(dateStr) {
     const now = new Date();
     const diff = now - d;
     const oneDay = 86400000;
-
     if (diff < oneDay && d.getDate() === now.getDate()) {
       return d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
     }
@@ -80,7 +79,8 @@ const Avatar = ({ name, size = "md" }) => {
   const bg = palettes[(name?.charCodeAt(0) || 0) % palettes.length];
   const sz = size === "sm" ? "w-7 h-7 text-[11px]" : "w-9 h-9 text-sm";
   return (
-    <div className={`${sz} rounded-full bg-gradient-to-br ${bg} flex items-center justify-center text-white font-semibold shrink-0 border border-white/10`}>
+    <div className={`${sz} rounded-full bg-gradient-to-br ${bg} flex items-center justify-center font-semibold shrink-0`}
+      style={{ color: "var(--c-text)", border: "1px solid var(--c-border-med)" }}>
       {name?.[0]?.toUpperCase() || "?"}
     </div>
   );
@@ -92,15 +92,20 @@ const EmailRow = ({ email, selected, onClick }) => {
   const tag = guessTag(email.from, email.subject);
 
   return (
-    <button onClick={() => onClick(email)}
-      className={`w-full flex items-start gap-2.5 px-3 py-3 text-left transition-all duration-100 border-b border-white/[0.05]
-        ${selected
-          ? "bg-white/[0.09] border-l-2 border-l-purple-400/50"
-          : "hover:bg-white/[0.04] border-l-2 border-l-transparent"}`}>
-
+    <button
+      onClick={() => onClick(email)}
+      className="w-full flex items-start gap-2.5 px-3 py-3 text-left transition-all duration-100"
+      style={{
+        borderBottom: "1px solid var(--c-border)",
+        borderLeft: `2px solid ${selected ? "var(--c-accent)" : "transparent"}`,
+        background: selected ? "var(--c-accent-bg)" : "transparent",
+      }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "var(--c-hover)"; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = "transparent"; }}
+    >
       <div className="w-2 pt-2 shrink-0">
         {email.unread && (
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 6px rgba(34,211,238,0.7)" }} />
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--c-cyan)", boxShadow: "0 0 6px rgba(34,211,238,0.5)" }} />
         )}
       </div>
 
@@ -108,18 +113,19 @@ const EmailRow = ({ email, selected, onClick }) => {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className={`text-xs truncate ${email.unread ? "text-white font-semibold" : "text-white/55"}`}>
+          <span className="text-xs truncate" style={{ color: email.unread ? "var(--c-text)" : "var(--c-text-2)", fontWeight: email.unread ? 600 : 400 }}>
             {name}
           </span>
-          <span className="text-white/25 text-[10px] shrink-0">{formatDate(email.date)}</span>
+          <span className="text-[10px] shrink-0" style={{ color: "var(--c-text-4)" }}>{formatDate(email.date)}</span>
         </div>
-        <div className={`text-[11px] truncate mt-0.5 ${email.unread ? "text-white/85 font-medium" : "text-white/45"}`}>
+        <div className="text-[11px] truncate mt-0.5" style={{ color: email.unread ? "var(--c-text-2)" : "var(--c-text-3)", fontWeight: email.unread ? 500 : 400 }}>
           {email.subject}
         </div>
         <div className="flex items-center gap-1.5 mt-1">
-          <span className="text-white/22 text-[10px] truncate flex-1">{email.snippet}</span>
+          <span className="text-[10px] truncate flex-1" style={{ color: "var(--c-text-4)" }}>{email.snippet}</span>
           {tag && (
-            <span className={`text-[9px] px-1.5 py-px rounded-full border shrink-0 font-medium ${TAG[tag] || "bg-white/10 text-white/40 border-white/10"}`}>
+            <span className={`text-[9px] px-1.5 py-px rounded-full border shrink-0 font-medium ${TAG[tag] || ""}`}
+              style={!TAG[tag] ? { background: "var(--c-hover)", color: "var(--c-text-3)", border: "1px solid var(--c-border)" } : {}}>
               {tag}
             </span>
           )}
@@ -157,7 +163,7 @@ const EmailDetail = ({ email, onClose }) => {
   }, [email?.id]);
 
   if (!email) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/12">
+    <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: "var(--c-text-4)" }}>
       <Ic d={ICONS.inbox} size={48} />
       <p className="text-sm tracking-wide">Selecciona un correo para leerlo</p>
     </div>
@@ -169,10 +175,16 @@ const EmailDetail = ({ email, onClose }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
       {/* Cabecera */}
-      <div className="px-5 py-4 border-b border-white/8 shrink-0">
+      <div className="px-5 py-4 shrink-0" style={{ borderBottom: "1px solid var(--c-border)" }}>
         <div className="flex items-start gap-3 justify-between">
-          <h2 className="text-white/90 font-semibold text-sm leading-snug flex-1">{email.subject}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/8 text-white/25 hover:text-white/55 transition-colors shrink-0">
+          <h2 className="font-semibold text-sm leading-snug flex-1" style={{ color: "var(--c-text)" }}>{email.subject}</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors shrink-0"
+            style={{ color: "var(--c-text-4)" }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--c-text-2)"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-4)"}
+          >
             <Ic d={ICONS.close} size={12} />
           </button>
         </div>
@@ -180,10 +192,10 @@ const EmailDetail = ({ email, onClose }) => {
           <Avatar name={name} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-white/70 text-xs font-medium">{name}</span>
-              <span className="text-white/25 text-[10px]">&lt;{emailAddr}&gt;</span>
+              <span className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{name}</span>
+              <span className="text-[10px]" style={{ color: "var(--c-text-4)" }}>&lt;{emailAddr}&gt;</span>
             </div>
-            <div className="text-white/25 text-[10px] mt-0.5">{formatDate(email.date)}</div>
+            <div className="text-[10px] mt-0.5" style={{ color: "var(--c-text-4)" }}>{formatDate(email.date)}</div>
           </div>
           {tag && (
             <span className={`text-[10px] px-2 py-0.5 rounded-full border ${TAG[tag] || ""}`}>
@@ -196,32 +208,40 @@ const EmailDetail = ({ email, onClose }) => {
       {/* Cuerpo */}
       <div className="flex-1 overflow-y-auto px-5 py-5">
         {loadingBody ? (
-          <div className="flex items-center gap-2 text-white/30 text-sm">
-            <div className="w-4 h-4 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
+          <div className="flex items-center gap-2 text-sm" style={{ color: "var(--c-text-3)" }}>
+            <div className="w-4 h-4 border-2 rounded-full animate-spin"
+              style={{ borderColor: "var(--c-border-med)", borderTopColor: "var(--c-text-3)" }} />
             Cargando...
           </div>
         ) : (
-          <div className="text-white/55 text-sm leading-relaxed whitespace-pre-wrap">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--c-text-2)" }}>
             {body}
           </div>
         )}
       </div>
 
       {/* Acciones */}
-      <div className="px-5 py-3 border-t border-white/8 flex items-center gap-2 shrink-0">
+      <div className="px-5 py-3 flex items-center gap-2 shrink-0" style={{ borderTop: "1px solid var(--c-border)" }}>
         {[
           { icon: ICONS.reply,   label: "Responder" },
           { icon: ICONS.forward, label: "Reenviar" },
           { icon: ICONS.compose, label: "Archivar" },
         ].map(({ icon, label }) => (
           <button key={label}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white/70 text-xs border border-white/8 transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
+            style={{ background: "var(--c-input-bg)", border: "1px solid var(--c-border)", color: "var(--c-text-3)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text-2)"; e.currentTarget.style.background = "var(--c-hover)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "var(--c-input-bg)"; }}
+          >
             <Ic d={icon} size={11} />
             {label}
           </button>
         ))}
         <div className="flex-1" />
-        <button className="p-1.5 rounded-lg hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-colors">
+        <button
+          className="p-1.5 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          style={{ color: "var(--c-text-4)" }}
+        >
           <Ic d={ICONS.trash} size={13} />
         </button>
       </div>
@@ -230,6 +250,7 @@ const EmailDetail = ({ email, onClose }) => {
 };
 
 // ─── Compose Modal — panel lateral izquierdo con chat IA ──────────────────────
+// Este panel es intencionalmente oscuro (es un overlay modal con gradiente propio)
 const ComposeModal = ({ onClose }) => {
   const [msgs, setMsgs]     = useState([
     { role: "ai", text: "Hola! Dime a quien le quieres escribir, el tema y el tono. Yo redacto el correo por ti." }
@@ -315,25 +336,33 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
           boxShadow: "12px 0 48px rgba(0,0,0,0.55), inset -1px 0 0 rgba(139,92,246,0.08)",
         }}>
 
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/8 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3.5 shrink-0"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center border border-white/10"
-              style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.25),rgba(6,182,212,0.2))" }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.25),rgba(6,182,212,0.2))", border: "1px solid rgba(255,255,255,0.10)" }}>
               <Ic d={ICONS.compose} size={12} className="text-cyan-300" />
             </div>
             <div>
-              <div className="text-white/80 text-sm font-medium leading-none">Redactar con Viernes</div>
-              <div className="text-white/28 text-[10px] mt-0.5">IA - asistente de correo</div>
+              <div className="text-sm font-medium leading-none" style={{ color: "rgba(255,255,255,0.80)" }}>Redactar con Viernes</div>
+              <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.28)" }}>IA - asistente de correo</div>
             </div>
           </div>
           <div className="flex items-center gap-1">
             {view === "draft" && (
               <button onClick={() => setView("chat")}
-                className="px-2 py-1 text-[11px] text-white/35 hover:text-white/65 transition-colors rounded-md hover:bg-white/[0.06]">
+                className="px-2 py-1 text-[11px] rounded-md transition-colors"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+                onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.65)"}
+                onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.35)"}>
                 ← Chat
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/8 text-white/30 hover:text-white/60 transition-colors">
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: "rgba(255,255,255,0.30)" }}
+              onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.60)"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.30)"}>
               <Ic d={ICONS.close} size={13} />
             </button>
           </div>
@@ -345,16 +374,16 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
               {msgs.map((m, i) => (
                 <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   {m.role === "ai" && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 border border-white/10"
-                      style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.35),rgba(6,182,212,0.3))" }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.35),rgba(6,182,212,0.3))", border: "1px solid rgba(255,255,255,0.10)" }}>
                       <Ic d={ICONS.ai} size={10} className="text-cyan-200" />
                     </div>
                   )}
                   <div className={`max-w-[86%] px-3 py-2 text-xs leading-relaxed rounded-2xl
-                    ${m.role === "user"
-                      ? "text-white/80 rounded-tr-sm border border-purple-400/15"
-                      : "text-white/60 rounded-tl-sm border border-white/8 bg-white/[0.05]"}`}
-                    style={m.role === "user" ? { background: "linear-gradient(135deg,rgba(139,92,246,0.22),rgba(139,92,246,0.14))" } : {}}>
+                    ${m.role === "user" ? "rounded-tr-sm" : "rounded-tl-sm"}`}
+                    style={m.role === "user"
+                      ? { background: "linear-gradient(135deg,rgba(139,92,246,0.22),rgba(139,92,246,0.14))", color: "rgba(255,255,255,0.80)", border: "1px solid rgba(139,92,246,0.15)" }
+                      : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.60)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     {m.text}
                   </div>
                 </div>
@@ -362,15 +391,16 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
 
               {loading && (
                 <div className="flex gap-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border border-white/10"
-                    style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.35),rgba(6,182,212,0.3))" }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.35),rgba(6,182,212,0.3))", border: "1px solid rgba(255,255,255,0.10)" }}>
                     <Ic d={ICONS.ai} size={10} className="text-cyan-200" />
                   </div>
-                  <div className="bg-white/[0.05] border border-white/8 px-3 py-2.5 rounded-2xl rounded-tl-sm">
+                  <div className="px-3 py-2.5 rounded-2xl rounded-tl-sm"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex gap-1 items-center">
                       {[0,1,2].map(i => (
-                        <div key={i} className="w-1 h-1 rounded-full bg-white/30 animate-bounce"
-                          style={{ animationDelay: `${i * 120}ms` }} />
+                        <div key={i} className="w-1 h-1 rounded-full animate-bounce"
+                          style={{ background: "rgba(255,255,255,0.30)", animationDelay: `${i * 120}ms` }} />
                       ))}
                     </div>
                   </div>
@@ -380,19 +410,20 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
             </div>
 
             <div className="px-3 pb-3 shrink-0">
-              <div className="rounded-xl border border-white/10 focus-within:border-purple-400/30 transition-colors overflow-hidden"
-                style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="rounded-xl overflow-hidden transition-colors"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)" }}>
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
                   placeholder="Ej: Escribele a mi jefe que no ire el viernes, tono formal..."
                   rows={3}
-                  className="w-full bg-transparent text-white/72 text-xs placeholder:text-white/18 resize-none outline-none px-3 pt-3 pb-1 leading-relaxed"
+                  className="w-full bg-transparent text-xs placeholder:opacity-20 resize-none outline-none px-3 pt-3 pb-1 leading-relaxed"
+                  style={{ color: "rgba(255,255,255,0.72)" }}
                 />
                 <div className="flex items-center justify-between px-3 pb-2.5">
-                  <span className="text-white/18 text-[9px]">Enter para enviar - Shift+Enter nueva linea</span>
+                  <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.18)" }}>Enter para enviar · Shift+Enter nueva linea</span>
                   <button onClick={sendMsg} disabled={!input.trim() || loading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white/82 text-xs border border-white/10 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                    style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.4),rgba(6,182,212,0.32))" }}>
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                    style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.4),rgba(6,182,212,0.32))", color: "rgba(255,255,255,0.82)", border: "1px solid rgba(255,255,255,0.10)" }}>
                     <Ic d={ICONS.send} size={10} />
                     Enviar
                   </button>
@@ -408,33 +439,36 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
                 { label: "Asunto", key: "subject",  ph: "Asunto",                  mono: false },
               ].map(({ label, key, ph, mono }) => (
                 <div key={key}>
-                  <label className="text-white/30 text-[10px] uppercase tracking-widest mb-1 block">{label}</label>
+                  <label className="text-[10px] uppercase tracking-widest mb-1 block" style={{ color: "rgba(255,255,255,0.30)" }}>{label}</label>
                   <input value={draft?.[key] || ""} onChange={e => setDraft(p => ({ ...p, [key]: e.target.value }))}
                     placeholder={ph}
-                    className={`w-full border border-white/10 rounded-xl px-3 py-2 text-white/72 text-xs placeholder:text-white/18 outline-none focus:border-white/22 transition-colors ${mono ? "font-mono" : ""}`}
-                    style={{ background: "rgba(255,255,255,0.05)" }}
+                    className={`w-full rounded-xl px-3 py-2 text-xs placeholder:opacity-20 outline-none transition-colors ${mono ? "font-mono" : ""}`}
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.72)" }}
                   />
                 </div>
               ))}
               <div>
-                <label className="text-white/30 text-[10px] uppercase tracking-widest mb-1 block">Mensaje</label>
+                <label className="text-[10px] uppercase tracking-widest mb-1 block" style={{ color: "rgba(255,255,255,0.30)" }}>Mensaje</label>
                 <textarea value={draft?.body || ""} onChange={e => setDraft(p => ({ ...p, body: e.target.value }))}
                   rows={13}
-                  className="w-full border border-white/10 rounded-xl px-3 py-2.5 text-white/72 text-xs placeholder:text-white/18 outline-none focus:border-white/22 transition-colors resize-none leading-relaxed"
-                  style={{ background: "rgba(255,255,255,0.05)" }}
+                  className="w-full rounded-xl px-3 py-2.5 text-xs placeholder:opacity-20 outline-none resize-none leading-relaxed"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.72)" }}
                 />
               </div>
             </div>
 
             <div className="px-4 pb-4 flex gap-2 shrink-0">
               <button onClick={handleSend}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium text-white/82 border border-white/10 transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(6,182,212,0.22))" }}>
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.28),rgba(6,182,212,0.22))", color: "rgba(255,255,255,0.82)", border: "1px solid rgba(255,255,255,0.10)" }}>
                 <Ic d={ICONS.send} size={12} />
                 Enviar correo
               </button>
-              <button className="px-4 py-2.5 rounded-xl text-white/35 hover:text-white/60 text-xs border border-white/8 transition-colors"
-                style={{ background: "rgba(255,255,255,0.04)" }}>
+              <button
+                className="px-4 py-2.5 rounded-xl text-xs transition-colors"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.35)" }}
+                onMouseEnter={e => e.currentTarget.style.color = "rgba(255,255,255,0.60)"}
+                onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.35)"}>
                 Borrador
               </button>
             </div>
@@ -475,7 +509,7 @@ export default function Gmail() {
   const unread = emails.filter(e => e.unread).length;
 
   const filtered = emails.filter(e => {
-    if (filter === "unread"  && !e.unread) return false;
+    if (filter === "unread" && !e.unread) return false;
     if (search) {
       const q = search.toLowerCase();
       if (![e.from, e.subject, e.snippet].some(s => (s || "").toLowerCase().includes(q))) return false;
@@ -487,7 +521,6 @@ export default function Gmail() {
     setSelected(email);
     if (email.unread) {
       setEmails(p => p.map(e => e.id === email.id ? { ...e, unread: false } : e));
-      // Fire-and-forget: no bloquear la UI esperando mark-read
       viernesApi.gmailMarkRead(email.id).catch(() => {});
     }
   };
@@ -498,7 +531,7 @@ export default function Gmail() {
       {/* Top bar */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-white font-semibold text-base">Gmail</h1>
+          <h1 className="font-semibold text-base" style={{ color: "var(--c-text)" }}>Gmail</h1>
           {unread > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] border border-cyan-500/20 font-medium">
               {unread} no leidos
@@ -509,13 +542,20 @@ export default function Gmail() {
           <button
             onClick={fetchEmails}
             disabled={loading}
-            className={`p-2 rounded-lg hover:bg-white/8 text-white/35 hover:text-white/65 transition-colors ${loading ? "animate-spin" : ""}`}
+            className={`p-2 rounded-lg transition-colors ${loading ? "animate-spin" : ""}`}
+            style={{ color: "var(--c-text-3)" }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--c-text-2)"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-3)"}
           >
             <Ic d={ICONS.refresh} size={14} />
           </button>
           <button onClick={() => setComposing(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white/82 border border-white/10 transition-all hover:border-purple-400/25 hover:opacity-95"
-            style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.22),rgba(6,182,212,0.17))" }}>
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg,rgba(139,92,246,0.22),rgba(6,182,212,0.17))",
+              border: "1px solid var(--c-border-med)",
+              color: "var(--c-text)",
+            }}>
             <Ic d={ICONS.compose} size={13} />
             Redactar
           </button>
@@ -534,25 +574,32 @@ export default function Gmail() {
         {/* Lista */}
         <Surface className="w-[340px] shrink-0 flex flex-col overflow-hidden !p-0">
 
-          <div className="px-3 pt-3 pb-2.5 border-b border-white/8 space-y-2 shrink-0">
-            <div className="flex items-center gap-2 rounded-xl px-2.5 py-2 border border-white/8 focus-within:border-white/15 transition-colors"
-              style={{ background: "rgba(255,255,255,0.04)" }}>
-              <Ic d={ICONS.search} size={12} className="text-white/22 shrink-0" />
+          <div className="px-3 pt-3 pb-2.5 space-y-2 shrink-0" style={{ borderBottom: "1px solid var(--c-border)" }}>
+            <div className="flex items-center gap-2 rounded-xl px-2.5 py-2 transition-colors"
+              style={{ background: "var(--c-input-bg)", border: "1px solid var(--c-border)" }}>
+              <span style={{ color: "var(--c-text-4)", display: "flex", flexShrink: 0 }}>
+                <Ic d={ICONS.search} size={12} />
+              </span>
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar correos..."
-                className="flex-1 bg-transparent text-white/68 text-xs placeholder:text-white/18 outline-none"
+                className="flex-1 bg-transparent text-xs outline-none"
+                style={{ color: "var(--c-text-2)" }}
               />
             </div>
             <div className="flex gap-0.5">
               {[
-                { k: "all",     l: "Todos"      },
-                { k: "unread",  l: "No leidos"  },
+                { k: "all",    l: "Todos"     },
+                { k: "unread", l: "No leidos" },
               ].map(({ k, l }) => (
                 <button key={k} onClick={() => setFilter(k)}
-                  className={`flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors
-                    ${filter === k
-                      ? "bg-white/10 text-white/80"
-                      : "text-white/30 hover:text-white/52 hover:bg-white/[0.04]"}`}>
+                  className="flex-1 py-1 rounded-lg text-[11px] font-medium transition-colors"
+                  style={{
+                    background: filter === k ? "var(--c-hover)" : "transparent",
+                    color: filter === k ? "var(--c-text)" : "var(--c-text-3)",
+                  }}
+                  onMouseEnter={e => { if (filter !== k) e.currentTarget.style.color = "var(--c-text-2)"; }}
+                  onMouseLeave={e => { if (filter !== k) e.currentTarget.style.color = "var(--c-text-3)"; }}
+                >
                   {l}
                 </button>
               ))}
@@ -561,12 +608,13 @@ export default function Gmail() {
 
           <div className="flex-1 overflow-y-auto">
             {loading && emails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-white/30 gap-2 py-10">
-                <div className="w-6 h-6 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
+              <div className="flex flex-col items-center justify-center h-full gap-2 py-10" style={{ color: "var(--c-text-3)" }}>
+                <div className="w-6 h-6 border-2 rounded-full animate-spin"
+                  style={{ borderColor: "var(--c-border-med)", borderTopColor: "var(--c-text-3)" }} />
                 <p className="text-xs">Cargando correos...</p>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-white/15 gap-2 py-10">
+              <div className="flex flex-col items-center justify-center h-full gap-2 py-10" style={{ color: "var(--c-text-4)" }}>
                 <Ic d={ICONS.inbox} size={32} />
                 <p className="text-xs">Sin correos</p>
               </div>
@@ -575,8 +623,10 @@ export default function Gmail() {
             ))}
           </div>
 
-          <div className="px-3 py-2 border-t border-white/[0.05] shrink-0">
-            <span className="text-white/18 text-[10px]">{filtered.length} correo{filtered.length !== 1 ? "s" : ""}</span>
+          <div className="px-3 py-2 shrink-0" style={{ borderTop: "1px solid var(--c-border)" }}>
+            <span className="text-[10px]" style={{ color: "var(--c-text-4)" }}>
+              {filtered.length} correo{filtered.length !== 1 ? "s" : ""}
+            </span>
           </div>
         </Surface>
 

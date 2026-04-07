@@ -21,8 +21,8 @@ function scrollTo(href: string) {
     <div class="container footer-inner">
       <div class="footer-brand">
         <a class="footer-logo" href="#home" @click.prevent="scrollTo('#home')">
-          <span class="logo-dot"></span>
-          {{ settings.company_name }}
+          <img src="/sdc.png" alt="SODIGIC" class="logo-img" />
+          SODIGIC
         </a>
         <p class="footer-tagline">{{ settings.company_tagline }}</p>
       </div>
@@ -32,7 +32,7 @@ function scrollTo(href: string) {
       </nav>
     </div>
     <div class="container footer-bottom">
-      <p class="copyright">© {{ year }} {{ settings.company_name }}. Todos los derechos reservados.</p>
+      <p class="copyright">© {{ year }} SODIGIC. Todos los derechos reservados.</p>
       <p class="made-with">Hecho con ♥ en México</p>
     </div>
   </footer>
@@ -50,9 +50,8 @@ function scrollTo(href: string) {
   font-size: 1.2rem; font-weight: 800; letter-spacing: -0.03em;
   color: var(--text); margin-bottom: 0.5rem;
 }
-.logo-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--cyan), var(--amber));
+.logo-img {
+  width: 26px; height: 26px; object-fit: contain; border-radius: 5px;
 }
 .footer-tagline { font-size: 0.85rem; color: var(--text-muted); }
 .footer-nav { display: flex; gap: 1.5rem; flex-wrap: wrap; }

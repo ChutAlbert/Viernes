@@ -8,6 +8,21 @@ const scrolled = ref(false)
 const mobileOpen = ref(false)
 const servicesOpen = ref(false)
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+const isDark = ref(true)
+
+function initTheme() {
+  const saved = localStorage.getItem('viernes_theme')
+  isDark.value = saved !== 'light'
+  document.documentElement.classList.toggle('light', !isDark.value)
+}
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('light', !isDark.value)
+  localStorage.setItem('viernes_theme', isDark.value ? 'dark' : 'light')
+}
+
 const navLinks = [
   { label: 'Nosotros', href: '#about' },
   { label: 'Contacto', href: '#contact' },
@@ -33,6 +48,7 @@ function closeServices() {
 }
 
 onMounted(() => {
+  initTheme()
   window.addEventListener('scroll', onScroll, { passive: true })
   document.addEventListener('click', closeServices)
 })
@@ -46,8 +62,8 @@ onUnmounted(() => {
   <nav class="navbar" :class="{ scrolled }">
     <div class="container nav-inner">
       <a class="nav-logo" href="#home" @click.prevent="scrollTo('#home')">
-        <span class="logo-dot"></span>
-        Viernes
+        <img src="/sdc.png" alt="SODIGIC" class="logo-img" />
+        SODIGIC
       </a>
 
       <ul class="nav-links">
@@ -84,6 +100,20 @@ onUnmounted(() => {
         </li>
       </ul>
 
+      <!-- Theme toggle -->
+      <button class="theme-toggle hidden-mobile" @click="toggleTheme" :title="isDark ? 'Modo claro' : 'Modo oscuro'">
+        <svg v-if="isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+
       <a class="btn btn-primary nav-cta hidden-mobile" href="#contact" @click.prevent="scrollTo('#contact')">
         Contáctanos
       </a>
@@ -111,11 +141,20 @@ onUnmounted(() => {
   transition: background 0.3s, box-shadow 0.3s, padding 0.3s;
 }
 .navbar.scrolled {
-  background: rgba(5, 13, 31, 0.85);
+  background: rgba(from var(--bg) r g b / 0.88);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 1px 0 rgba(34, 211, 238, 0.08);
+  box-shadow: 0 1px 0 var(--border-soft);
   padding: 0.75rem 0;
+}
+
+/* Fallback para navegadores sin relative color syntax */
+:root:not(.light) .navbar.scrolled {
+  background: rgba(5, 13, 31, 0.88);
+}
+:root.light .navbar.scrolled {
+  background: rgba(240, 244, 248, 0.92);
+  box-shadow: 0 1px 0 var(--border-soft);
 }
 .nav-inner { display: flex; align-items: center; gap: 2rem; }
 .nav-logo {
@@ -123,14 +162,9 @@ onUnmounted(() => {
   font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em;
   color: var(--text); flex-shrink: 0;
 }
-.logo-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--cyan), var(--amber));
-  animation: pulse-dot 2.5s ease-in-out infinite;
-}
-@keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(34, 211, 238, 0); }
+.logo-img {
+  width: 28px; height: 28px; object-fit: contain;
+  border-radius: 6px;
 }
 .nav-links {
   display: flex; align-items: center; gap: 0.25rem;
@@ -143,7 +177,7 @@ onUnmounted(() => {
   background: none; border: none; font-family: inherit;
   display: flex; align-items: center; gap: 0.35rem;
 }
-.nav-link:hover, .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.nav-link:hover, .nav-btn:hover { color: var(--text); background: var(--border-soft); }
 .chevron { transition: transform 0.25s ease; }
 .chevron.open { transform: rotate(180deg); }
 .services-dropdown {
@@ -162,7 +196,23 @@ onUnmounted(() => {
 .dropdown-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
 .dropdown-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
 .dropdown-empty { padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
-.nav-cta { margin-left: 0.75rem; }
+.nav-cta { margin-left: 0.5rem; }
+
+.theme-toggle {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-soft);
+  color: var(--text-soft);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-left: 0.5rem;
+}
+.theme-toggle:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.1);
+}
 .hidden-mobile { display: inline-flex; }
 .hamburger {
   display: none; flex-direction: column; gap: 5px;
@@ -178,7 +228,8 @@ onUnmounted(() => {
 .mobile-menu {
   display: flex; flex-direction: column;
   padding: 1rem 1.5rem 1.5rem;
-  background: var(--bg-surface); border-top: 1px solid var(--border-soft); gap: 0.25rem;
+  background: var(--bg-elevated); border-top: 1px solid var(--border-soft); gap: 0.25rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 .mobile-link {
   display: block; padding: 0.875rem 1rem; border-radius: var(--radius);

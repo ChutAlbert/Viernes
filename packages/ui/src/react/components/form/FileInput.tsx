@@ -105,8 +105,8 @@ export function FileInput({
           s.zone,
           isDark
             ? dragging
-              ? "border-white/30 bg-white/10"
-              : "border-white/15 bg-white/5 hover:border-white/25 hover:bg-white/8"
+              ? "border-[var(--c-border-med)] bg-[var(--c-hover)]"
+              : "border-[var(--c-border)] bg-[var(--c-input-bg)] hover:border-[var(--c-border-med)]"
             : dragging
               ? "border-slate-400 bg-slate-50"
               : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
@@ -126,7 +126,7 @@ export function FileInput({
         />
 
         <svg
-          className={cn(isDark ? "text-white/30" : "text-slate-400", s.icon)}
+          className={cn(isDark ? "text-[var(--c-text-4)]" : "text-slate-400", s.icon)}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -134,7 +134,7 @@ export function FileInput({
         </svg>
 
         <div>
-          <p className={cn("font-medium", s.text, isDark ? "text-white/70" : "text-slate-700")}>
+          <p className={cn("font-medium", s.text, isDark ? "text-[var(--c-text-2)]" : "text-slate-700")}>
             {dragging
               ? "Suelta aquí"
               : files.length > 0
@@ -146,7 +146,7 @@ export function FileInput({
                   : "Arrastra un archivo o haz clic para seleccionar"}
           </p>
           {accept && files.length === 0 && (
-            <p className={cn("mt-0.5", s.text, isDark ? "text-white/35" : "text-slate-400")}>
+            <p className={cn("mt-0.5", s.text, isDark ? "text-[var(--c-text-3)]" : "text-slate-400")}>
               {accept.replace(/\./g, "").toUpperCase().replace(/,/g, " · ")}
               {maxBytes ? ` · máx ${fmtBytes(maxBytes)}` : ""}
             </p>
@@ -161,12 +161,12 @@ export function FileInput({
             <li key={`${f.name}-${i}`}
               className={cn(
                 "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm",
-                isDark ? "border-white/10 bg-white/5 text-white/75" : "border-slate-200 bg-slate-50 text-slate-700"
+                isDark ? "border-[var(--c-border)] bg-[var(--c-input-bg)] text-[var(--c-text-2)]" : "border-slate-200 bg-slate-50 text-slate-700"
               )}>
               <span className="flex-1 truncate">{f.name}</span>
-              <span className={cn("text-xs shrink-0", isDark ? "text-white/35" : "text-slate-400")}>{fmtBytes(f.size)}</span>
+              <span className={cn("text-xs shrink-0", isDark ? "text-[var(--c-text-3)]" : "text-slate-400")}>{fmtBytes(f.size)}</span>
               <button type="button" onClick={() => removeFile(i)}
-                className={cn("transition shrink-0", isDark ? "text-white/30 hover:text-red-400" : "text-slate-400 hover:text-red-500")}>
+                className={cn("transition shrink-0", isDark ? "text-[var(--c-text-4)] hover:text-red-400" : "text-slate-400 hover:text-red-500")}>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

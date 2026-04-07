@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Surface, Button, Input, Textarea, Label, Select, Modal } from "@viernes/ui/react";
+import { Surface, Button, Input, Textarea, Label, Modal } from "@viernes/ui/react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -12,6 +12,22 @@ async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, { headers: authHeaders(), ...options });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+// Native select styled dark
+function DarkSelect({ value, onChange, options, className = "" }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none ${className}`}
+      style={{ border: "1px solid var(--c-border)", background: "var(--c-input-bg)", color: "var(--c-text)" }}
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>{o}</option>
+      ))}
+    </select>
+  );
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -60,38 +76,31 @@ function SettingsTab() {
     }
   }
 
-  const field = (key, label, multiline = false) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={key}>{label}</Label>
-      {multiline ? (
-        <Textarea
-          id={key}
-          value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-          rows={3}
-        />
-      ) : (
-        <Input
-          id={key}
-          value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        />
-      )}
-    </div>
-  );
-
   return (
     <Surface className="p-6 space-y-5">
-      <h2 className="text-white font-semibold text-lg">Configuración del sitio</h2>
-      {field("company_name", "Nombre de la empresa")}
-      {field("company_tagline", "Tagline")}
-      {field("hero_title", "Título del Hero")}
-      {field("hero_subtitle", "Subtítulo del Hero")}
-      {field("hero_description", "Descripción del Hero", true)}
+      <h2 className="font-semibold text-lg" style={{ color: "var(--c-text)" }}>Configuración del sitio</h2>
+      <div className="space-y-1.5">
+        <Label htmlFor="company_name">Nombre de la empresa</Label>
+        <Input id="company_name" variant="dark" value={form.company_name} onChange={(v) => setForm((f) => ({ ...f, company_name: v }))} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="company_tagline">Tagline</Label>
+        <Input id="company_tagline" variant="dark" value={form.company_tagline} onChange={(v) => setForm((f) => ({ ...f, company_tagline: v }))} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="hero_title">Título del Hero</Label>
+        <Input id="hero_title" variant="dark" value={form.hero_title} onChange={(v) => setForm((f) => ({ ...f, hero_title: v }))} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="hero_subtitle">Subtítulo del Hero</Label>
+        <Input id="hero_subtitle" variant="dark" value={form.hero_subtitle} onChange={(v) => setForm((f) => ({ ...f, hero_subtitle: v }))} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="hero_description">Descripción del Hero</Label>
+        <Textarea id="hero_description" variant="dark" rows={3} value={form.hero_description} onChange={(v) => setForm((f) => ({ ...f, hero_description: v }))} />
+      </div>
       <div className="flex items-center gap-3 pt-2">
-        <Button onClick={save} disabled={saving}>
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        <Button text={saving ? "Guardando..." : "Guardar cambios"} onClick={save} disabled={saving} />
         {msg && <span className={`text-sm ${msg.includes("Error") ? "text-red-400" : "text-green-400"}`}>{msg}</span>}
       </div>
     </Surface>
@@ -102,7 +111,7 @@ function SettingsTab() {
 const ICONS = ["code", "printer", "layout", "lightbulb", "globe", "database"];
 const CATEGORIES = ["software", "hardware", "design", "consulting", "general"];
 
-const EMPTY_SERVICE = { title: "", description: "", icon: "code", category: "general", order_index: 0, is_active: true };
+const EMPTY_SERVICE = { title: "", description: "", long_description: "", image_urls: [], icon: "code", category: "general", order_index: 0, is_active: true };
 
 function ServicesTab() {
   const [services, setServices] = useState([]);
@@ -118,15 +127,28 @@ function ServicesTab() {
   useEffect(() => { load(); }, [load]);
 
   function openCreate() { setEditing(null); setForm(EMPTY_SERVICE); setModalOpen(true); }
-  function openEdit(svc) { setEditing(svc); setForm({ ...svc }); setModalOpen(true); }
+  function openEdit(svc) {
+    setEditing(svc);
+    setForm({
+      ...svc,
+      long_description: svc.long_description ?? "",
+      image_urls: svc.image_urls ?? [],
+    });
+    setModalOpen(true);
+  }
 
   async function save() {
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        long_description: form.long_description || null,
+        image_urls: form.image_urls?.length ? form.image_urls : null,
+      };
       if (editing) {
-        await apiFetch(`/website/admin/services/${editing.id}`, { method: "PUT", body: JSON.stringify(form) });
+        await apiFetch(`/website/admin/services/${editing.id}`, { method: "PUT", body: JSON.stringify(payload) });
       } else {
-        await apiFetch("/website/admin/services", { method: "POST", body: JSON.stringify(form) });
+        await apiFetch("/website/admin/services", { method: "POST", body: JSON.stringify(payload) });
       }
       setModalOpen(false);
       load();
@@ -146,8 +168,8 @@ function ServicesTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-white font-semibold text-lg">Servicios</h2>
-        <Button onClick={openCreate}>+ Agregar servicio</Button>
+        <h2 className="font-semibold text-lg" style={{ color: "var(--c-text)" }}>Servicios</h2>
+        <Button text="+ Agregar servicio" onClick={openCreate} />
       </div>
 
       <div className="grid gap-3">
@@ -155,77 +177,80 @@ function ServicesTab() {
           <Surface key={svc.id} className="p-4 flex items-start gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-white font-semibold">{svc.title}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${svc.is_active ? "bg-green-900/50 text-green-400" : "bg-white/10 text-white/40"}`}>
+                <span className="font-semibold" style={{ color: "var(--c-text)" }}>{svc.title}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${svc.is_active ? "bg-green-900/50 text-green-400" : ""}`}
+                  style={!svc.is_active ? { background: "var(--c-hover)", color: "var(--c-text-3)" } : {}}>
                   {svc.is_active ? "Activo" : "Inactivo"}
                 </span>
               </div>
-              <p className="text-white/60 text-sm mt-1 line-clamp-2">{svc.description}</p>
-              <div className="flex gap-3 mt-2 text-xs text-white/40">
+              <p className="text-sm mt-1 line-clamp-2" style={{ color: "var(--c-text-2)" }}>{svc.description}</p>
+              <div className="flex gap-3 mt-2 text-xs" style={{ color: "var(--c-text-4)" }}>
                 <span>Icono: {svc.icon}</span>
                 <span>Categoría: {svc.category}</span>
                 <span>Orden: {svc.order_index}</span>
+                {svc.slug && <span>Slug: {svc.slug}</span>}
               </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => openEdit(svc)} className="text-white/50 hover:text-white transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white/10">
-                Editar
-              </button>
-              <button onClick={() => remove(svc.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">
-                Eliminar
-              </button>
+              <button onClick={() => openEdit(svc)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
+              <button onClick={() => remove(svc.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
         {services.length === 0 && (
-          <Surface className="p-8 text-center text-white/40">No hay servicios. Agrega el primero.</Surface>
+          <Surface className="p-8 text-center" style={{ color: "var(--c-text-4)" }}>No hay servicios. Agrega el primero.</Surface>
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar servicio" : "Nuevo servicio"}>
-        <div className="space-y-4 p-1">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} size="lg">
+        <div className="p-5 space-y-4">
+          <h3 className="font-semibold text-base" style={{ color: "var(--c-text)" }}>{editing ? "Editar servicio" : "Nuevo servicio"}</h3>
+
           <div className="space-y-1.5">
             <Label>Título</Label>
-            <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+            <Input variant="dark" value={form.title} onChange={(v) => setForm((f) => ({ ...f, title: v }))} />
           </div>
           <div className="space-y-1.5">
-            <Label>Descripción</Label>
-            <Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            <Label>Descripción corta</Label>
+            <Textarea variant="dark" rows={2} value={form.description} onChange={(v) => setForm((f) => ({ ...f, description: v }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Descripción larga (página de detalle)</Label>
+            <Textarea variant="dark" rows={4} value={form.long_description} onChange={(v) => setForm((f) => ({ ...f, long_description: v }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>URLs de imágenes (una por línea)</Label>
+            <Textarea
+              variant="dark"
+              rows={3}
+              placeholder="https://..."
+              value={(form.image_urls ?? []).join("\n")}
+              onChange={(v) => setForm((f) => ({ ...f, image_urls: v.split("\n").map(s => s.trim()).filter(Boolean) }))}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Icono</Label>
-              <Select value={form.icon} onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}>
-                {ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
-              </Select>
+              <DarkSelect value={form.icon} onChange={(v) => setForm((f) => ({ ...f, icon: v }))} options={ICONS} />
             </div>
             <div className="space-y-1.5">
               <Label>Categoría</Label>
-              <Select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </Select>
+              <DarkSelect value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} options={CATEGORIES} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 items-end">
             <div className="space-y-1.5">
               <Label>Orden</Label>
-              <Input type="number" value={form.order_index} onChange={(e) => setForm((f) => ({ ...f, order_index: +e.target.value }))} />
+              <Input variant="dark" type="number" value={String(form.order_index)} onChange={(v) => setForm((f) => ({ ...f, order_index: +v }))} />
             </div>
-            <div className="space-y-1.5 flex flex-col justify-end">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.is_active}
-                  onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
-                  className="w-4 h-4 accent-cyan-400"
-                />
-                <span className="text-sm text-white/70">Activo</span>
-              </label>
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer pb-2">
+              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-cyan-400" />
+              <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Activo</span>
+            </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button variant="ghost" text="Cancelar" onClick={() => setModalOpen(false)} />
+            <Button text={saving ? "Guardando..." : "Guardar"} onClick={save} disabled={saving} />
           </div>
         </div>
       </Modal>
@@ -281,8 +306,8 @@ function ContactsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-white font-semibold text-lg">Información de Contacto</h2>
-        <Button onClick={openCreate}>+ Agregar contacto</Button>
+        <h2 className="font-semibold text-lg" style={{ color: "var(--c-text)" }}>Información de Contacto</h2>
+        <Button text="+ Agregar contacto" onClick={openCreate} />
       </div>
 
       <div className="grid gap-3">
@@ -290,46 +315,46 @@ function ContactsTab() {
           <Surface key={c.id} className="p-4 flex items-center gap-4">
             <span className="text-2xl">{typeEmoji[c.contact_type] ?? "🔗"}</span>
             <div className="flex-1 min-w-0">
-              <div className="text-white font-semibold">{c.label}</div>
-              <div className="text-white/60 text-sm">{c.value}</div>
+              <div className="font-semibold" style={{ color: "var(--c-text)" }}>{c.label}</div>
+              <div className="text-sm" style={{ color: "var(--c-text-2)" }}>{c.value}</div>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-green-900/50 text-green-400" : "bg-white/10 text-white/40"}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-green-900/50 text-green-400" : ""}`}
+              style={!c.is_active ? { background: "var(--c-hover)", color: "var(--c-text-3)" } : {}}>
               {c.is_active ? "Activo" : "Inactivo"}
             </span>
             <div className="flex gap-2">
-              <button onClick={() => openEdit(c)} className="text-white/50 hover:text-white transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white/10">Editar</button>
+              <button onClick={() => openEdit(c)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
               <button onClick={() => remove(c.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
         {contacts.length === 0 && (
-          <Surface className="p-8 text-center text-white/40">No hay contactos. Agrega el primero.</Surface>
+          <Surface className="p-8 text-center" style={{ color: "var(--c-text-4)" }}>No hay contactos.</Surface>
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar contacto" : "Nuevo contacto"}>
-        <div className="space-y-4 p-1">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="p-5 space-y-4">
+          <h3 className="font-semibold text-base" style={{ color: "var(--c-text)" }}>{editing ? "Editar contacto" : "Nuevo contacto"}</h3>
           <div className="space-y-1.5">
             <Label>Tipo</Label>
-            <Select value={form.contact_type} onChange={(e) => setForm((f) => ({ ...f, contact_type: e.target.value }))}>
-              {CONTACT_TYPES.map((t) => <option key={t} value={t}>{typeEmoji[t]} {t}</option>)}
-            </Select>
+            <DarkSelect value={form.contact_type} onChange={(v) => setForm((f) => ({ ...f, contact_type: v }))} options={CONTACT_TYPES} />
           </div>
           <div className="space-y-1.5">
             <Label>Etiqueta (ej: WhatsApp MX)</Label>
-            <Input value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
+            <Input variant="dark" value={form.label} onChange={(v) => setForm((f) => ({ ...f, label: v }))} />
           </div>
           <div className="space-y-1.5">
             <Label>Valor (número, email o URL)</Label>
-            <Input value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} />
+            <Input variant="dark" value={form.value} onChange={(v) => setForm((f) => ({ ...f, value: v }))} />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-cyan-400" />
-            <span className="text-sm text-white/70">Activo</span>
+            <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Activo</span>
           </label>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button variant="ghost" text="Cancelar" onClick={() => setModalOpen(false)} />
+            <Button text={saving ? "Guardando..." : "Guardar"} onClick={save} disabled={saving} />
           </div>
         </div>
       </Modal>
@@ -354,7 +379,11 @@ function MembersTab() {
   useEffect(() => { load(); }, [load]);
 
   function openCreate() { setEditing(null); setForm(EMPTY_MEMBER); setModalOpen(true); }
-  function openEdit(m) { setEditing(m); setForm({ ...m, bio: m.bio ?? "", avatar_url: m.avatar_url ?? "", github_url: m.github_url ?? "", linkedin_url: m.linkedin_url ?? "" }); setModalOpen(true); }
+  function openEdit(m) {
+    setEditing(m);
+    setForm({ ...m, bio: m.bio ?? "", avatar_url: m.avatar_url ?? "", github_url: m.github_url ?? "", linkedin_url: m.linkedin_url ?? "" });
+    setModalOpen(true);
+  }
 
   async function save() {
     setSaving(true);
@@ -380,65 +409,77 @@ function MembersTab() {
     load();
   }
 
-  const f = (key, label, opts = {}) => (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input value={form[key]} onChange={(e) => setForm((fm) => ({ ...fm, [key]: e.target.value }))} {...opts} />
-    </div>
-  );
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-white font-semibold text-lg">Equipo</h2>
-        <Button onClick={openCreate}>+ Agregar miembro</Button>
+        <h2 className="font-semibold text-lg" style={{ color: "var(--c-text)" }}>Equipo</h2>
+        <Button text="+ Agregar miembro" onClick={openCreate} />
       </div>
 
       <div className="grid gap-3">
         {members.map((m) => (
           <Surface key={m.id} className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 overflow-hidden">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 overflow-hidden" style={{ background: "var(--c-hover)", color: "var(--c-text)" }}>
               {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.name.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white font-semibold">{m.name}</div>
+              <div className="font-semibold" style={{ color: "var(--c-text)" }}>{m.name}</div>
               <div className="text-cyan-400 text-sm">{m.role}</div>
-              {m.bio && <p className="text-white/50 text-xs mt-1 line-clamp-1">{m.bio}</p>}
+              {m.bio && <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--c-text-3)" }}>{m.bio}</p>}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => openEdit(m)} className="text-white/50 hover:text-white transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white/10">Editar</button>
+              <button onClick={() => openEdit(m)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
               <button onClick={() => remove(m.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
         {members.length === 0 && (
-          <Surface className="p-8 text-center text-white/40">No hay miembros. Agrega el primero.</Surface>
+          <Surface className="p-8 text-center" style={{ color: "var(--c-text-4)" }}>No hay miembros.</Surface>
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar miembro" : "Nuevo miembro"}>
-        <div className="space-y-4 p-1">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} size="lg">
+        <div className="p-5 space-y-4">
+          <h3 className="font-semibold text-base" style={{ color: "var(--c-text)" }}>{editing ? "Editar miembro" : "Nuevo miembro"}</h3>
           <div className="grid grid-cols-2 gap-3">
-            {f("name", "Nombre")}
-            {f("role", "Rol / Puesto")}
+            <div className="space-y-1.5">
+              <Label>Nombre</Label>
+              <Input variant="dark" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Rol / Puesto</Label>
+              <Input variant="dark" value={form.role} onChange={(v) => setForm((f) => ({ ...f, role: v }))} />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Bio</Label>
-            <Textarea rows={2} value={form.bio} onChange={(e) => setForm((fm) => ({ ...fm, bio: e.target.value }))} />
+            <Textarea variant="dark" rows={2} value={form.bio} onChange={(v) => setForm((f) => ({ ...f, bio: v }))} />
           </div>
-          {f("avatar_url", "URL de avatar (imagen)", { placeholder: "https://..." })}
-          {f("github_url", "GitHub URL", { placeholder: "https://github.com/..." })}
-          {f("linkedin_url", "LinkedIn URL", { placeholder: "https://linkedin.com/in/..." })}
+          <div className="space-y-1.5">
+            <Label>URL de avatar</Label>
+            <Input variant="dark" value={form.avatar_url} placeholder="https://..." onChange={(v) => setForm((f) => ({ ...f, avatar_url: v }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>GitHub URL</Label>
+            <Input variant="dark" value={form.github_url} placeholder="https://github.com/..." onChange={(v) => setForm((f) => ({ ...f, github_url: v }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>LinkedIn URL</Label>
+            <Input variant="dark" value={form.linkedin_url} placeholder="https://linkedin.com/in/..." onChange={(v) => setForm((f) => ({ ...f, linkedin_url: v }))} />
+          </div>
           <div className="grid grid-cols-2 gap-3 items-end">
-            {f("order_index", "Orden")}
+            <div className="space-y-1.5">
+              <Label>Orden</Label>
+              <Input variant="dark" type="number" value={String(form.order_index)} onChange={(v) => setForm((f) => ({ ...f, order_index: +v }))} />
+            </div>
             <label className="flex items-center gap-2 cursor-pointer pb-2">
-              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((fm) => ({ ...fm, is_active: e.target.checked }))} className="w-4 h-4 accent-cyan-400" />
-              <span className="text-sm text-white/70">Activo</span>
+              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-cyan-400" />
+              <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Activo</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            <Button variant="ghost" text="Cancelar" onClick={() => setModalOpen(false)} />
+            <Button text={saving ? "Guardando..." : "Guardar"} onClick={save} disabled={saving} />
           </div>
         </div>
       </Modal>
@@ -460,28 +501,28 @@ export default function Website() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-white text-2xl font-bold">Gestión del Website</h1>
-        <p className="text-white/50 text-sm mt-1">Administra el contenido público de tu sitio web.</p>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--c-text)" }}>Gestión del Website</h1>
+        <p className="text-sm mt-1" style={{ color: "var(--c-text-3)" }}>Administra el contenido público de tu sitio web.</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-white/10">
+      <div className="flex gap-1" style={{ borderBottom: "1px solid var(--c-border)" }}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? "text-cyan-400 border-cyan-400"
-                : "text-white/50 border-transparent hover:text-white/80"
-            }`}
+            className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px"
+            style={activeTab === tab.id
+              ? { color: "var(--c-accent)", borderColor: "var(--c-accent)" }
+              : { color: "var(--c-text-3)", borderColor: "transparent" }
+            }
+            onMouseEnter={e => { if (activeTab !== tab.id) e.currentTarget.style.color = "var(--c-text-2)"; }}
+            onMouseLeave={e => { if (activeTab !== tab.id) e.currentTarget.style.color = "var(--c-text-3)"; }}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
       <div>{tabContent[activeTab]}</div>
     </div>
   );

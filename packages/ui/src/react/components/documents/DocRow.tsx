@@ -41,7 +41,6 @@ export function DocRow({
   isSelected?: boolean;
   onSelect?: (doc: DocFile) => void;
   onDelete?: (name: string) => void;
-  /** Si este doc está siendo eliminado ahora mismo */
   deleting?: boolean;
   showDelete?: boolean;
   className?: string;
@@ -55,19 +54,19 @@ export function DocRow({
       tabIndex={0}
       onClick={() => onSelect?.(doc)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(doc); } }}
-      className={cn(
-        "w-full text-left group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-150 cursor-pointer",
-        isSelected
-          ? "border-white/20 bg-white/10"
-          : "border-transparent hover:border-white/10 hover:bg-white/5",
-        className
-      )}
+      className={cn("w-full text-left group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 cursor-pointer", className)}
+      style={{
+        border: isSelected ? "1px solid var(--c-border-med)" : "1px solid transparent",
+        background: isSelected ? "var(--c-hover)" : "transparent",
+      }}
+      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--c-hover)"; }}
+      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
     >
       <span className="text-lg shrink-0">{icon}</span>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white/90 truncate">{doc.name}</p>
-        <p className="text-xs text-white/40 mt-0.5">
+        <p className="text-sm font-medium truncate" style={{ color: "var(--c-text)" }}>{doc.name}</p>
+        <p className="text-xs mt-0.5" style={{ color: "var(--c-text-3)" }}>
           {fmtBytes(doc.size)} · {fmtDate(doc.modified)}
         </p>
       </div>
@@ -81,9 +80,10 @@ export function DocRow({
           className={cn(
             "shrink-0 transition-opacity p-1 rounded-lg",
             "opacity-0 group-hover:opacity-100",
-            "text-white/30 hover:text-red-400 hover:bg-red-500/10",
+            "hover:text-red-400 hover:bg-red-500/10",
             "disabled:opacity-30 disabled:cursor-not-allowed"
           )}
+          style={{ color: "var(--c-text-3)" }}
         >
           {deleting ? (
             <Spinner size="xs" />

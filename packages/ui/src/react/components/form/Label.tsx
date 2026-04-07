@@ -1,38 +1,24 @@
 import React from "react";
 import { cn } from "../../utils/cn";
 
-type LabelSize = "xs" | "sm" | "md" | "lg";
-type LabelColor = "slate" | "muted" | "white" | "danger" | "success";
-
-const sizeMap: Record<LabelSize, string> = {
-  xs: "text-xs",
-  sm: "text-sm",
-  md: "text-base",
-  lg: "text-lg",
-};
-
-const colorMap: Record<LabelColor, string> = {
-  slate: "text-slate-700",
-  muted: "text-slate-500",
-  white: "text-white",
-  danger: "text-red-600",
-  success: "text-emerald-600",
-};
-
 export function Label({
   name,
-  size = "sm",
-  color = "slate",
+  children,
+  htmlFor,
   className,
 }: {
-  name: string;
-  size?: LabelSize;
-  color?: LabelColor;
+  name?: string;
+  children?: React.ReactNode;
+  htmlFor?: string;
   className?: string;
 }) {
   return (
-    <label className={cn("block font-medium", sizeMap[size], colorMap[color], className)}>
-      {name}
+    <label
+      htmlFor={htmlFor}
+      className={cn("block text-xs font-medium mb-1", className)}
+      style={{ color: "var(--c-text-2)" }}
+    >
+      {name ?? children}
     </label>
   );
 }

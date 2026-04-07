@@ -5,17 +5,21 @@ export function Surface({
   children,
   className,
   onClick,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-white/10 bg-[#0f1a2e]/70 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]",
-        className
-      )}
+      className={cn("rounded-2xl", className)}
+      style={{
+        background: "var(--c-surface)",
+        border: "1px solid var(--c-border)",
+        ...style,
+      }}
       onClick={onClick}
     >
       {children}

@@ -1,7 +1,10 @@
 export interface Service {
   id: number
   title: string
+  slug: string | null
   description: string
+  long_description: string | null
+  image_urls: string[] | null
   icon: string
   category: string
   order_index: number

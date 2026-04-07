@@ -133,7 +133,7 @@ export default function Documents() {
         description={
           confirmDelete && (
             <span>
-              Se borrará <span className="text-white/85 font-medium break-all">{confirmDelete}</span> del
+              Se borrará <span className="font-medium break-all" style={{ color: "var(--c-text)" }}>{confirmDelete}</span> del
               disco y todos sus chunks del vectordb. Esta acción no se puede deshacer.
             </span>
           )
@@ -147,8 +147,8 @@ export default function Documents() {
         <div className="col-span-12 lg:col-span-6">
           <Surface className="p-4 h-full flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-white/90">Subir documento</p>
-              <span className="text-xs text-white/35">PDF · TXT · MD · DOCX</span>
+              <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>Subir documento</p>
+              <span className="text-xs" style={{ color: "var(--c-text-3)" }}>PDF · TXT · MD · DOCX</span>
             </div>
 
             <FileInput
@@ -170,7 +170,7 @@ export default function Documents() {
                 loading={uploadStatus.loading && !uploadedFilename}
                 disabled={!files[0] || uploadStatus.loading}
                 onClick={handleUpload}
-                className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2"
+                className="bg-[var(--c-hover)] border border-[var(--c-border-med)] text-[var(--c-text)] text-sm py-2"
               />
               <Button
                 text="Indexar"
@@ -178,11 +178,11 @@ export default function Documents() {
                 loading={uploadStatus.loading && !!uploadedFilename}
                 disabled={!uploadedFilename || uploadStatus.loading}
                 onClick={handleIngest}
-                className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2"
+                className="bg-[var(--c-hover)] border border-[var(--c-border-med)] text-[var(--c-text)] text-sm py-2"
               />
             </div>
 
-            {uploadStatus.msg && <p className="text-xs text-white/55">{uploadStatus.msg}</p>}
+            {uploadStatus.msg && <p className="text-xs" style={{ color: "var(--c-text-2)" }}>{uploadStatus.msg}</p>}
           </Surface>
         </div>
 
@@ -190,8 +190,8 @@ export default function Documents() {
         <div className="col-span-12 lg:col-span-6">
           <Surface className="p-4 h-full flex flex-col gap-2">
             <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-semibold text-white/90">Notas</p>
-              <span className="text-xs text-white/35">/ingest/text</span>
+              <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>Notas</p>
+              <span className="text-xs" style={{ color: "var(--c-text-3)" }}>/ingest/text</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -235,10 +235,10 @@ export default function Documents() {
               loading={textStatus.loading}
               disabled={!canIngestText}
               onClick={handleIngestText}
-              className="bg-white/10 hover:bg-white/15 border border-white/15 text-white/90 text-sm py-2 mt-1"
+              className="bg-[var(--c-hover)] border border-[var(--c-border-med)] text-[var(--c-text)] text-sm py-2 mt-1"
             />
 
-            {textStatus.msg && <p className="text-xs text-white/55">{textStatus.msg}</p>}
+            {textStatus.msg && <p className="text-xs" style={{ color: "var(--c-text-2)" }}>{textStatus.msg}</p>}
           </Surface>
         </div>
       </div>
@@ -249,19 +249,23 @@ export default function Documents() {
         {/* Lista */}
         <div className="col-span-12 lg:col-span-4 min-h-0 flex flex-col">
           <Surface className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-white/10">
-              <svg className="w-4 h-4 text-white/35 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid var(--c-border)" }}>
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: "var(--c-text-3)" }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-sm text-white/75 placeholder:text-white/25 outline-none"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: "var(--c-text-2)" }}
                 placeholder="Buscar…"
               />
               <button onClick={fetchDocs} title="Recargar"
-                className="text-white/30 hover:text-white/65 transition p-1 rounded-lg hover:bg-white/5">
+                className="transition p-1 rounded-lg"
+                style={{ color: "var(--c-text-3)" }}
+                onMouseEnter={e => e.currentTarget.style.color = "var(--c-text-2)"}
+                onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-3)"}>
                 {docsLoading
                   ? <Spinner size="sm" />
                   : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,12 +278,12 @@ export default function Documents() {
 
             <div className="flex-1 min-h-0 overflow-auto p-2 space-y-0.5">
               {docsLoading && docs.length === 0 && (
-                <div className="flex items-center justify-center py-10 gap-2 text-white/25 text-sm">
+                <div className="flex items-center justify-center py-10 gap-2 text-sm" style={{ color: "var(--c-text-3)" }}>
                   <Spinner /> Cargando…
                 </div>
               )}
               {!docsLoading && filteredDocs.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-10 gap-2 text-white/20">
+                <div className="flex flex-col items-center justify-center py-10 gap-2" style={{ color: "var(--c-text-4)" }}>
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
                       d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -299,7 +303,7 @@ export default function Documents() {
               ))}
             </div>
 
-            <div className="shrink-0 px-3 py-2 border-t border-white/10 text-xs text-white/25">
+            <div className="shrink-0 px-3 py-2 text-xs" style={{ borderTop: "1px solid var(--c-border)", color: "var(--c-text-4)" }}>
               {filteredDocs.length} documento{filteredDocs.length !== 1 ? "s" : ""}
             </div>
           </Surface>

@@ -7,7 +7,7 @@ type InputVariant = "light" | "dark";
 
 const variantStyles: Record<InputVariant, string> = {
   light: "border-slate-300 bg-white text-slate-800 focus:ring-slate-900/20 placeholder:text-slate-400",
-  dark:  "border-white/10 bg-white/5 text-white/85 focus:ring-white/20 placeholder:text-white/30",
+  dark:  "border-[var(--c-border)] bg-[var(--c-input-bg)] text-[var(--c-text)] placeholder:text-[var(--c-text-4)]",
 };
 
 export function Input({

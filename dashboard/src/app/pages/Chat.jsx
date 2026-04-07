@@ -197,28 +197,29 @@ export default function Chat() {
   return (
     <div className="h-full min-h-0 flex gap-4 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-72 shrink-0 h-full min-h-0 border rounded-lg p-3 flex flex-col gap-3 overflow-hidden">
-        <button className="border rounded px-3 py-2" onClick={newChat}>
+      <aside className="w-72 shrink-0 h-full min-h-0 rounded-xl p-3 flex flex-col gap-3 overflow-hidden"
+        style={{ border: "1px solid var(--c-border-med)", background: "var(--c-surface)" }}>
+        <button
+          className="rounded-xl px-3 py-2 transition-colors text-sm font-medium"
+          style={{ border: "1px solid var(--c-border)", color: "var(--c-text-2)" }}
+          onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-2)"; e.currentTarget.style.background = "transparent"; }}
+          onClick={newChat}
+        >
           Nuevo chat
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm">Memoria</span>
+          <span className="text-sm shrink-0" style={{ color: "var(--c-text-2)" }}>Memoria</span>
           <select
-            className="w-full bg-white/5 text-white border border-white/15 rounded-lg px-3 py-2
-            focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30"
+            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+            style={{ background: "var(--c-input-bg)", color: "var(--c-text)", border: "1px solid var(--c-border)" }}
             value={memoryMode}
             onChange={(e) => setMemoryMode(e.target.value)}
           >
-            <option className="bg-slate-900 text-white" value="auto">
-              Auto
-            </option>
-            <option className="bg-slate-900 text-white" value="ask">
-              Preguntar
-            </option>
-            <option className="bg-slate-900 text-white" value="off">
-              Off
-            </option>
+            <option value="auto">Auto</option>
+            <option value="ask">Preguntar</option>
+            <option value="off">Off</option>
           </select>
         </div>
 
@@ -228,9 +229,13 @@ export default function Chat() {
             <button
               key={s.id}
               onClick={() => setActiveSessionId(s.id)}
-              className={`w-full text-left px-3 py-2 rounded border ${
-                activeSessionId === s.id ? "bg-white/10" : "bg-transparent"
-              }`}
+              className="w-full text-left px-3 py-2 rounded-lg border transition-colors"
+              style={activeSessionId === s.id
+                ? { background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "var(--c-accent)" }
+                : { background: "transparent", border: "1px solid transparent", color: "var(--c-text-3)" }
+              }
+              onMouseEnter={e => { if (activeSessionId !== s.id) { e.currentTarget.style.background = "var(--c-hover)"; e.currentTarget.style.color = "var(--c-text-2)"; } }}
+              onMouseLeave={e => { if (activeSessionId !== s.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-text-3)"; } }}
             >
               <div className="text-sm font-semibold truncate">
                 {s.title || "Sin título"}
@@ -242,50 +247,57 @@ export default function Chat() {
       </aside>
 
       {/* Thread */}
-      <section className="flex-1 min-w-0 h-full min-h-0 border rounded-lg flex flex-col overflow-hidden">
-        <div className="border-b p-3 font-semibold">Chat</div>
+      <section className="flex-1 min-w-0 h-full min-h-0 rounded-xl flex flex-col overflow-hidden"
+        style={{ border: "1px solid var(--c-border-med)", background: "var(--c-surface)" }}>
+        <div className="p-3 font-semibold text-sm" style={{ color: "var(--c-text-2)", borderBottom: "1px solid var(--c-border)" }}>Chat</div>
 
         {/* SOLO MENSAJES SCROLLEAN */}
         <div className="flex-1 min-h-0 overflow-auto overflow-x-hidden p-4 space-y-3">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-2">
-                <p className="text-2xl font-semibold text-white/80">{getGreeting()}</p>
-                <p className="text-sm text-white/50">¿En qué puedo asistirle?</p>
+                <p className="text-2xl font-semibold" style={{ color: "var(--c-text)" }}>{getGreeting()}</p>
+                <p className="text-sm" style={{ color: "var(--c-text-3)" }}>¿En qué puedo asistirle?</p>
               </div>
             </div>
           )}
           {messages.map((m) => (
             <div
               key={m.id}
-              className={`rounded-2xl px-4 py-3 border
-      max-w-[52ch] w-fit break-words
-      ${
-        m.role === "user"
-          ? "ml-auto bg-white/10 border-white/10"
-          : "mr-auto bg-white/5 border-white/10"
-      }
-      ${m.is_error ? "border-red-400/40 bg-red-500/10" : ""}`}
+              className={`flex gap-2.5 ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div className="text-xs text-white/60 mb-1">{m.role}</div>
-
-              <div className="text-white whitespace-pre-wrap leading-relaxed">
-                {m.content}
-              </div>
-
-              {/* ✅ SOLO ESTO, NO ENVUELVAS EL BUBBLE */}
-              {m.role === "assistant" && m.is_streaming && (
-                <div className="mt-2 text-xs text-white/50">Escribiendo...</div>
+              {m.role !== "user" && (
+                <img src="/Logo_sf.png" alt="SODIGIC" className="w-7 h-7 rounded-lg object-contain shrink-0 mt-0.5" />
               )}
+              <div
+                className="rounded-2xl px-4 py-3 max-w-[52ch] break-words"
+                style={m.is_error
+                  ? { border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.1)" }
+                  : m.role === "user"
+                    ? { background: "var(--c-accent-bg)", border: "1px solid rgba(124,58,237,0.2)" }
+                    : { background: "var(--c-surface-2)", border: "1px solid var(--c-border-med)" }
+                }
+              >
+                <div className="text-[10px] font-semibold mb-1 uppercase tracking-wider"
+                  style={{ color: m.role === "user" ? "var(--c-accent)" : "var(--c-cyan)" }}>
+                  {m.role === "user" ? "Tú" : "Viernes"}
+                </div>
+                <div className="whitespace-pre-wrap leading-relaxed text-sm" style={{ color: "var(--c-text)" }}>
+                  {m.content}
+                </div>
+                {m.role === "assistant" && m.is_streaming && (
+                  <div className="mt-2 text-xs" style={{ color: "var(--c-text-3)" }}>Escribiendo...</div>
+                )}
+              </div>
             </div>
           ))}
           <div ref={bottomRef} />
         </div>
 
         {/* Composer fijo abajo */}
-        <div className="shrink-0 border-t p-3">
+        <div className="shrink-0 p-3" style={{ borderTop: "1px solid var(--c-border-med)" }}>
           {isLoading && (
-            <div className="text-white/50 text-sm mb-2">
+            <div className="text-sm mb-2" style={{ color: "var(--c-text-3)" }}>
               Viernes está pensando...
             </div>
           )}
@@ -293,17 +305,16 @@ export default function Chat() {
 
           <form onSubmit={send} className="flex gap-2">
             <input
-              className="flex-1 bg-white/5 text-white placeholder:text-white/40
-              border border-white/15 rounded-lg px-3 py-2
-              focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30"
+              className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+              style={{ background: "var(--c-input-bg)", color: "var(--c-text)", border: "1px solid var(--c-border)" }}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Escribe..."
               disabled={isLoading}
             />
             <button
-              className="bg-white/10 text-white border border-white/15 rounded-lg px-4 py-2
-              hover:bg-white/15 active:bg-white/20 transition disabled:opacity-50"
+              className="rounded-lg px-4 py-2 text-sm transition disabled:opacity-50"
+              style={{ background: "var(--c-hover)", color: "var(--c-text)", border: "1px solid var(--c-border-med)" }}
               type="submit"
               disabled={isLoading}
             >

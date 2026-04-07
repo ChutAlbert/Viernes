@@ -61,12 +61,30 @@ export function useMembers() {
   return { members, loading }
 }
 
+export function useServiceBySlug(slug: string) {
+  const service = ref<Service | null>(null)
+  const loading = ref(true)
+  const notFound = ref(false)
+
+  onMounted(async () => {
+    try {
+      service.value = await fetchJson<Service>(`/website/services/${slug}`)
+    } catch {
+      notFound.value = true
+    } finally {
+      loading.value = false
+    }
+  })
+
+  return { service, loading, notFound }
+}
+
 export function useSiteSettings() {
   const settings = ref<SiteSettings>({
     hero_title: 'Soluciones Digitales a tu Medida',
     hero_subtitle: 'Desarrollo de Software · Impresión 3D · Diseño',
     hero_description: 'Transformamos tus ideas en productos reales.',
-    company_name: 'Viernes',
+    company_name: 'SODIGIC',
     company_tagline: 'Construimos el futuro, hoy.',
   })
   const loading = ref(true)

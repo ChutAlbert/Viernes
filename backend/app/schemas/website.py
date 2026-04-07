@@ -1,12 +1,16 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+import json
 
 
 # ── Services ──────────────────────────────────────────────────────────────────
 
 class ServiceBase(BaseModel):
     title: str
+    slug: Optional[str] = None
     description: str
+    long_description: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     icon: str = "code"
     category: str = "general"
     order_index: int = 0
@@ -21,10 +25,35 @@ class ServiceUpdate(ServiceBase):
     pass
 
 
-class ServiceOut(ServiceBase):
+class ServiceOut(BaseModel):
     id: int
+    title: str
+    slug: Optional[str] = None
+    description: str
+    long_description: Optional[str] = None
+    image_urls: Optional[List[str]] = None
+    icon: str
+    category: str
+    order_index: int
+    is_active: bool
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_service(cls, obj):
+        data = {
+            "id": obj.id,
+            "title": obj.title,
+            "slug": obj.slug,
+            "description": obj.description,
+            "long_description": obj.long_description,
+            "image_urls": json.loads(obj.image_urls) if obj.image_urls else None,
+            "icon": obj.icon,
+            "category": obj.category,
+            "order_index": obj.order_index,
+            "is_active": obj.is_active,
+        }
+        return cls(**data)
 
 
 # ── Contacts ──────────────────────────────────────────────────────────────────
