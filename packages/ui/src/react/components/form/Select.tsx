@@ -48,7 +48,7 @@ export function Select({
 
   return (
     <div className={cn("space-y-1", className)}>
-      {label && <Label name={label} color={variant === "dark" ? "white" : "slate"} size="xs" />}
+      {label && <Label name={label} />}
 
       <select
         id={selectId}
@@ -134,7 +134,7 @@ export function MultiSelect({
 
   return (
     <div className={cn("space-y-1 relative", className)} ref={ref}>
-      {label && <Label name={label} color={isDark ? "white" : "slate"} size="xs" />}
+      {label && <Label name={label} />}
 
       <button
         type="button"
@@ -268,7 +268,7 @@ export function SearchSelect({
 
   return (
     <div className={cn("space-y-1 relative", className)} ref={ref}>
-      {label && <Label name={label} color={isDark ? "white" : "slate"} size="xs" />}
+      {label && <Label name={label} />}
 
       <button type="button" disabled={disabled} onClick={() => !disabled && setOpen((p) => !p)}
         className={cn(

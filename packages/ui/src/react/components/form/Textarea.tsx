@@ -43,7 +43,7 @@ export function Textarea({
 
   return (
     <div className={cn("space-y-1", className)}>
-      {label && <Label name={label} color={variant === "dark" ? "white" : "slate"} size="xs" />}
+      {label && <Label name={label} />}
 
       <textarea
         id={inputId}

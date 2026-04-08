@@ -88,7 +88,7 @@ export function FileInput({
 
   return (
     <div className={cn("space-y-1", className)}>
-      {label && <Label name={label} color={isDark ? "white" : "slate"} size="xs" />}
+      {label && <Label name={label} />}
 
       <div
         role="button"
