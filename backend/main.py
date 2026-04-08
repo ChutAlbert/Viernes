@@ -6,13 +6,6 @@ import threading
 from app.routes import auth, chat, documents, ingest, health, gmail, website
 from app.services.ollama_service import OllamaService
 
-from fastapi import FastAPI
-
-app = FastAPI()
-
-@app.get("/")
-def home():
-    return {"message": "Viernes backend activo"}
 
 def _warmup_models():
     """Pre-carga chat + reasoning en paralelo para eliminar el delay inicial."""
@@ -47,3 +40,8 @@ app.include_router(documents.router)
 app.include_router(ingest.router)
 app.include_router(gmail.router)
 app.include_router(website.router)
+
+
+@app.get("/")
+def root():
+    return {"message": "Backend de Viernes activo"}
