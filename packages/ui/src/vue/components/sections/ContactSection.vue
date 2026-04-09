@@ -24,6 +24,11 @@ function getHref(contact: { contact_type: string; value: string }) {
   if (contact.contact_type === 'whatsapp') return `https://wa.me/${contact.value.replace(/\D/g, '')}`
   return contact.value
 }
+
+function getTarget(contact: { contact_type: string }) {
+  if (contact.contact_type === 'email' || contact.contact_type === 'phone') return '_self'
+  return '_blank'
+}
 </script>
 
 <template>
@@ -46,7 +51,7 @@ function getHref(contact: { contact_type: string; value: string }) {
             v-for="(contact, i) in contacts"
             :key="contact.id"
             :href="getHref(contact)"
-            target="_blank"
+            :target="getTarget(contact)"
             rel="noopener"
             class="contact-card animate-on-scroll"
             :class="`delay-${i + 1}`"
