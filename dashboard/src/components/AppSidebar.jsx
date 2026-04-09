@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { logout } from "@/store/slices/authSlice";
 
 const ICON_OVERVIEW = (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -37,6 +39,14 @@ const NAV = [
 ];
 
 export default function AppSidebar() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate("/login");
+  };
+
   return (
     <aside
       className="flex flex-col h-full"
@@ -47,8 +57,8 @@ export default function AppSidebar() {
         className="px-5 py-4 flex items-center gap-2.5"
         style={{ borderBottom: "1px solid var(--c-border-med)" }}
       >
-        <img src="/Logo_sf.png" alt="SODIGIC" className="w-7 h-7 rounded-lg object-contain flex-shrink-0" />
-        <span className="font-semibold tracking-wide text-sm" style={{ color: "var(--c-text)" }}>SODIGIC</span>
+        <img src="/Logo_sf.png" alt="Viernes" className="w-7 h-7 rounded-lg object-contain flex-shrink-0" />
+        <span className="font-semibold tracking-wide text-sm" style={{ color: "var(--c-text)" }}>Viernes</span>
       </div>
 
       {/* Nav */}
@@ -94,7 +104,7 @@ export default function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4" style={{ borderTop: "1px solid var(--c-border)" }}>
+      <div className="px-3 py-4 space-y-2" style={{ borderTop: "1px solid var(--c-border)" }}>
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: "var(--c-hover)" }}>
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
             JR
@@ -104,6 +114,18 @@ export default function AppSidebar() {
             <p className="text-[10px] truncate" style={{ color: "var(--c-text-4)" }}>Admin</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+          style={{ color: "var(--c-text-3)" }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-hover)"; e.currentTarget.style.color = "#f87171"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-text-3)"; }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   );

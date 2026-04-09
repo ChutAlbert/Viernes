@@ -82,8 +82,8 @@ onUnmounted(() => {
                 v-for="svc in services"
                 :key="svc.id"
                 class="dropdown-item"
-                href="#services"
-                @click.prevent="scrollTo('#services')"
+                :href="svc.slug ? `/servicios/${svc.slug}` : '#services'"
+                @click="!svc.slug && ($event.preventDefault(), scrollTo('#services'))"
               >
                 <span class="dropdown-icon">◈</span>
                 <div>

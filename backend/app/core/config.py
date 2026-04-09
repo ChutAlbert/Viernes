@@ -5,6 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]  # .../Viernes
 DATA_DIR = PROJECT_ROOT / "data"
 DOCS_DIR = DATA_DIR / "docs"
 VECTOR_DIR = DATA_DIR / "vectordb"
+IMAGES_DIR = DATA_DIR / "images"
 
 # ─── Ollama ───────────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

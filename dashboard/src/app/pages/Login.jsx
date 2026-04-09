@@ -30,8 +30,8 @@ export default function Login() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Iniciar sesión</h1>
-        <p className="text-slate-500 mt-1">Accede a tu dashboard de Viernes.</p>
+        <h1 className="text-3xl font-bold" style={{ color: "var(--c-text)" }}>Iniciar sesión</h1>
+        <p className="mt-1" style={{ color: "var(--c-text-3)" }}>Accede a tu dashboard de Viernes.</p>
       </div>
 
       <Input label="Email" type="email" value={email} onChange={setEmail} />

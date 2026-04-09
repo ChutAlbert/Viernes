@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Surface, Button, Input, Textarea, Label, Modal } from "@viernes/ui/react";
+import { useNavigate } from "react-router-dom";
+import { Surface, Button, Input, Textarea, Label, Modal, SearchSelect, FileInput } from "@viernes/ui/react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -12,22 +13,6 @@ async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, { headers: authHeaders(), ...options });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
-}
-
-// Native select styled dark
-function DarkSelect({ value, onChange, options, className = "" }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none ${className}`}
-      style={{ border: "1px solid var(--c-border)", background: "var(--c-input-bg)", color: "var(--c-text)" }}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
-  );
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
@@ -108,12 +93,13 @@ function SettingsTab() {
 }
 
 // ── Services Tab ──────────────────────────────────────────────────────────────
-const ICONS = ["code", "printer", "layout", "lightbulb", "globe", "database"];
-const CATEGORIES = ["software", "hardware", "design", "consulting", "general"];
+const ICONS = ["code", "printer", "layout", "lightbulb", "globe", "database"].map((v) => ({ value: v, label: v }));
+const CATEGORIES = ["software", "hardware", "design", "consulting", "general"].map((v) => ({ value: v, label: v }));
 
 const EMPTY_SERVICE = { title: "", description: "", long_description: "", image_urls: [], icon: "code", category: "general", order_index: 0, is_active: true };
 
 function ServicesTab() {
+  const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -174,7 +160,14 @@ function ServicesTab() {
 
       <div className="grid gap-3">
         {services.map((svc) => (
-          <Surface key={svc.id} className="p-4 flex items-start gap-4">
+          <Surface
+            key={svc.id}
+            className="p-4 flex items-start gap-4 cursor-pointer transition-all"
+            onClick={() => navigate(`/app/website/services/${svc.slug || svc.id}`)}
+            style={{ border: "1px solid var(--c-border)" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "var(--c-border-hi)"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = "var(--c-border)"}
+          >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold" style={{ color: "var(--c-text)" }}>{svc.title}</span>
@@ -188,11 +181,11 @@ function ServicesTab() {
                 <span>Icono: {svc.icon}</span>
                 <span>Categoría: {svc.category}</span>
                 <span>Orden: {svc.order_index}</span>
-                {svc.slug && <span>Slug: {svc.slug}</span>}
+                {svc.slug && <span>/{svc.slug}</span>}
               </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => openEdit(svc)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
+            <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+              <button onClick={() => openEdit(svc)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar rápido</button>
               <button onClick={() => remove(svc.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
@@ -219,23 +212,58 @@ function ServicesTab() {
             <Textarea variant="dark" rows={4} value={form.long_description} onChange={(v) => setForm((f) => ({ ...f, long_description: v }))} />
           </div>
           <div className="space-y-1.5">
-            <Label>URLs de imágenes (una por línea)</Label>
-            <Textarea
+            <Label>Imágenes</Label>
+            <FileInput
               variant="dark"
-              rows={3}
-              placeholder="https://..."
-              value={(form.image_urls ?? []).join("\n")}
-              onChange={(v) => setForm((f) => ({ ...f, image_urls: v.split("\n").map(s => s.trim()).filter(Boolean) }))}
+              multiple
+              accept=".jpg,.jpeg,.png,.webp,.gif"
+              size="sm"
+              onChange={async (files) => {
+                const uploaded = [];
+                for (const file of files) {
+                  const fd = new FormData();
+                  fd.append("file", file);
+                  const token = localStorage.getItem("viernes_token");
+                  const res = await fetch(`${API}/images/upload`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: fd,
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    uploaded.push(`${API}${data.url}`);
+                  }
+                }
+                if (uploaded.length) setForm((f) => ({ ...f, image_urls: [...(f.image_urls ?? []), ...uploaded] }));
+              }}
             />
+            {(form.image_urls ?? []).length > 0 && (
+              <ul className="space-y-1 mt-1">
+                {(form.image_urls ?? []).map((url, i) => (
+                  <li key={i} className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs" style={{ border: "1px solid var(--c-border)", background: "var(--c-input-bg)", color: "var(--c-text-2)" }}>
+                    <img src={url} alt="" className="w-8 h-8 object-cover rounded flex-shrink-0" onError={e => e.target.style.display="none"} />
+                    <span className="flex-1 truncate">{url}</span>
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, image_urls: f.image_urls.filter((_, j) => j !== i) }))}
+                      className="shrink-0 transition" style={{ color: "var(--c-text-4)" }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                      onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-4)"}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Icono</Label>
-              <DarkSelect value={form.icon} onChange={(v) => setForm((f) => ({ ...f, icon: v }))} options={ICONS} />
+              <SearchSelect variant="dark" value={form.icon} onChange={(v) => setForm((f) => ({ ...f, icon: v }))} options={ICONS} />
             </div>
             <div className="space-y-1.5">
               <Label>Categoría</Label>
-              <DarkSelect value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} options={CATEGORIES} />
+              <SearchSelect variant="dark" value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} options={CATEGORIES} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 items-end">
@@ -259,7 +287,7 @@ function ServicesTab() {
 }
 
 // ── Contacts Tab ──────────────────────────────────────────────────────────────
-const CONTACT_TYPES = ["phone", "email", "whatsapp", "other"];
+const CONTACT_TYPES = ["phone", "email", "whatsapp", "other"].map((v) => ({ value: v, label: v }));
 const EMPTY_CONTACT = { contact_type: "email", label: "", value: "", is_active: true };
 
 function ContactsTab() {
@@ -338,7 +366,7 @@ function ContactsTab() {
           <h3 className="font-semibold text-base" style={{ color: "var(--c-text)" }}>{editing ? "Editar contacto" : "Nuevo contacto"}</h3>
           <div className="space-y-1.5">
             <Label>Tipo</Label>
-            <DarkSelect value={form.contact_type} onChange={(v) => setForm((f) => ({ ...f, contact_type: v }))} options={CONTACT_TYPES} />
+            <SearchSelect variant="dark" value={form.contact_type} onChange={(v) => setForm((f) => ({ ...f, contact_type: v }))} options={CONTACT_TYPES} />
           </div>
           <div className="space-y-1.5">
             <Label>Etiqueta (ej: WhatsApp MX)</Label>

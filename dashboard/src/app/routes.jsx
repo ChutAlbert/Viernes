@@ -10,6 +10,7 @@ import Documents from "./pages/Documents";
 
 import Gmail from "./pages/Gmail";
 import Website from "./pages/Website";
+import ServiceDetail from "./pages/ServiceDetail";
 
 // guard súper simple (por ahora)
 function RequireAuth({ children }) {
@@ -38,6 +39,7 @@ export function AppRoutes() {
         <Route path="chat" element={<Chat />} />
         <Route path="docs" element={<Documents />} />
         <Route path="website" element={<Website />} />
+        <Route path="website/services/:slug" element={<ServiceDetail />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/app" replace />} />

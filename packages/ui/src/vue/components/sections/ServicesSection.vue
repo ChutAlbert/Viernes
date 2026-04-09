@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 import { useServices } from '../../composables/useWebsiteContent'
 
 const { services, loading } = useServices()
@@ -54,10 +52,10 @@ function scrollToContact() {
 
       <!-- Services grid -->
       <div v-else class="services-grid">
-        <RouterLink
+        <a
           v-for="(service, i) in services"
           :key="service.id"
-          :to="service.slug ? `/servicios/${service.slug}` : '#services'"
+          :href="service.slug ? `/servicios/${service.slug}` : '#services'"
           class="service-card card animate-on-scroll"
           :class="`delay-${(i % 4) + 1}`"
         >
@@ -70,7 +68,7 @@ function scrollToContact() {
             <div class="service-category">{{ service.category }}</div>
             <span class="service-arrow">Ver más →</span>
           </div>
-        </RouterLink>
+        </a>
       </div>
 
       <!-- CTA -->

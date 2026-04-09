@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useServiceBySlug } from '@viernes/ui/vue'
-import { useScrollAnimation } from '@viernes/ui/vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,7 +9,22 @@ const slug = route.params.slug as string
 
 const { service, loading, notFound } = useServiceBySlug(slug)
 
-useScrollAnimation()
+// Re-run scroll animation after service data loads
+watch(service, async () => {
+  await nextTick()
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.08 }
+  )
+  document.querySelectorAll('.animate-on-scroll:not(.is-visible)').forEach((el) => observer.observe(el))
+})
 
 const iconMap: Record<string, string> = {
   code: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>`,
@@ -69,7 +84,7 @@ function scrollToContact() {
           Todos los servicios
         </router-link>
 
-        <div class="hero-content animate-on-scroll">
+        <div class="hero-content">
           <div class="hero-icon" :style="{ '--cat-color': getCategoryColor(service.category) }">
             <span v-html="getIcon(service.icon)"></span>
           </div>
@@ -103,7 +118,7 @@ function scrollToContact() {
     <!-- Long description -->
     <section v-if="service.long_description" class="content-section">
       <div class="container">
-        <div class="content-grid animate-on-scroll">
+        <div class="content-grid">
           <div class="content-body">
             <h2 class="content-title">Acerca de este servicio</h2>
             <div class="section-divider"></div>
@@ -130,7 +145,7 @@ function scrollToContact() {
     <!-- CTA if no long description -->
     <section v-else class="cta-section">
       <div class="container">
-        <div class="card cta-card animate-on-scroll">
+        <div class="card cta-card">
           <h2>¿Te interesa este servicio?</h2>
           <p>Cuéntanos sobre tu proyecto y construimos algo juntos.</p>
           <div class="cta-buttons">
@@ -147,7 +162,7 @@ function scrollToContact() {
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
 .detail-hero {
   background: var(--bg);
-  padding: 3rem 0 4rem;
+  padding: 7rem 0 4rem;
   border-bottom: 1px solid var(--border-soft);
 }
 

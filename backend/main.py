@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail, website
+from app.routes import auth, chat, documents, ingest, health, gmail, website, images
 from app.services.ollama_service import OllamaService
+from app.core.config import IMAGES_DIR
 
 
 def _warmup_models():
@@ -40,6 +42,10 @@ app.include_router(documents.router)
 app.include_router(ingest.router)
 app.include_router(gmail.router)
 app.include_router(website.router)
+app.include_router(images.router)
+
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 
 @app.get("/")
