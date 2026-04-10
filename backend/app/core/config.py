@@ -2,7 +2,9 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# backend/app/core/config.py → parents[2] = backend/
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(_BACKEND_DIR / ".env")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # .../Viernes
 DATA_DIR = PROJECT_ROOT / "data"
