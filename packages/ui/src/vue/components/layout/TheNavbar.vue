@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useServices } from '../../composables/useWebsiteContent'
 
 const { services } = useServices()
+const router = useRouter()
 
 const scrolled = ref(false)
 const mobileOpen = ref(false)
@@ -24,18 +26,23 @@ function toggleTheme() {
 }
 
 const navLinks = [
-  { label: 'Nosotros', href: '#about' },
-  { label: 'Contacto', href: '#contact' },
+  { label: 'Nosotros', to: '/nosotros' },
+  { label: 'Contacto', to: '/contacto' },
 ]
 
 function onScroll() {
   scrolled.value = window.scrollY > 20
 }
 
-function scrollTo(href: string) {
+function navigateTo(to: string) {
   mobileOpen.value = false
   servicesOpen.value = false
-  document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  router.push(to)
+}
+
+function goHome() {
+  mobileOpen.value = false
+  router.push('/')
 }
 
 function toggleServices(e: Event) {
@@ -61,7 +68,7 @@ onUnmounted(() => {
 <template>
   <nav class="navbar" :class="{ scrolled }">
     <div class="container nav-inner">
-      <a class="nav-logo" href="#home" @click.prevent="scrollTo('#home')">
+      <a class="nav-logo" href="/" @click.prevent="goHome">
         <img src="/sdc.png" alt="SODIGIC" class="logo-img" />
         SODIGIC
       </a>
@@ -83,7 +90,7 @@ onUnmounted(() => {
                 :key="svc.id"
                 class="dropdown-item"
                 :href="svc.slug ? `/servicios/${svc.slug}` : '#services'"
-                @click="!svc.slug && ($event.preventDefault(), scrollTo('#services'))"
+                @click="!svc.slug && ($event.preventDefault(), navigateTo('/#services'))"
               >
                 <span class="dropdown-icon">◈</span>
                 <div>
@@ -95,8 +102,8 @@ onUnmounted(() => {
           </Transition>
         </li>
 
-        <li v-for="link in navLinks" :key="link.href">
-          <a class="nav-link" :href="link.href" @click.prevent="scrollTo(link.href)">{{ link.label }}</a>
+        <li v-for="link in navLinks" :key="link.to">
+          <a class="nav-link" :href="link.to" @click.prevent="navigateTo(link.to)">{{ link.label }}</a>
         </li>
       </ul>
 
@@ -114,7 +121,7 @@ onUnmounted(() => {
         </svg>
       </button>
 
-      <a class="btn btn-primary nav-cta hidden-mobile" href="#contact" @click.prevent="scrollTo('#contact')">
+      <a class="btn btn-primary nav-cta hidden-mobile" href="/contacto" @click.prevent="navigateTo('/contacto')">
         Contáctanos
       </a>
 
@@ -125,10 +132,10 @@ onUnmounted(() => {
 
     <Transition name="mobile-menu">
       <div v-if="mobileOpen" class="mobile-menu">
-        <button class="mobile-link" @click="scrollTo('#services')">Servicios</button>
-        <a v-for="link in navLinks" :key="link.href" class="mobile-link" :href="link.href"
-          @click.prevent="scrollTo(link.href)">{{ link.label }}</a>
-        <a class="btn btn-primary mobile-cta" href="#contact" @click.prevent="scrollTo('#contact')">Contáctanos</a>
+        <button class="mobile-link" @click="navigateTo('/#services')">Servicios</button>
+        <a v-for="link in navLinks" :key="link.to" class="mobile-link" :href="link.to"
+          @click.prevent="navigateTo(link.to)">{{ link.label }}</a>
+        <a class="btn btn-primary mobile-cta" href="/contacto" @click.prevent="navigateTo('/contacto')">Contáctanos</a>
       </div>
     </Transition>
   </nav>
