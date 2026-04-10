@@ -5,7 +5,7 @@ Uso: docker exec viernes_backend python seed.py
 from app.db import SessionLocal
 from app.services.auth_service import AuthService
 
-EMAIL = "jesus@gmail.com"
+EMAIL = "chut@sodigic.com"
 PASSWORD = "viernes123"
 
 db = SessionLocal()
