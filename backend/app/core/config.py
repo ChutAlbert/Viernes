@@ -1,11 +1,19 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # .../Viernes
 DATA_DIR = PROJECT_ROOT / "data"
 DOCS_DIR = DATA_DIR / "docs"
 VECTOR_DIR = DATA_DIR / "vectordb"
 IMAGES_DIR = DATA_DIR / "images"
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+# En .env: CORS_ORIGINS=http://localhost:5173,https://sodigic.com
+_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+CORS_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 # ─── Ollama ───────────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")

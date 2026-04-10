@@ -6,7 +6,7 @@ import threading
 
 from app.routes import auth, chat, documents, ingest, health, gmail, website, images
 from app.services.ollama_service import OllamaService
-from app.core.config import IMAGES_DIR
+from app.core.config import IMAGES_DIR, CORS_ORIGINS
 
 
 def _warmup_models():
@@ -29,7 +29,7 @@ app = FastAPI(title="Viernes API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:4173", "https://sodigic.com", "https://www.sodigic.com", "https://viernes.sodigic.com"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
