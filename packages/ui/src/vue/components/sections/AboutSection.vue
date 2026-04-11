@@ -5,9 +5,8 @@ const { members } = useMembers()
 
 const skills = [
   { label: 'Vue / React / TypeScript', icon: '⚡' },
-  { label: 'Python / FastAPI', icon: '🐍' },
+  { label: 'Python / FastAPI / Laravel', icon: '🐍' },
   { label: 'Impresión 3D', icon: '🖨️' },
-  { label: 'Diseño UI/UX', icon: '🎨' },
   { label: 'Bases de datos', icon: '🗄️' },
   { label: 'Docker / DevOps', icon: '🐳' },
 ]
