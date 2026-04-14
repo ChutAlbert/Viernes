@@ -40,4 +40,7 @@ export const viernesApi = {
   syncPiezaSodigic: (id) => apiRequest("post", `/piezas/${id}/sync-sodigic`),
   uploadImagen: (formData) => apiRequestDocs("post", "/images/upload", formData),
   uploadArchivo3D: (formData) => apiRequestDocs("post", "/files/upload", formData),
+
+  // visitas al sitio web
+  visitStats: () => apiRequest("get", "/api/visits/stats"),
 };

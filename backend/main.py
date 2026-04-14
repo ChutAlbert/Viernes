@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files
+from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files, visits
 from app.services.ollama_service import OllamaService
 from app.core.config import IMAGES_DIR, FILES_DIR, CORS_ORIGINS
 
@@ -45,6 +45,7 @@ app.include_router(website.router)
 app.include_router(images.router)
 app.include_router(pieza.router)
 app.include_router(files.router)
+app.include_router(visits.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 FILES_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { viernesApi } from "../../lib/apis/viernes";
 
 // ── Stat card con gradiente ───────────────────────────────────────────────────
 function GradientCard({ label, value, suffix, delta, gradient }) {
@@ -134,8 +136,31 @@ function CardTitle({ children, sub }) {
 }
 
 export default function Dashboard() {
+  const [visits, setVisits] = useState(null);
+
+  useEffect(() => {
+    viernesApi.visitStats()
+      .then(setVisits)
+      .catch(() => {/* silencioso si falla */});
+  }, []);
+
+  const fmt = (n) => (n == null ? "—" : n.toLocaleString("es-MX"));
+
   return (
     <div className="space-y-5 max-w-[1400px]">
+
+      {/* Visitas al sitio web */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-4)" }}>
+          Visitas al sitio web
+        </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <GradientCard label="Total histórico"  value={fmt(visits?.total)}       gradient="bg-gradient-to-br from-violet-600 to-purple-800" />
+          <GradientCard label="Últimos 30 días"  value={fmt(visits?.last_30_days)} gradient="bg-gradient-to-br from-cyan-500 to-blue-700" />
+          <StatCard label="Esta semana"   value={fmt(visits?.last_7_days)} />
+          <StatCard label="Hoy"           value={fmt(visits?.today)} />
+        </div>
+      </div>
 
       {/* Top stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
