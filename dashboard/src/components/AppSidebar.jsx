@@ -29,6 +29,11 @@ const ICON_WEBSITE = (
     <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/>
   </svg>
 );
+const ICON_PIEZAS = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+  </svg>
+);
 
 const NAV = [
   { to: "/app",          label: "Overview",    icon: ICON_OVERVIEW, end: true },
@@ -36,6 +41,7 @@ const NAV = [
   { to: "/app/chat",     label: "Chat IA",     icon: ICON_CHAT },
   { to: "/app/docs",     label: "Documentos",  icon: ICON_DOCS },
   { to: "/app/website",  label: "Website",     icon: ICON_WEBSITE },
+  { to: "/app/piezas",   label: "Piezas 3D",   icon: ICON_PIEZAS },
 ];
 
 export default function AppSidebar() {

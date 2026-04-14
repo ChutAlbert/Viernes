@@ -11,6 +11,8 @@ import Documents from "./pages/Documents";
 import Gmail from "./pages/Gmail";
 import Website from "./pages/Website";
 import ServiceDetail from "./pages/ServiceDetail";
+import Piezas from "./pages/Piezas";
+import PiezaDetail from "./pages/PiezaDetail";
 
 // guard súper simple (por ahora)
 function RequireAuth({ children }) {
@@ -40,6 +42,8 @@ export function AppRoutes() {
         <Route path="docs" element={<Documents />} />
         <Route path="website" element={<Website />} />
         <Route path="website/services/:slug" element={<ServiceDetail />} />
+        <Route path="piezas" element={<Piezas />} />
+        <Route path="piezas/:id" element={<PiezaDetail />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/app" replace />} />

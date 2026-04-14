@@ -11,6 +11,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 DOCS_DIR = DATA_DIR / "docs"
 VECTOR_DIR = DATA_DIR / "vectordb"
 IMAGES_DIR = DATA_DIR / "images"
+FILES_DIR  = DATA_DIR / "files"
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 # En .env: CORS_ORIGINS=http://localhost:5173,https://sodigic.com

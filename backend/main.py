@@ -4,9 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail, website, images
+from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files
 from app.services.ollama_service import OllamaService
-from app.core.config import IMAGES_DIR, CORS_ORIGINS
+from app.core.config import IMAGES_DIR, FILES_DIR, CORS_ORIGINS
 
 
 def _warmup_models():
@@ -43,8 +43,11 @@ app.include_router(ingest.router)
 app.include_router(gmail.router)
 app.include_router(website.router)
 app.include_router(images.router)
+app.include_router(pieza.router)
+app.include_router(files.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+FILES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 
