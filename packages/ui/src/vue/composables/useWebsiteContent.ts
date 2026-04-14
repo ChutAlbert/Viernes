@@ -83,6 +83,7 @@ export interface Pieza {
   id: number
   nombre: string
   fotos?: string[] | null
+  precios?: number[] | null
   tipo: string
   filamento?: string | null
   fecha_entrega?: string | null
