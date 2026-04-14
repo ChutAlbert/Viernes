@@ -79,6 +79,33 @@ export function useServiceBySlug(slug: string) {
   return { service, loading, notFound }
 }
 
+export interface Pieza {
+  id: number
+  nombre: string
+  fotos?: string[] | null
+  tipo: string
+  filamento?: string | null
+  fecha_entrega?: string | null
+  notas?: string | null
+}
+
+export function usePiezasSincronizadas() {
+  const piezas = ref<Pieza[]>([])
+  const loading = ref(true)
+
+  onMounted(async () => {
+    try {
+      piezas.value = await fetchJson<Pieza[]>('/piezas/public/sincronizadas')
+    } catch {
+      piezas.value = []
+    } finally {
+      loading.value = false
+    }
+  })
+
+  return { piezas, loading }
+}
+
 export function useSiteSettings() {
   const settings = ref<SiteSettings>({
     hero_title: 'Soluciones Digitales a tu Medida',

@@ -7,9 +7,10 @@ export { default as HeroSection } from './components/sections/HeroSection.vue'
 export { default as AboutSection } from './components/sections/AboutSection.vue'
 export { default as ServicesSection } from './components/sections/ServicesSection.vue'
 export { default as ContactSection } from './components/sections/ContactSection.vue'
+export { default as WorksSection } from './components/sections/WorksSection.vue'
 
 // Composables
-export { useServices, useContacts, useMembers, useSiteSettings, useServiceBySlug } from './composables/useWebsiteContent'
+export { useServices, useContacts, useMembers, useSiteSettings, useServiceBySlug, usePiezasSincronizadas } from './composables/useWebsiteContent'
 export { useScrollAnimation, useActiveSection } from './composables/useScrollAnimation'
 
 // Types

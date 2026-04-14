@@ -3,8 +3,9 @@ import { onMounted } from 'vue'
 import { TheNavbar, TheFooter } from '@viernes/ui/vue'
 
 onMounted(() => {
-  // No registrar visitas del dueño del sitio (tiene token de admin)
-  if (localStorage.getItem('viernes_token')) return
+  // No registrar visitas del dueño del sitio
+  if (localStorage.getItem('viernes_token')) return       // sesión activa en dashboard
+  if (localStorage.getItem('viernes_owner') === '1') return  // dispositivo marcado manualmente
 
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
   fetch(`${apiBase}/api/visits`, {

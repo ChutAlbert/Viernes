@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HeroSection, AboutSection, ServicesSection, ContactSection } from '@viernes/ui/vue'
+import { HeroSection, AboutSection, ServicesSection, ContactSection, WorksSection } from '@viernes/ui/vue'
 import { useScrollAnimation } from '@viernes/ui/vue'
 
 useScrollAnimation()
@@ -9,6 +9,7 @@ useScrollAnimation()
   <main>
     <HeroSection />
     <ServicesSection />
+    <WorksSection />
     <AboutSection />
     <ContactSection />
   </main>

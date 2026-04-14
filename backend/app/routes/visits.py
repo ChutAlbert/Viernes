@@ -7,6 +7,7 @@ from app.db import get_db
 from app.models.page_visit import PageVisit
 from app.core.deps import get_current_user
 from app.models.user import User
+from app.core.config import EXCLUDED_IPS
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -20,6 +21,10 @@ def register_visit(request: Request, db: Session = Depends(get_db)):
         ip = forwarded_for.split(",")[0].strip()
     else:
         ip = request.client.host if request.client else "unknown"
+
+    # Ignorar IPs excluidas (servidor, dispositivos propios, etc.)
+    if ip in EXCLUDED_IPS:
+        return
 
     user_agent = request.headers.get("User-Agent", "")[:512]
     path = request.headers.get("X-Page-Path", "/")[:255]

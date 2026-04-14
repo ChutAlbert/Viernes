@@ -41,3 +41,8 @@ MODEL = CHAT_MODEL
 
 # ─── RAG ─────────────────────────────────────────────────────────────────────
 COLLECTION_NAME = "viernes_docs"
+
+# ─── Visitas ──────────────────────────────────────────────────────────────────
+# En .env: EXCLUDED_IPS=127.0.0.1,192.168.1.10,::1
+_raw_excluded = os.getenv("EXCLUDED_IPS", "127.0.0.1,::1")
+EXCLUDED_IPS: set[str] = {ip.strip() for ip in _raw_excluded.split(",") if ip.strip()}
