@@ -137,23 +137,49 @@ function CardTitle({ children, sub }) {
 
 export default function Dashboard() {
   const [visits, setVisits] = useState(null);
+  const [clearing, setClearing] = useState(false);
 
-  useEffect(() => {
+  const loadStats = () => {
     viernesApi.visitStats()
       .then(setVisits)
-      .catch(() => {/* silencioso si falla */});
-  }, []);
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadStats(); }, []);
 
   const fmt = (n) => (n == null ? "—" : n.toLocaleString("es-MX"));
+
+  const handleClear = async () => {
+    if (!window.confirm("¿Borrar todas las visitas registradas? No se puede deshacer.")) return;
+    setClearing(true);
+    try {
+      await viernesApi.clearVisits();
+      await loadStats();
+    } catch {/* silencioso */} finally {
+      setClearing(false);
+    }
+  };
 
   return (
     <div className="space-y-5 max-w-[1400px]">
 
       {/* Visitas al sitio web */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-4)" }}>
-          Visitas al sitio web
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>
+            Visitas al sitio web
+          </p>
+          <button
+            onClick={handleClear}
+            disabled={clearing}
+            className="text-xs px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+            style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)", color: "var(--c-text-3)" }}
+            onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-3)"}
+          >
+            {clearing ? "Borrando…" : "Limpiar visitas"}
+          </button>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <GradientCard label="Total histórico"  value={fmt(visits?.total)}       gradient="bg-gradient-to-br from-violet-600 to-purple-800" />
           <GradientCard label="Últimos 30 días"  value={fmt(visits?.last_30_days)} gradient="bg-gradient-to-br from-cyan-500 to-blue-700" />

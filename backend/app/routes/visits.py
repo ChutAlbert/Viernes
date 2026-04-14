@@ -74,3 +74,14 @@ def get_visit_stats(
         "last_7_days": week_count,
         "last_30_days": month_count,
     }
+
+
+@router.delete("")
+def clear_visits(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Borra todas las visitas registradas. Requiere autenticación."""
+    deleted = db.query(PageVisit).delete()
+    db.commit()
+    return {"deleted": deleted}

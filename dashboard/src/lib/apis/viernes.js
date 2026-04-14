@@ -43,4 +43,5 @@ export const viernesApi = {
 
   // visitas al sitio web
   visitStats: () => apiRequest("get", "/api/visits/stats"),
+  clearVisits: () => apiRequest("delete", "/api/visits"),
 };
