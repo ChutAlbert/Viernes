@@ -1,31 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref } from 'vue'
 import { usePiezasSincronizadas } from '../../composables/useWebsiteContent'
 
 const API: string = import.meta.env['VITE_API_URL'] ?? 'http://localhost:8000'
 
 const { piezas, loading } = usePiezasSincronizadas()
 
-function coverPhoto(fotos?: string[] | null): string | null {
-  if (!fotos || fotos.length === 0) return null
-  const url = fotos[0]
-  // Si ya es URL absoluta, úsala directo; si no, prefijar con el API base
+// Índice de foto activa por pieza
+const photoIndex = ref<Record<number, number>>({})
+
+function getPhotoIndex(id: number) {
+  return photoIndex.value[id] ?? 0
+}
+
+function photoUrl(url: string): string {
   return url.startsWith('http') ? url : `${API}${url}`
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short' })
+function prevPhoto(id: number, total: number) {
+  const cur = getPhotoIndex(id)
+  photoIndex.value[id] = (cur - 1 + total) % total
 }
 
-const tipoBadge: Record<string, { label: string; color: string }> = {
-  encargo:       { label: 'Encargo',       color: 'var(--amber)' },
-  venta_general: { label: 'Venta general', color: 'var(--cyan)' },
+function nextPhoto(id: number, total: number) {
+  const cur = getPhotoIndex(id)
+  photoIndex.value[id] = (cur + 1) % total
 }
 
-function getBadge(tipo: string) {
-  return tipoBadge[tipo] ?? { label: tipo, color: 'var(--text-muted)' }
+function formatPrice(n: number): string {
+  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+}
+
+function total(precios?: number[] | null): number {
+  if (!precios || precios.length === 0) return 0
+  return precios.reduce((a, b) => a + b, 0)
 }
 </script>
 
@@ -46,12 +54,12 @@ function getBadge(tipo: string) {
         <div v-for="n in 6" :key="n" class="skeleton-card"></div>
       </div>
 
-      <!-- Empty state -->
+      <!-- Empty -->
       <div v-else-if="piezas.length === 0" class="works-empty animate-on-scroll">
         <p>Próximamente trabajos en esta sección.</p>
       </div>
 
-      <!-- Grid de piezas -->
+      <!-- Grid -->
       <div v-else class="works-grid">
         <div
           v-for="(pieza, i) in piezas"
@@ -59,40 +67,55 @@ function getBadge(tipo: string) {
           class="work-card animate-on-scroll"
           :class="`delay-${(i % 4) + 1}`"
         >
-          <!-- Foto -->
+          <!-- Fotos con navegación -->
           <div class="work-photo">
-            <img
-              v-if="coverPhoto(pieza.fotos)"
-              :src="coverPhoto(pieza.fotos)!"
-              :alt="pieza.nombre"
-              loading="lazy"
-            />
+            <template v-if="pieza.fotos && pieza.fotos.length > 0">
+              <img
+                :src="photoUrl(pieza.fotos[getPhotoIndex(pieza.id)])"
+                :alt="pieza.nombre"
+                loading="lazy"
+              />
+              <!-- Flechas si hay más de 1 foto -->
+              <template v-if="pieza.fotos.length > 1">
+                <button class="photo-nav photo-nav--prev" @click.stop="prevPhoto(pieza.id, pieza.fotos!.length)">‹</button>
+                <button class="photo-nav photo-nav--next" @click.stop="nextPhoto(pieza.id, pieza.fotos!.length)">›</button>
+                <div class="photo-dots">
+                  <span
+                    v-for="(_, idx) in pieza.fotos"
+                    :key="idx"
+                    class="photo-dot"
+                    :class="{ active: idx === getPhotoIndex(pieza.id) }"
+                  />
+                </div>
+              </template>
+            </template>
             <div v-else class="work-photo-placeholder">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
                 <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>
               </svg>
             </div>
-            <!-- Badge tipo -->
-            <span
-              class="work-badge"
-              :style="{ '--badge-color': getBadge(pieza.tipo).color }"
-            >{{ getBadge(pieza.tipo).label }}</span>
           </div>
 
-          <!-- Info -->
+          <!-- Info: solo nombre, precios y total -->
           <div class="work-info">
             <h3 class="work-name">{{ pieza.nombre }}</h3>
-            <div class="work-meta">
-              <span v-if="pieza.filamento" class="work-meta-item">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
-                {{ pieza.filamento }}
-              </span>
-              <span v-if="pieza.fecha_entrega" class="work-meta-item">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                {{ formatDate(pieza.fecha_entrega) }}
-              </span>
-            </div>
-            <p v-if="pieza.notas" class="work-notes">{{ pieza.notas }}</p>
+
+            <template v-if="pieza.precios && pieza.precios.length > 0">
+              <div class="work-prices">
+                <div
+                  v-for="(precio, idx) in pieza.precios"
+                  :key="idx"
+                  class="work-price-row"
+                >
+                  <span class="price-label">Pieza {{ pieza.precios.length > 1 ? idx + 1 : '' }}</span>
+                  <span class="price-value">{{ formatPrice(precio) }}</span>
+                </div>
+              </div>
+              <div class="work-total">
+                <span>Total</span>
+                <span>{{ formatPrice(total(pieza.precios)) }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -119,7 +142,7 @@ function getBadge(tipo: string) {
 
 .works-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.5rem;
 }
 
@@ -150,9 +173,8 @@ function getBadge(tipo: string) {
   object-fit: cover;
   transition: transform 0.5s ease;
 }
-.work-card:hover .work-photo img {
-  transform: scale(1.05);
-}
+.work-card:hover .work-photo img { transform: scale(1.04); }
+
 .work-photo-placeholder {
   width: 100%;
   height: 100%;
@@ -160,25 +182,48 @@ function getBadge(tipo: string) {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  background: linear-gradient(135deg, var(--bg-card), var(--bg));
 }
 
-/* Badge */
-.work-badge {
+/* Navegación de fotos */
+.photo-nav {
   position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.25rem 0.65rem;
-  border-radius: 99px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  color: var(--badge-color, var(--cyan));
-  border: 1px solid var(--badge-color, var(--cyan));
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.45);
+  border: none;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
+.work-photo:hover .photo-nav { opacity: 1; }
+.photo-nav--prev { left: 0.5rem; }
+.photo-nav--next { right: 0.5rem; }
+
+.photo-dots {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+}
+.photo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  transition: background 0.2s;
+}
+.photo-dot.active { background: #fff; }
 
 /* Info */
 .work-info {
@@ -188,29 +233,34 @@ function getBadge(tipo: string) {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
-.work-meta {
+
+/* Precios */
+.work-prices {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.3rem;
   margin-bottom: 0.6rem;
 }
-.work-meta-item {
+.work-price-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.work-notes {
   font-size: 0.85rem;
-  color: var(--text-soft);
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+}
+.price-label { color: var(--text-soft); }
+.price-value { color: var(--text); font-weight: 600; }
+
+.work-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--cyan);
 }
 
 /* Skeleton */
@@ -226,7 +276,6 @@ function getBadge(tipo: string) {
   50%       { opacity: 1; }
 }
 
-/* Empty */
 .works-empty {
   text-align: center;
   padding: 4rem;
