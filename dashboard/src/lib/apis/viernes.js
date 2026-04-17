@@ -51,6 +51,8 @@ export const viernesApi = {
   createFilamento: (payload) => apiRequest("post", "/catalogo/filamentos", payload),
   updateFilamento: (id, payload) => apiRequest("put", `/catalogo/filamentos/${id}`, payload),
   deleteFilamento: (id) => apiRequestDelete(`/catalogo/filamentos/${id}`),
+  asignarFilamentoTodos: (id) => apiRequest("post", `/catalogo/filamentos/${id}/asignar-todos`),
+  desasignarFilamentoTodos: (id) => apiRequest("post", `/catalogo/filamentos/${id}/desasignar-todos`),
 
   // catálogo 3D — productos
   listProductosCatalogo: () => apiRequest("get", "/catalogo/productos"),

@@ -36,16 +36,111 @@ function Input({ value, onChange, placeholder, type = "text" }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB: FILAMENTOS
+// MODAL DE FILAMENTO
 // ═══════════════════════════════════════════════════════════════════════════════
 const EMPTY_FIL = { nombre: "", tipo_material: "PLA", hex_codigo: "#000000", tarifa_por_minuto: "", en_stock: true, activo: true };
 
+function FilamentoModal({ editing, form, setForm, onSave, onClose, saving, onAsignar, onDesasignar, bulkLoading }) {
+  const isNew = editing === "new";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl"
+        style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)" }}>
+
+        <div className="flex items-center justify-between">
+          <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>
+            {isNew ? "Nuevo filamento" : "Editar filamento"}
+          </p>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--c-text-4)" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "var(--c-hover)"; e.currentTarget.style.color = "var(--c-text)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = ""; e.currentTarget.style.color = "var(--c-text-4)"; }}>
+            <IconX />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Nombre *">
+            <Input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder='Ej: "PLA Negro"' />
+          </Field>
+          <Field label="Tipo de material *">
+            <select value={form.tipo_material} onChange={e => setForm(p => ({ ...p, tipo_material: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
+              style={{ background: "var(--c-hover)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
+              onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
+              onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}>
+              {TIPOS_MATERIAL.map(t => <option key={t} value={t} style={{ background: "var(--c-shell)" }}>{t}</option>)}
+            </select>
+          </Field>
+          <Field label="Color (hex) *">
+            <div className="flex gap-2 items-center">
+              <input type="color" value={form.hex_codigo} onChange={e => setForm(p => ({ ...p, hex_codigo: e.target.value }))}
+                className="w-10 h-9 rounded cursor-pointer border-0 p-0.5" style={{ background: "var(--c-hover-2)" }} />
+              <Input value={form.hex_codigo} onChange={e => setForm(p => ({ ...p, hex_codigo: e.target.value }))} placeholder="#000000" />
+            </div>
+          </Field>
+          <Field label="Tarifa por minuto ($) *">
+            <Input type="number" value={form.tarifa_por_minuto} onChange={e => setForm(p => ({ ...p, tarifa_por_minuto: e.target.value }))} placeholder="1.2" />
+          </Field>
+        </div>
+
+        <div className="flex gap-5">
+          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--c-text-3)" }}>
+            <input type="checkbox" checked={form.en_stock} onChange={e => setForm(p => ({ ...p, en_stock: e.target.checked }))} />
+            En stock
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--c-text-3)" }}>
+            <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} />
+            Activo
+          </label>
+        </div>
+
+        {/* Asignar / desasignar en todas las piezas (solo al editar) */}
+        {!isNew && (
+          <div className="rounded-xl p-3 space-y-2" style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>Piezas del catálogo</p>
+            <div className="flex gap-2">
+              <button onClick={onAsignar} disabled={bulkLoading}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                style={{ background: "rgba(34,197,94,0.12)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.25)" }}
+                onMouseEnter={e => { if (!bulkLoading) e.currentTarget.style.background = "rgba(34,197,94,0.22)"; }}
+                onMouseLeave={e => e.currentTarget.style.background = "rgba(34,197,94,0.12)"}>
+                {bulkLoading === "asignar" ? "Asignando…" : "✓ Activar en todas las piezas"}
+              </button>
+              <button onClick={onDesasignar} disabled={bulkLoading}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                style={{ background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.25)" }}
+                onMouseEnter={e => { if (!bulkLoading) e.currentTarget.style.background = "rgba(248,113,113,0.2)"; }}
+                onMouseLeave={e => e.currentTarget.style.background = "rgba(248,113,113,0.1)"}>
+                {bulkLoading === "desasignar" ? "Quitando…" : "✕ Quitar de todas las piezas"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end pt-1">
+          <Btn onClick={onClose}><IconX /> Cancelar</Btn>
+          <Btn variant="primary" onClick={onSave} disabled={saving}><IconCheck /> {saving ? "Guardando…" : "Guardar"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB: FILAMENTOS
+// ═══════════════════════════════════════════════════════════════════════════════
 function TabFilamentos() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [bulkLoading, setBulkLoading] = useState(null); // "asignar" | "desasignar" | null
+  const [editing, setEditing] = useState(null);         // null | "new" | id
   const [form, setForm] = useState(EMPTY_FIL);
+  const [expanded, setExpanded] = useState({});
 
   useEffect(() => { load(); }, []);
 
@@ -61,7 +156,7 @@ function TabFilamentos() {
     setForm({ nombre: item.nombre, tipo_material: item.tipo_material, hex_codigo: item.hex_codigo, tarifa_por_minuto: String(item.tarifa_por_minuto), en_stock: item.en_stock, activo: item.activo });
     setEditing(item.id);
   }
-  function cancelEdit() { setEditing(null); setForm(EMPTY_FIL); }
+  function closeModal() { setEditing(null); setForm(EMPTY_FIL); }
 
   async function save() {
     if (!form.nombre.trim() || !form.tarifa_por_minuto) return;
@@ -70,7 +165,7 @@ function TabFilamentos() {
       const payload = { ...form, tarifa_por_minuto: parseFloat(form.tarifa_por_minuto) };
       if (editing === "new") await viernesApi.createFilamento(payload);
       else await viernesApi.updateFilamento(editing, payload);
-      cancelEdit(); await load();
+      closeModal(); await load();
     } catch (e) { alert("Error: " + e.message); }
     finally { setSaving(false); }
   }
@@ -81,108 +176,108 @@ function TabFilamentos() {
     catch (e) { alert("Error: " + e.message); }
   }
 
-  // Agrupar por tipo_material para visualización
+  async function handleAsignar() {
+    if (!confirm("¿Agregar este filamento a TODOS los productos del catálogo?")) return;
+    setBulkLoading("asignar");
+    try { const r = await viernesApi.asignarFilamentoTodos(editing); alert(`Filamento asignado a ${r.asignados} producto(s).`); }
+    catch (e) { alert("Error: " + e.message); }
+    finally { setBulkLoading(null); }
+  }
+
+  async function handleDesasignar() {
+    if (!confirm("¿Quitar este filamento de TODOS los productos? Esto lo eliminará del catálogo de cada pieza.")) return;
+    setBulkLoading("desasignar");
+    try { const r = await viernesApi.desasignarFilamentoTodos(editing); alert(`Filamento eliminado de ${r.eliminados} producto(s).`); }
+    catch (e) { alert("Error: " + e.message); }
+    finally { setBulkLoading(null); }
+  }
+
   const grupos = items.reduce((acc, item) => {
     if (!acc[item.tipo_material]) acc[item.tipo_material] = [];
     acc[item.tipo_material].push(item);
     return acc;
   }, {});
 
+  function toggleGrupo(tipo) {
+    setExpanded(p => ({ ...p, [tipo]: !p[tipo] }));
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs" style={{ color: "var(--c-text-4)" }}>
-          Cada filamento es una combinación de material + color con su propia tarifa. Ej: "PLA Negro" $1.2/min, "PLA Arcoíris" $1.6/min, "PETG Negro" $1.8/min.
+          Material + color con su tarifa. Activa el stock para que aparezca en el website.
         </p>
-        {editing !== "new" && <Btn variant="primary" onClick={startNew}><IconPlus /> Agregar</Btn>}
+        <Btn variant="primary" onClick={startNew}><IconPlus /> Agregar</Btn>
       </div>
 
-      {/* Formulario */}
-      {editing !== null && (
-        <div className="rounded-xl p-4 space-y-3" style={{ background: "var(--c-hover)", border: "1px solid var(--c-border-med)" }}>
-          <p className="text-xs font-semibold" style={{ color: "var(--c-text-2)" }}>
-            {editing === "new" ? "Nuevo filamento" : "Editar filamento"}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Nombre *">
-              <Input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder='Ej: "PLA Negro", "PETG Arcoíris"' />
-            </Field>
-            <Field label="Tipo de material *">
-              <select value={form.tipo_material} onChange={e => setForm(p => ({ ...p, tipo_material: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-all"
-                style={{ background: "var(--c-hover)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
-                onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
-                onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}>
-                {TIPOS_MATERIAL.map(t => <option key={t} value={t} style={{ background: "var(--c-shell)" }}>{t}</option>)}
-              </select>
-            </Field>
-            <Field label="Color (hex) *">
-              <div className="flex gap-2 items-center">
-                <input type="color" value={form.hex_codigo} onChange={e => setForm(p => ({ ...p, hex_codigo: e.target.value }))}
-                  className="w-10 h-9 rounded cursor-pointer border-0 p-0.5" style={{ background: "var(--c-hover-2)" }} />
-                <Input value={form.hex_codigo} onChange={e => setForm(p => ({ ...p, hex_codigo: e.target.value }))} placeholder="#000000" />
-              </div>
-            </Field>
-            <Field label="Tarifa por minuto ($) *">
-              <Input type="number" value={form.tarifa_por_minuto} onChange={e => setForm(p => ({ ...p, tarifa_por_minuto: e.target.value }))} placeholder="1.2" />
-            </Field>
-          </div>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--c-text-3)" }}>
-              <input type="checkbox" checked={form.en_stock} onChange={e => setForm(p => ({ ...p, en_stock: e.target.checked }))} />
-              En stock
-            </label>
-            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--c-text-3)" }}>
-              <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} />
-              Activo
-            </label>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Btn onClick={cancelEdit}><IconX /> Cancelar</Btn>
-            <Btn variant="primary" onClick={save} disabled={saving}><IconCheck /> Guardar</Btn>
-          </div>
-        </div>
-      )}
-
-      {/* Lista agrupada */}
       {loading ? (
         <p className="text-sm py-4 text-center" style={{ color: "var(--c-text-4)" }}>Cargando…</p>
       ) : items.length === 0 ? (
-        <p className="text-sm py-6 text-center" style={{ color: "var(--c-text-4)" }}>Sin filamentos aún. Agrega el primero.</p>
+        <p className="text-sm py-6 text-center" style={{ color: "var(--c-text-4)" }}>Sin filamentos aún.</p>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(grupos).map(([tipo, grupo]) => (
-            <div key={tipo}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 px-1" style={{ color: "var(--c-text-4)" }}>{tipo}</p>
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border-med)" }}>
-                <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-3 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ background: "var(--c-hover)", borderBottom: "1px solid var(--c-border)", color: "var(--c-text-4)" }}>
-                  <span>Color</span><span>Nombre</span><span className="text-right">$/min</span><span>Stock</span><span>Estado</span><span></span>
-                </div>
-                {grupo.map((item, i) => (
-                  <div key={item.id} className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center"
-                    style={{ borderBottom: i < grupo.length - 1 ? "1px solid var(--c-border)" : "none" }}>
-                    <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: item.hex_codigo, border: "1px solid var(--c-border-med)" }} />
-                    <span className="text-sm font-medium truncate" style={{ color: "var(--c-text)" }}>{item.nombre}</span>
-                    <span className="text-sm font-mono text-right" style={{ color: "var(--c-accent)" }}>${item.tarifa_por_minuto}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={item.en_stock ? { background: "rgba(34,197,94,0.12)", color: "#4ade80" } : { background: "rgba(248,113,113,0.12)", color: "#f87171" }}>
-                      {item.en_stock ? "Sí" : "No"}
+        <div className="space-y-2">
+          {Object.entries(grupos).map(([tipo, grupo]) => {
+            const isOpen = !!expanded[tipo];
+            const enStock = grupo.filter(f => f.en_stock).length;
+            return (
+              <div key={tipo} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border-med)" }}>
+                {/* Header colapsable */}
+                <button onClick={() => toggleGrupo(tipo)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+                  style={{ background: "var(--c-hover)" }}>
+                  <span className="text-xs font-bold uppercase tracking-widest flex-1" style={{ color: "var(--c-text-2)" }}>{tipo}</span>
+                  <span className="text-[10px]" style={{ color: "var(--c-text-4)" }}>{grupo.length} colores</span>
+                  {enStock > 0 && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(34,197,94,0.12)", color: "#4ade80" }}>
+                      {enStock} en stock
                     </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={item.activo ? { background: "rgba(34,197,94,0.12)", color: "#4ade80" } : { background: "var(--c-hover-2)", color: "var(--c-text-4)" }}>
-                      {item.activo ? "Activo" : "Inact."}
-                    </span>
-                    <div className="flex gap-1">
-                      <Btn onClick={() => startEdit(item)}><IconEdit /></Btn>
-                      <Btn variant="danger" onClick={() => del(item.id)}><IconTrash /></Btn>
-                    </div>
+                  )}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                    style={{ color: "var(--c-text-4)", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+
+                {/* Filas */}
+                {isOpen && (
+                  <div style={{ borderTop: "1px solid var(--c-border-med)" }}>
+                    {grupo.map((item, i) => (
+                      <div key={item.id} className="grid items-center gap-3 px-4 py-2.5"
+                        style={{ gridTemplateColumns: "auto 1fr auto auto auto", borderBottom: i < grupo.length - 1 ? "1px solid var(--c-border)" : "none" }}>
+                        <div className="w-5 h-5 rounded-md flex-shrink-0" style={{ background: item.hex_codigo, border: "1px solid var(--c-border-med)" }} />
+                        <span className="text-sm truncate" style={{ color: "var(--c-text)" }}>{item.nombre}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={item.en_stock ? { background: "rgba(34,197,94,0.12)", color: "#4ade80" } : { background: "rgba(248,113,113,0.12)", color: "#f87171" }}>
+                          {item.en_stock ? "En stock" : "Sin stock"}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={item.activo ? { background: "rgba(34,197,94,0.12)", color: "#4ade80" } : { background: "var(--c-hover-2)", color: "var(--c-text-4)" }}>
+                          {item.activo ? "Activo" : "Inactivo"}
+                        </span>
+                        <div className="flex gap-1">
+                          <Btn onClick={() => startEdit(item)}><IconEdit /></Btn>
+                          <Btn variant="danger" onClick={() => del(item.id)}><IconTrash /></Btn>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {/* Modal */}
+      {editing !== null && (
+        <FilamentoModal
+          editing={editing} form={form} setForm={setForm}
+          onSave={save} onClose={closeModal} saving={saving}
+          onAsignar={handleAsignar} onDesasignar={handleDesasignar}
+          bulkLoading={bulkLoading}
+        />
       )}
     </div>
   );

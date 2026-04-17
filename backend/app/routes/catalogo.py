@@ -84,6 +84,32 @@ def delete_filamento(filamento_id: int, db: Session = Depends(get_db), _=Depends
     return {"ok": True}
 
 
+@router.post("/filamentos/{filamento_id}/asignar-todos")
+def asignar_filamento_todos(filamento_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Agrega este filamento a todos los productos que aún no lo tienen."""
+    if not db.query(CatalogoFilamento).filter(CatalogoFilamento.id == filamento_id).first():
+        raise HTTPException(status_code=404, detail="Filamento no encontrado")
+    productos = db.query(CatalogoProducto).all()
+    count = 0
+    for p in productos:
+        exists = db.query(CatalogoProductoFilamento).filter_by(
+            producto_id=p.id, filamento_id=filamento_id
+        ).first()
+        if not exists:
+            db.add(CatalogoProductoFilamento(producto_id=p.id, filamento_id=filamento_id, archivo_3d_url=None))
+            count += 1
+    db.commit()
+    return {"ok": True, "asignados": count}
+
+
+@router.post("/filamentos/{filamento_id}/desasignar-todos")
+def desasignar_filamento_todos(filamento_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Quita este filamento de todos los productos."""
+    count = db.query(CatalogoProductoFilamento).filter_by(filamento_id=filamento_id).delete()
+    db.commit()
+    return {"ok": True, "eliminados": count}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PRODUCTOS  (CRUD en dashboard — requiere auth)
 # ══════════════════════════════════════════════════════════════════════════════

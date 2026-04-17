@@ -79,16 +79,10 @@ function formatDesde(n: number) {
               <div class="card-meta">
                 <span class="meta-item">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                  {{ producto.tiempo_impresion_minutos }} min base
-                </span>
-                <span class="meta-item">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
                     <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
                   </svg>
-                  {{ producto.tamano_minimo_mm }}–{{ producto.tamano_maximo_mm }} mm
+                  {{ (producto.tamano_minimo_mm / 10).toFixed(0) }}–{{ (producto.tamano_maximo_mm / 10).toFixed(0) }} cm
                 </span>
               </div>
               <div class="card-footer">
