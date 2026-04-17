@@ -34,14 +34,29 @@ const ICON_PIEZAS = (
     <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
   </svg>
 );
+const ICON_CATALOGO = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/>
+    <rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>
+  </svg>
+);
+const ICON_INVENTARIO = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
+  </svg>
+);
 
 const NAV = [
-  { to: "/app",          label: "Overview",    icon: ICON_OVERVIEW, end: true },
-  { to: "/app/gmail",    label: "Gmail",       icon: ICON_GMAIL },
-  { to: "/app/chat",     label: "Chat IA",     icon: ICON_CHAT },
-  { to: "/app/docs",     label: "Documentos",  icon: ICON_DOCS },
-  { to: "/app/website",  label: "Website",     icon: ICON_WEBSITE },
-  { to: "/app/piezas",   label: "Piezas 3D",   icon: ICON_PIEZAS },
+  { to: "/app",           label: "Overview",    icon: ICON_OVERVIEW,  end: true },
+  { to: "/app/gmail",     label: "Gmail",       icon: ICON_GMAIL },
+  { to: "/app/chat",      label: "Chat IA",     icon: ICON_CHAT },
+  { to: "/app/docs",      label: "Documentos",  icon: ICON_DOCS },
+  { to: "/app/website",   label: "Website",     icon: ICON_WEBSITE },
+  { to: "/app/piezas",    label: "Piezas 3D",   icon: ICON_PIEZAS },
+  { to: "/app/catalogo",   label: "Catálogo",    icon: ICON_CATALOGO },
+  { to: "/app/inventario", label: "Inventario",  icon: ICON_INVENTARIO },
 ];
 
 export default function AppSidebar() {

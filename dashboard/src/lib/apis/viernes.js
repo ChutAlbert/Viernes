@@ -38,10 +38,35 @@ export const viernesApi = {
   updatePieza: (id, payload) => apiRequest("put", `/piezas/${id}`, payload),
   deletePieza: (id) => apiRequestDelete(`/piezas/${id}`),
   syncPiezaSodigic: (id) => apiRequest("post", `/piezas/${id}/sync-sodigic`),
+  unsyncPiezaSodigic: (id) => apiRequest("post", `/piezas/${id}/unsync-sodigic`),
   uploadImagen: (formData) => apiRequestDocs("post", "/images/upload", formData),
   uploadArchivo3D: (formData) => apiRequestDocs("post", "/files/upload", formData),
 
   // visitas al sitio web
   visitStats: () => apiRequest("get", "/api/visits/stats"),
   clearVisits: () => apiRequest("delete", "/api/visits"),
+
+  // catálogo 3D — filamentos (material + color unificados)
+  listFilamentos: () => apiRequest("get", "/catalogo/filamentos"),
+  createFilamento: (payload) => apiRequest("post", "/catalogo/filamentos", payload),
+  updateFilamento: (id, payload) => apiRequest("put", `/catalogo/filamentos/${id}`, payload),
+  deleteFilamento: (id) => apiRequestDelete(`/catalogo/filamentos/${id}`),
+
+  // catálogo 3D — productos
+  listProductosCatalogo: () => apiRequest("get", "/catalogo/productos"),
+  getProductoCatalogo: (id) => apiRequest("get", `/catalogo/productos/${id}`),
+  createProductoCatalogo: (payload) => apiRequest("post", "/catalogo/productos", payload),
+  updateProductoCatalogo: (id, payload) => apiRequest("put", `/catalogo/productos/${id}`, payload),
+  deleteProductoCatalogo: (id) => apiRequestDelete(`/catalogo/productos/${id}`),
+
+  // inventario
+  listInventarioItems: () => apiRequest("get", "/inventario/items"),
+  createInventarioItem: (payload) => apiRequest("post", "/inventario/items", payload),
+  updateInventarioItem: (id, payload) => apiRequest("put", `/inventario/items/${id}`, payload),
+  deleteInventarioItem: (id) => apiRequestDelete(`/inventario/items/${id}`),
+  listInventarioCompras: () => apiRequest("get", "/inventario/compras"),
+  createInventarioCompra: (payload) => apiRequest("post", "/inventario/compras", payload),
+  deleteInventarioCompra: (id) => apiRequestDelete(`/inventario/compras/${id}`),
+  getInventarioResumen: () => apiRequest("get", "/inventario/resumen"),
+  getInventarioAlertas: () => apiRequest("get", "/inventario/alertas"),
 };

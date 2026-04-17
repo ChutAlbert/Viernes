@@ -3,6 +3,8 @@ import HomeView from '@/views/HomeView.vue'
 import ServiceDetailView from '@/views/ServiceDetailView.vue'
 import NosotrosView from '@/views/NosotrosView.vue'
 import ContactoView from '@/views/ContactoView.vue'
+import CatalogoView from '@/views/CatalogoView.vue'
+import CatalogoProductoView from '@/views/CatalogoProductoView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +28,16 @@ const router = createRouter({
       path: '/servicios/:slug',
       name: 'service-detail',
       component: ServiceDetailView,
+    },
+    {
+      path: '/catalogo',
+      name: 'catalogo',
+      component: CatalogoView,
+    },
+    {
+      path: '/catalogo/:slug',
+      name: 'catalogo-producto',
+      component: CatalogoProductoView,
     },
   ],
   scrollBehavior(to, _from, savedPosition) {

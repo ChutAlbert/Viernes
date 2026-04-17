@@ -26,6 +26,7 @@ function toggleTheme() {
 }
 
 const navLinks = [
+  { label: 'Catálogo', to: '/catalogo' },
   { label: 'Nosotros', to: '/nosotros' },
   { label: 'Contacto', to: '/contacto' },
 ]

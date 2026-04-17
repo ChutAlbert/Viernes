@@ -18,6 +18,7 @@ class PiezaBase(BaseModel):
     tiempo_impresion: Optional[str] = None
     notas: Optional[str] = None
     archivos: Optional[List[Dict[str, Any]]] = None  # [{url, nombre}]
+    pagos: Optional[List[Dict[str, Any]]] = None     # [{monto, fecha, nota?}]
 
 
 class PiezaCreate(PiezaBase):
@@ -40,6 +41,37 @@ class PiezaListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PiezaPublicOut(BaseModel):
+    """Pieza sincronizada expuesta públicamente — sin precios."""
+    id: int
+    nombre: str
+    fotos: Optional[List[str]] = None
+    persona: Optional[str] = None
+    tipo: str
+    filamento: Optional[str] = None
+    tiempo_impresion: Optional[str] = None
+    notas: Optional[str] = None
+    archivos: Optional[List[Dict[str, Any]]] = None
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_pieza(cls, obj):
+        return cls(
+            id=obj.id,
+            nombre=obj.nombre,
+            fotos=json.loads(obj.fotos) if obj.fotos else None,
+            persona=obj.persona,
+            tipo=obj.tipo,
+            filamento=obj.filamento,
+            tiempo_impresion=obj.tiempo_impresion,
+            notas=obj.notas,
+            archivos=json.loads(obj.archivos) if obj.archivos else None,
+            created_at=obj.created_at.isoformat() if obj.created_at else "",
+        )
+
+
 class PiezaOut(BaseModel):
     id: int
     nombre: str
@@ -56,6 +88,7 @@ class PiezaOut(BaseModel):
     tiempo_impresion: Optional[str] = None
     notas: Optional[str] = None
     archivos: Optional[List[Dict[str, Any]]] = None
+    pagos: Optional[List[Dict[str, Any]]] = None
     sincronizado_sodigic: bool
     created_at: str
 
@@ -79,6 +112,7 @@ class PiezaOut(BaseModel):
             tiempo_impresion=obj.tiempo_impresion,
             notas=obj.notas,
             archivos=json.loads(obj.archivos) if obj.archivos else None,
+            pagos=json.loads(obj.pagos) if obj.pagos else None,
             sincronizado_sodigic=obj.sincronizado_sodigic,
             created_at=obj.created_at.isoformat() if obj.created_at else "",
         )

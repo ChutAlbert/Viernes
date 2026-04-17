@@ -1,0 +1,266 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useProductos, imagenUrl } from '@/composables/useCatalogo'
+
+const router = useRouter()
+const { productos, loading } = useProductos()
+
+function formatDesde(n: number) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
+}
+</script>
+
+<template>
+  <section class="catalogo-preview">
+    <div class="container">
+      <!-- Header -->
+      <div class="preview-header animate-on-scroll">
+        <div class="section-tag">Catálogo 3D</div>
+        <h2 class="section-title">
+          Piezas <span class="highlight">personalizables</span>
+        </h2>
+        <div class="section-divider"></div>
+        <p class="section-subtitle">
+          Elige tu diseño, material, color y tamaño. Calculamos el precio al instante.
+        </p>
+      </div>
+
+      <!-- Skeleton -->
+      <div v-if="loading" class="preview-grid">
+        <div v-for="n in 3" :key="n" class="skeleton-card" />
+      </div>
+
+      <!-- Cards (máximo 3) -->
+      <div v-else-if="productos.length > 0" class="preview-grid">
+        <button
+          v-for="(producto, i) in productos.slice(0, 3)"
+          :key="producto.id"
+          class="preview-card animate-on-scroll"
+          :class="`delay-${i + 1}`"
+          @click="router.push(`/catalogo/${producto.slug ?? producto.id}`)"
+        >
+          <div class="card-img-wrap">
+            <img
+              v-if="producto.foto_preview_url"
+              :src="imagenUrl(producto.foto_preview_url) ?? ''"
+              :alt="producto.nombre"
+              loading="lazy"
+              class="card-img"
+            />
+            <div v-else class="card-img-placeholder">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <h3 class="card-title">{{ producto.nombre }}</h3>
+            <div class="card-meta">
+              <span class="meta-size">
+                {{ producto.tamano_minimo_mm }}–{{ producto.tamano_maximo_mm }} mm
+              </span>
+              <span v-if="producto.precio_desde" class="meta-precio">
+                Desde {{ formatDesde(producto.precio_desde) }}
+              </span>
+            </div>
+            <span class="card-cta">Personalizar →</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- CTA -->
+      <div class="preview-footer animate-on-scroll">
+        <button class="btn-catalogo" @click="router.push('/catalogo')">
+          Ver catálogo completo
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.catalogo-preview {
+  background: var(--bg);
+  padding: 6rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.preview-header {
+  text-align: center;
+  margin-bottom: 3.5rem;
+}
+
+.section-tag {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.highlight { color: var(--cyan); }
+
+.section-divider {
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+  border-radius: 99px;
+  margin: 0 auto 1.25rem;
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text-soft);
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* Grid */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+/* Card */
+.preview-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.preview-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(34, 211, 238, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1);
+}
+
+.card-img-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.card-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.preview-card:hover .card-img { transform: scale(1.04); }
+
+.card-img-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--border);
+}
+
+.card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meta-size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.meta-precio {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.card-cta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--cyan);
+  transition: color 0.2s;
+}
+.preview-card:hover .card-cta { color: var(--text); }
+
+/* Skeleton */
+.skeleton-card {
+  height: 280px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* Footer CTA */
+.preview-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-catalogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--radius);
+  border: 1.5px solid rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.06);
+  color: var(--cyan);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.btn-catalogo:hover {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .preview-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 540px) {
+  .catalogo-preview { padding: 4rem 0; }
+  .preview-grid { grid-template-columns: 1fr; }
+}
+</style>

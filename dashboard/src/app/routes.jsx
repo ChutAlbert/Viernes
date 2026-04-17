@@ -13,6 +13,9 @@ import Website from "./pages/Website";
 import ServiceDetail from "./pages/ServiceDetail";
 import Piezas from "./pages/Piezas";
 import PiezaDetail from "./pages/PiezaDetail";
+import Catalogo from "./pages/Catalogo";
+import CatalogoProductoDetail from "./pages/CatalogoProductoDetail";
+import Inventario from "./pages/Inventario";
 
 // guard súper simple (por ahora)
 function RequireAuth({ children }) {
@@ -44,6 +47,9 @@ export function AppRoutes() {
         <Route path="website/services/:slug" element={<ServiceDetail />} />
         <Route path="piezas" element={<Piezas />} />
         <Route path="piezas/:id" element={<PiezaDetail />} />
+        <Route path="catalogo" element={<Catalogo />} />
+        <Route path="catalogo/:id" element={<CatalogoProductoDetail />} />
+        <Route path="inventario" element={<Inventario />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/app" replace />} />

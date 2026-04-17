@@ -22,5 +22,6 @@ class Pieza(Base):
     tiempo_impresion: Mapped[str] = mapped_column(String(100), nullable=True)
     notas: Mapped[str] = mapped_column(Text, nullable=True)
     archivos: Mapped[str] = mapped_column(Text, nullable=True)  # JSON array de {url, nombre}
+    pagos: Mapped[str] = mapped_column(Text, nullable=True)     # JSON array de {monto, fecha, nota?}
     sincronizado_sodigic: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

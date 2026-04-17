@@ -6,7 +6,7 @@ import json
 from app.db import get_db
 from app.core.deps import get_current_user
 from app.models.pieza import Pieza
-from app.schemas.pieza import PiezaCreate, PiezaUpdate, PiezaOut, PiezaListItem
+from app.schemas.pieza import PiezaCreate, PiezaUpdate, PiezaOut, PiezaListItem, PiezaPublicOut
 
 router = APIRouter(prefix="/piezas", tags=["piezas"])
 
@@ -16,9 +16,11 @@ def _pieza_payload(payload: PiezaCreate | PiezaUpdate) -> dict:
     fotos = data.pop("fotos", None)
     precios = data.pop("precios", None)
     archivos = data.pop("archivos", None)
+    pagos = data.pop("pagos", None)
     data["fotos"] = json.dumps(fotos) if fotos is not None else None
     data["precios"] = json.dumps(precios) if precios is not None else None
     data["archivos"] = json.dumps(archivos) if archivos is not None else None
+    data["pagos"] = json.dumps(pagos) if pagos is not None else None
     return data
 
 
@@ -86,17 +88,27 @@ def sync_sodigic(pieza_id: int, db: Session = Depends(get_db), _=Depends(get_cur
         raise HTTPException(status_code=404, detail="Pieza no encontrada")
     pieza.sincronizado_sodigic = True
     db.commit()
-    db.refresh(pieza)
     return {"ok": True, "sincronizado": True}
 
 
-@router.get("/public/sincronizadas", response_model=List[PiezaOut])
+@router.post("/{pieza_id}/unsync-sodigic")
+def unsync_sodigic(pieza_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Quita la pieza del sitio público de Sodigic."""
+    pieza = db.query(Pieza).filter(Pieza.id == pieza_id).first()
+    if not pieza:
+        raise HTTPException(status_code=404, detail="Pieza no encontrada")
+    pieza.sincronizado_sodigic = False
+    db.commit()
+    return {"ok": True, "sincronizado": False}
+
+
+@router.get("/public/sincronizadas", response_model=List[PiezaPublicOut])
 def get_piezas_sincronizadas(db: Session = Depends(get_db)):
-    """Endpoint público: devuelve piezas marcadas para mostrar en Sodigic."""
+    """Endpoint público: devuelve piezas marcadas para mostrar en Sodigic (sin precios)."""
     piezas = (
         db.query(Pieza)
         .filter(Pieza.sincronizado_sodigic == True)
         .order_by(Pieza.created_at.desc())
         .all()
     )
-    return [PiezaOut.from_orm_pieza(p) for p in piezas]
+    return [PiezaPublicOut.from_orm_pieza(p) for p in piezas]

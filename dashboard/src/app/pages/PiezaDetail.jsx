@@ -4,11 +4,18 @@ import { viernesApi } from "@/lib/apis/viernes";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+const METODOS_PAGO = [
+  { value: "transferencia", label: "Transferencia" },
+  { value: "efectivo",      label: "Efectivo"      },
+  { value: "intercambio",   label: "Intercambio"   },
+];
+
 const EMPTY_FORM = {
   nombre: "",
   fotos: [],
   precios: [],
   monto_pagado: "",
+  pagos: [],
   persona: "",
   tipo: "venta_general",
   fecha_encargo: "",
@@ -207,6 +214,158 @@ function StyledSelect({ value, onChange, options }) {
         <option key={v} value={v} style={{ background: "var(--c-shell)" }}>{label}</option>
       ))}
     </select>
+  );
+}
+
+// ── Pagos parciales ───────────────────────────────────────────────────────────
+const METODO_STYLES = {
+  transferencia: { bg: "rgba(99,102,241,0.15)", color: "#818cf8" },
+  efectivo:      { bg: "rgba(34,197,94,0.12)",  color: "#4ade80" },
+  intercambio:   { bg: "rgba(251,191,36,0.12)", color: "#fbbf24" },
+};
+
+function PagosEditor({ pagos, onChange }) {
+  function update(i, field, val) {
+    const copy = pagos.map((p, idx) => idx === i ? { ...p, [field]: val } : p);
+    onChange(copy);
+  }
+  function add() {
+    onChange([...pagos, { monto: "", fecha: "", metodo: "transferencia", nota: "" }]);
+  }
+  function remove(i) { onChange(pagos.filter((_, idx) => idx !== i)); }
+
+  const total = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
+
+  return (
+    <div className="space-y-2">
+      {pagos.map((p, i) => (
+        <div key={i} className="flex gap-2 items-start p-3 rounded-xl" style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+          <span className="text-xs pt-2.5 shrink-0" style={{ color: "var(--c-text-4)", minWidth: "20px" }}>#{i + 1}</span>
+          <div className="flex-1 space-y-2">
+            {/* Fila 1: monto + fecha */}
+            <div className="grid grid-cols-[1fr_1fr] gap-2">
+              <input
+                type="number"
+                value={p.monto}
+                onChange={e => update(i, "monto", e.target.value)}
+                placeholder="Monto ($)"
+                className="px-3 py-2 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
+                onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
+                onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}
+              />
+              <input
+                type="date"
+                value={p.fecha}
+                onChange={e => update(i, "fecha", e.target.value)}
+                className="px-3 py-2 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
+                onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
+                onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}
+              />
+            </div>
+            {/* Fila 2: método */}
+            <div className="flex gap-1.5">
+              {METODOS_PAGO.map(m => (
+                <button key={m.value} type="button"
+                  onClick={() => update(i, "metodo", m.value)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+                  style={p.metodo === m.value
+                    ? { ...(METODO_STYLES[m.value] || {}), border: "1px solid transparent" }
+                    : { background: "var(--c-shell)", color: "var(--c-text-4)", border: "1px solid var(--c-border)" }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {/* Fila 3: nota */}
+            <input
+              type="text"
+              value={p.nota}
+              onChange={e => update(i, "nota", e.target.value)}
+              placeholder="Nota (ej: anticipo, resto…)"
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-all"
+              style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
+              onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
+              onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}
+            />
+          </div>
+          <button type="button" onClick={() => remove(i)}
+            className="p-1.5 rounded-lg mt-1 transition-all shrink-0" style={{ color: "var(--c-text-4)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#f87171"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-4)"; }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      ))}
+
+      <button type="button" onClick={add}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all"
+        style={{ color: "var(--c-accent)", background: "rgba(var(--accent-rgb, 99,102,241),0.1)" }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = "0.8"; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Agregar pago
+      </button>
+
+      {pagos.length > 0 && (
+        <div className="flex justify-end pt-1">
+          <span className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(var(--accent-rgb,99,102,241),0.08)", color: "var(--c-accent)" }}>
+            Total cobrado: ${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PagosReadOnly({ pagos, montoPagado }) {
+  if (!pagos?.length) {
+    if (montoPagado != null && montoPagado !== "") {
+      return (
+        <p className="text-sm" style={{ color: "var(--c-text)" }}>
+          ${Number(montoPagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+        </p>
+      );
+    }
+    return <p className="text-sm" style={{ color: "var(--c-text-4)" }}>—</p>;
+  }
+
+  const total = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
+  return (
+    <div className="space-y-2">
+      {pagos.map((p, i) => (
+        <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-xl flex-wrap"
+          style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+          <span className="text-xs font-bold w-5 text-right shrink-0" style={{ color: "var(--c-text-4)" }}>#{i + 1}</span>
+          <span className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>
+            ${Number(p.monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </span>
+          {p.metodo && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={METODO_STYLES[p.metodo] || { background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
+              {METODOS_PAGO.find(m => m.value === p.metodo)?.label ?? p.metodo}
+            </span>
+          )}
+          {p.fecha && (
+            <span className="text-xs" style={{ color: "var(--c-text-4)" }}>{p.fecha}</span>
+          )}
+          {p.nota && (
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
+              {p.nota}
+            </span>
+          )}
+        </div>
+      ))}
+      <div className="flex justify-end pt-1">
+        <span className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(var(--accent-rgb,99,102,241),0.08)", color: "var(--c-accent)" }}>
+          Total: ${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -419,6 +578,7 @@ export default function PiezaDetail() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [unsyncing, setUnsyncing] = useState(false);
   const [error, setError] = useState("");
   const [syncOk, setSyncOk] = useState(false);
 
@@ -442,6 +602,7 @@ export default function PiezaDetail() {
           tiempo_impresion: data.tiempo_impresion ?? "",
           notas: data.notas ?? "",
           archivos: data.archivos ?? [],
+          pagos: data.pagos ?? [],
           sincronizado_sodigic: data.sincronizado_sodigic,
         };
         setForm(mapped);
@@ -472,6 +633,9 @@ export default function PiezaDetail() {
       tiempo_impresion: form.tiempo_impresion || null,
       notas: form.notas || null,
       archivos: form.archivos.length ? form.archivos : null,
+      pagos: form.pagos.filter(p => p.monto !== "").length
+        ? form.pagos.filter(p => p.monto !== "").map(p => ({ ...p, monto: Number(p.monto) }))
+        : null,
     };
   }
 
@@ -500,6 +664,7 @@ export default function PiezaDetail() {
           tiempo_impresion: updated.tiempo_impresion ?? "",
           notas: updated.notas ?? "",
           archivos: updated.archivos ?? [],
+          pagos: updated.pagos ?? [],
           sincronizado_sodigic: updated.sincronizado_sodigic,
         };
         setForm(mapped);
@@ -532,6 +697,21 @@ export default function PiezaDetail() {
       setError(e.message);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleUnsync() {
+    if (!confirm("¿Quitar esta pieza de Sodigic? Dejará de ser visible en el sitio público.")) return;
+    setUnsyncing(true);
+    setError("");
+    try {
+      await viernesApi.unsyncPiezaSodigic(id);
+      setSyncOk(false);
+      setForm((f) => ({ ...f, sincronizado_sodigic: false }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUnsyncing(false);
     }
   }
 
@@ -593,12 +773,19 @@ export default function PiezaDetail() {
                 </button>
               )}
               {syncOk && (
-                <span className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-medium" style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <button
+                  onClick={handleUnsync}
+                  disabled={unsyncing}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.2)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248,113,113,0.1)"; e.currentTarget.style.color = "#f87171"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.2)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.color = "#4ade80"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Sincronizado con Sodigic
-                </span>
+                  {unsyncing ? "Quitando…" : "Sincronizado · Quitar"}
+                </button>
               )}
               <button
                 onClick={() => setEditMode(true)}
@@ -708,11 +895,19 @@ export default function PiezaDetail() {
           }
         </Field>
 
-        {/* Monto pagado total */}
-        <Field label="Monto total cobrado">
+        {/* Monto acordado */}
+        <Field label="Precio acordado / cobrar">
           {readOnly
             ? <ReadValue value={form.monto_pagado !== "" ? `$${Number(form.monto_pagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}` : null} />
             : <StyledInput type="number" value={form.monto_pagado} onChange={setField("monto_pagado")} placeholder="0.00" />
+          }
+        </Field>
+
+        {/* Pagos parciales */}
+        <Field label="Pagos recibidos">
+          {readOnly
+            ? <PagosReadOnly pagos={form.pagos} montoPagado={form.monto_pagado} />
+            : <PagosEditor pagos={form.pagos} onChange={setField("pagos")} />
           }
         </Field>
 

@@ -135,6 +135,50 @@ function CardTitle({ children, sub }) {
   );
 }
 
+function AlertasInventario() {
+  const [alertas, setAlertas] = useState([]);
+
+  useEffect(() => {
+    viernesApi.getInventarioAlertas()
+      .then(setAlertas)
+      .catch(() => {});
+  }, []);
+
+  if (alertas.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl p-5" style={{ background: "var(--c-surface)", border: "1px solid #f59e0b44" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <span style={{ color: "#f59e0b" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </span>
+        <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>
+          Stock bajo — {alertas.length} {alertas.length === 1 ? "material" : "materiales"}
+        </p>
+        <Link to="/app/inventario" className="ml-auto text-xs" style={{ color: "var(--c-text-4)" }}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--c-accent-text)"}
+          onMouseLeave={e => e.currentTarget.style.color = "var(--c-text-4)"}
+        >
+          Ver inventario →
+        </Link>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {alertas.map(a => (
+          <div key={a.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
+            style={{ background: "#f59e0b18", border: "1px solid #f59e0b33", color: "var(--c-text-2)" }}>
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "#f59e0b" }}/>
+            <span className="font-medium">{a.nombre}</span>
+            <span style={{ color: "var(--c-text-4)" }}>{a.cantidad_actual} / {a.cantidad_minima} {a.unidad}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [visits, setVisits] = useState(null);
   const [clearing, setClearing] = useState(false);
@@ -162,6 +206,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5 max-w-[1400px]">
+
+      <AlertasInventario />
 
       {/* Visitas al sitio web */}
       <div>
