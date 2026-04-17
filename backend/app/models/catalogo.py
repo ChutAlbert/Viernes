@@ -35,6 +35,8 @@ class CatalogoProducto(Base):
     archivo_3d_url: Mapped[str] = mapped_column(String(500), nullable=True)
     foto_preview_url: Mapped[str] = mapped_column(String(500), nullable=True)
     tiempo_impresion_minutos: Mapped[float] = mapped_column(Float)
+    tiempo_minimo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
+    tiempo_maximo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
     tamano_base_mm: Mapped[float] = mapped_column(Float)
     tamano_y_mm: Mapped[float] = mapped_column(Float, nullable=True)
     tamano_z_mm: Mapped[float] = mapped_column(Float, nullable=True)

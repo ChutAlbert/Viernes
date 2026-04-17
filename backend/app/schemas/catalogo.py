@@ -45,6 +45,8 @@ class ProductoBase(BaseModel):
     archivo_3d_url: Optional[str] = None
     foto_preview_url: Optional[str] = None
     tiempo_impresion_minutos: float = Field(gt=0)
+    tiempo_minimo_minutos: Optional[float] = None
+    tiempo_maximo_minutos: Optional[float] = None
     tamano_base_mm: float = Field(gt=0)
     tamano_y_mm: Optional[float] = None
     tamano_z_mm: Optional[float] = None

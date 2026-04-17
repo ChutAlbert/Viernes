@@ -80,16 +80,32 @@ const archivo3dUrl = computed(() => {
 
 const colorHex = computed(() => filamentoSel.value?.filamento.hex_codigo ?? '#22d3ee')
 const tipoMaterial = computed(() => filamentoSel.value?.filamento.tipo_material ?? 'PLA')
+const filamentoAgotado = computed(() => filamentoSel.value?.filamento.en_stock === false)
 
-// Agrupar filamentos por tipo_material para mostrarlos agrupados
+// Descripción de material visible
+const descVisible = ref(new Set<string>())
+function toggleDesc(tipo: string) {
+  const next = new Set(descVisible.value)
+  next.has(tipo) ? next.delete(tipo) : next.add(tipo)
+  descVisible.value = next
+}
+
+const ORDEN_MATERIALES = ['PLA', 'PLA+', 'PETG', 'ASA', 'ABS', 'TPU', 'Resina']
+
+// Agrupar filamentos por tipo_material en orden fijo
 const filamentosAgrupados = computed(() => {
   if (!producto.value) return {}
-  return producto.value.filamentos.reduce((acc, pf) => {
+  const raw = producto.value.filamentos.reduce((acc, pf) => {
     const tipo = pf.filamento.tipo_material
     if (!acc[tipo]) acc[tipo] = []
     acc[tipo].push(pf)
     return acc
   }, {} as Record<string, typeof producto.value.filamentos>)
+
+  const ordered: Record<string, typeof producto.value.filamentos> = {}
+  ORDEN_MATERIALES.forEach(t => { if (raw[t]) ordered[t] = raw[t] })
+  Object.keys(raw).forEach(t => { if (!ordered[t]) ordered[t] = raw[t] })
+  return ordered
 })
 
 function formatPrecio(n: number) {
@@ -115,29 +131,50 @@ function formatTamano(mm: number): string {
   return `${cm % 1 === 0 ? cm.toFixed(0) : cm.toFixed(1)} cm`
 }
 
-const tamanoCm = computed({
-  get: () => parseFloat((tamano.value / 10).toFixed(1)),
-  set: (cm: number) => {
-    const mm = Math.round(cm * 10)
-    const min = producto.value?.tamano_minimo_mm ?? mm
-    const max = producto.value?.tamano_maximo_mm ?? mm
-    tamano.value = Math.min(Math.max(mm, min), max)
+// Dimensiones escaladas con etiquetas
+const scale = computed(() =>
+  producto.value && producto.value.tamano_base_mm > 0
+    ? tamano.value / producto.value.tamano_base_mm
+    : 1
+)
+
+function fmtCm(mm: number) {
+  const v = mm / 10
+  return parseFloat((v % 1 < 0.05 || v % 1 > 0.95 ? v.toFixed(1) : v.toFixed(1)))
+}
+
+// Input ANCHO
+const anchoCm = computed({
+  get: () => fmtCm(tamano.value),
+  set: (v: number) => {
+    if (!producto.value) return
+    const mm = Math.round(v * 10)
+    tamano.value = Math.min(Math.max(mm, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
   },
 })
 
-// Dimensiones escaladas con etiquetas
-const dimensiones = computed(() => {
-  if (!producto.value) return null
-  const scale = producto.value.tamano_base_mm > 0 ? tamano.value / producto.value.tamano_base_mm : 1
-  const fmt = (v: number) => (v % 1 < 0.05 || v % 1 > 0.95 ? v.toFixed(0) : v.toFixed(1)) + ' cm'
-  const items: { label: string; value: string }[] = [
-    { label: 'Ancho', value: fmt(tamano.value / 10) },
-  ]
-  if (producto.value.tamano_y_mm)
-    items.push({ label: 'Alto',  value: fmt((producto.value.tamano_y_mm * scale) / 10) })
-  if (producto.value.tamano_z_mm)
-    items.push({ label: 'Largo', value: fmt((producto.value.tamano_z_mm * scale) / 10) })
-  return items
+// Input LARGO (Y) — back-calculates slider from Y dimension
+const largoCm = computed({
+  get: () => producto.value?.tamano_y_mm
+    ? fmtCm(producto.value.tamano_y_mm * scale.value)
+    : null,
+  set: (v: number) => {
+    if (!producto.value?.tamano_y_mm) return
+    const targetSlider = Math.round((v * 10 / producto.value.tamano_y_mm) * producto.value.tamano_base_mm)
+    tamano.value = Math.min(Math.max(targetSlider, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
+  },
+})
+
+// Input ALTO (Z) — back-calculates slider from Z dimension (Z = height in 3D printing)
+const altoCm = computed({
+  get: () => producto.value?.tamano_z_mm
+    ? fmtCm(producto.value.tamano_z_mm * scale.value)
+    : null,
+  set: (v: number) => {
+    if (!producto.value?.tamano_z_mm) return
+    const targetSlider = Math.round((v * 10 / producto.value.tamano_z_mm) * producto.value.tamano_base_mm)
+    tamano.value = Math.min(Math.max(targetSlider, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
+  },
 })
 
 const ctaUrl = computed(() => {
@@ -197,25 +234,55 @@ const ctaUrl = computed(() => {
 
         <!-- Tamaño -->
         <div class="config-block">
-          <div class="block-header">
-            <span class="block-label">Tamaño</span>
-            <div class="tamano-input-wrap">
-              <input
-                type="number"
-                class="tamano-input"
-                :min="producto.tamano_minimo_mm / 10"
-                :max="producto.tamano_maximo_mm / 10"
-                step="0.1"
-                :value="tamanoCm"
-                @change="tamanoCm = parseFloat(($event.target as HTMLInputElement).value) || tamanoCm"
-              />
-              <span class="tamano-unit">cm</span>
+          <span class="block-label">Tamaño</span>
+          <div class="dimensiones-inputs">
+            <!-- ANCHO siempre visible -->
+            <div class="dim-input-wrap">
+              <span class="dim-label">Ancho</span>
+              <div class="dim-field">
+                <input
+                  type="number"
+                  class="dim-input"
+                  :min="producto.tamano_minimo_mm / 10"
+                  :max="producto.tamano_maximo_mm / 10"
+                  step="0.1"
+                  :value="anchoCm"
+                  @change="anchoCm = parseFloat(($event.target as HTMLInputElement).value) || anchoCm"
+                />
+                <span class="dim-unit">cm</span>
+              </div>
             </div>
-          </div>
-          <div v-if="dimensiones && dimensiones.length > 1" class="dimensiones-chips">
-            <div v-for="d in dimensiones" :key="d.label" class="dim-chip">
-              <span class="dim-label">{{ d.label }}</span>
-              <span class="dim-value">{{ d.value }}</span>
+            <!-- LARGO (Y) -->
+            <div v-if="largoCm !== null" class="dim-input-wrap">
+              <span class="dim-label">Largo</span>
+              <div class="dim-field">
+                <input
+                  type="number"
+                  class="dim-input"
+                  :min="(producto.tamano_minimo_mm / producto.tamano_base_mm * producto.tamano_y_mm!) / 10"
+                  :max="(producto.tamano_maximo_mm / producto.tamano_base_mm * producto.tamano_y_mm!) / 10"
+                  step="0.1"
+                  :value="largoCm"
+                  @change="largoCm = parseFloat(($event.target as HTMLInputElement).value) || largoCm"
+                />
+                <span class="dim-unit">cm</span>
+              </div>
+            </div>
+            <!-- ALTO (Z) — Z es la altura en impresión 3D -->
+            <div v-if="altoCm !== null" class="dim-input-wrap">
+              <span class="dim-label">Alto</span>
+              <div class="dim-field">
+                <input
+                  type="number"
+                  class="dim-input"
+                  :min="(producto.tamano_minimo_mm / producto.tamano_base_mm * producto.tamano_z_mm!) / 10"
+                  :max="(producto.tamano_maximo_mm / producto.tamano_base_mm * producto.tamano_z_mm!) / 10"
+                  step="0.1"
+                  :value="altoCm"
+                  @change="altoCm = parseFloat(($event.target as HTMLInputElement).value) || altoCm"
+                />
+                <span class="dim-unit">cm</span>
+              </div>
             </div>
           </div>
           <input type="range" :min="producto.tamano_minimo_mm" :max="producto.tamano_maximo_mm" :step="1"
@@ -236,25 +303,29 @@ const ctaUrl = computed(() => {
 
           <div v-else class="filamentos-grupos">
             <div v-for="(grupo, tipo) in filamentosAgrupados" :key="tipo" class="grupo">
-              <p class="grupo-label">{{ tipo }}</p>
-              <p class="grupo-desc">{{ materialDesc(tipo as string) }}</p>
-              <div class="filamentos-grid">
+              <div class="grupo-header">
+                <p class="grupo-label">{{ tipo }}</p>
+                <button class="desc-toggle" :class="{ active: descVisible.has(tipo as string) }"
+                  @click="toggleDesc(tipo as string)" :title="'¿Qué es ' + tipo + '?'">!</button>
+              </div>
+              <p v-if="descVisible.has(tipo as string)" class="grupo-desc">{{ materialDesc(tipo as string) }}</p>
+              <!-- Nombre del color seleccionado en este grupo -->
+              <p v-if="grupo.find(pf => pf.filamento_id === selFilamentoId)" class="color-sel-nombre">
+                {{ grupo.find(pf => pf.filamento_id === selFilamentoId)?.filamento.nombre }}
+              </p>
+              <div class="colores-dots">
                 <button
                   v-for="pf in grupo"
                   :key="pf.filamento_id"
-                  class="filamento-btn"
+                  class="color-dot"
                   :class="{
                     active: selFilamentoId === pf.filamento_id,
-                    'sin-stock': !pf.filamento.en_stock,
+                    agotado: !pf.filamento.en_stock,
                   }"
-                  :disabled="!pf.filamento.en_stock"
+                  :style="{ '--dot-color': pf.filamento.hex_codigo }"
+                  :title="pf.filamento.nombre + (!pf.filamento.en_stock ? ' · Agotado' : '')"
                   @click="selFilamentoId = pf.filamento_id"
-                  :title="!pf.filamento.en_stock ? 'Sin stock' : pf.filamento.nombre"
-                >
-                  <span class="fil-swatch" :style="{ background: pf.filamento.hex_codigo }" />
-                  <span class="fil-nombre">{{ pf.filamento.nombre }}</span>
-                  <span v-if="!pf.filamento.en_stock" class="fil-badge">Agotado</span>
-                </button>
+                />
               </div>
             </div>
           </div>
@@ -285,7 +356,14 @@ const ctaUrl = computed(() => {
           <p class="precio-nota">* Precio estimado. El costo final puede variar según complejidad de impresión.</p>
         </div>
 
-        <a :href="ctaUrl" class="btn btn-primary cta-btn">Solicitar esta pieza</a>
+        <div v-if="filamentoAgotado" class="agotado-aviso">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
+          Este color está agotado. Elige otro para continuar.
+        </div>
+        <a v-if="!filamentoAgotado" :href="ctaUrl" class="btn btn-primary cta-btn">Solicitar esta pieza</a>
+        <button v-else class="btn cta-btn cta-disabled" disabled>Solicitar esta pieza</button>
       </div>
     </div>
   </div>
@@ -313,23 +391,20 @@ const ctaUrl = computed(() => {
 .block-header { display: flex; align-items: baseline; justify-content: space-between; }
 .block-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-soft); }
 .block-value { font-size: 0.95rem; font-weight: 700; color: var(--cyan); }
-.tamano-input-wrap { display: flex; align-items: center; gap: 0.25rem; }
-.tamano-input {
-  width: 4.5rem; padding: 0.2rem 0.4rem; border-radius: 6px;
-  border: 1.5px solid var(--border-soft); background: var(--bg-elevated);
-  color: var(--cyan); font-size: 0.95rem; font-weight: 700;
-  font-family: inherit; text-align: right; outline: none;
-  transition: border-color 0.2s;
+.dimensiones-inputs { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.dim-input-wrap { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 90px; }
+.dim-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+.dim-field { display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 8px; background: rgba(34,211,238,0.06); border: 1.5px solid rgba(34,211,238,0.15); transition: border-color 0.2s; }
+.dim-field:focus-within { border-color: var(--cyan); }
+.dim-input {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--cyan); font-size: 0.88rem; font-weight: 700;
+  font-family: inherit; text-align: right; min-width: 0;
   -moz-appearance: textfield;
 }
-.tamano-input::-webkit-outer-spin-button,
-.tamano-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.tamano-input:focus { border-color: var(--cyan); }
-.tamano-unit { font-size: 0.85rem; font-weight: 600; color: var(--cyan); }
-.dimensiones-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: -0.1rem; }
-.dim-chip { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.3rem 0.75rem; border-radius: 8px; background: rgba(34,211,238,0.06); border: 1px solid rgba(34,211,238,0.15); }
-.dim-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
-.dim-value { font-size: 0.82rem; font-weight: 700; color: var(--cyan); }
+.dim-input::-webkit-outer-spin-button,
+.dim-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dim-unit { font-size: 0.75rem; font-weight: 600; color: var(--cyan); opacity: 0.7; flex-shrink: 0; }
 
 .size-slider { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border); border-radius: 99px; outline: none; cursor: pointer; }
 .size-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--cyan); cursor: pointer; border: 2px solid var(--bg-card); box-shadow: 0 0 8px rgba(34,211,238,0.4); transition: transform 0.15s; }
@@ -338,25 +413,50 @@ const ctaUrl = computed(() => {
 
 /* Filamentos agrupados */
 .filamentos-grupos { display: flex; flex-direction: column; gap: 1.25rem; }
-.grupo-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem; }
-.grupo-desc { font-size: 0.8rem; color: var(--text-soft); line-height: 1.55; margin-bottom: 0.6rem; }
-.filamentos-grid { display: flex; flex-direction: column; gap: 0.4rem; }
-
-.filamento-btn {
-  display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.65rem 0.875rem; border-radius: var(--radius);
-  border: 1.5px solid var(--border-soft);
-  background: var(--bg-elevated); cursor: pointer;
-  font-family: inherit; text-align: left;
-  transition: border-color 0.2s, background 0.2s;
+.grupo-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.grupo-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.desc-toggle {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  font-size: 0.65rem; font-weight: 800; font-family: serif; font-style: italic;
+  border: 1.5px solid var(--border-soft); background: transparent;
+  color: var(--text-muted); cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s;
 }
-.filamento-btn:hover:not(:disabled) { border-color: var(--cyan); background: rgba(34,211,238,0.05); }
-.filamento-btn.active { border-color: var(--cyan); background: rgba(34,211,238,0.08); }
-.filamento-btn.sin-stock { opacity: 0.45; cursor: not-allowed; }
+.desc-toggle:hover, .desc-toggle.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34,211,238,0.08); }
+.grupo-desc { font-size: 0.78rem; color: var(--text-soft); line-height: 1.55; margin-bottom: 0.5rem; }
+.color-sel-nombre { font-size: 0.78rem; font-weight: 600; color: var(--cyan); margin-bottom: 0.4rem; min-height: 1.1em; }
+.colores-dots { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.color-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--dot-color, #888);
+  border: 2.5px solid transparent;
+  cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  outline: none; position: relative;
+}
+.color-dot:hover:not(:disabled) { transform: scale(1.18); border-color: rgba(255,255,255,0.4); }
+.color-dot.active { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(34,211,238,0.35); transform: scale(1.12); }
+.color-dot.agotado { opacity: 0.7; cursor: pointer; }
+.color-dot.agotado.active { border-color: #f87171; box-shadow: 0 0 0 2px rgba(248,113,113,0.35); }
+.color-dot.agotado::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 1.5px),
+    #ef4444 calc(50% - 1.5px),
+    #ef4444 calc(50% + 1.5px),
+    transparent calc(50% + 1.5px)
+  );
+  box-shadow: inset 0 0 0 2px #ef4444;
+}
 
-.fil-swatch { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.12); }
-.fil-nombre { font-size: 0.85rem; font-weight: 600; color: var(--text); flex: 1; }
-.fil-badge { font-size: 0.65rem; color: #f87171; background: rgba(248,113,113,0.12); padding: 0.15rem 0.5rem; border-radius: 99px; flex-shrink: 0; }
+.agotado-aviso {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.75rem 1rem; border-radius: var(--radius);
+  background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
+  font-size: 0.82rem; color: #f87171; font-weight: 500;
+}
+.cta-disabled { background: var(--border) !important; color: var(--text-muted) !important; cursor: not-allowed; opacity: 0.5; }
 
 .no-filamentos { font-size: 0.85rem; color: var(--text-muted); }
 
