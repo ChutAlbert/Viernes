@@ -25,6 +25,7 @@ const EMPTY_FORM = {
   max_colores: 1,
   activo: true,
   publicado: false,
+  es_personalizable: false,
 };
 
 function minutosAHM(totalMinutos) {
@@ -138,33 +139,80 @@ function Archivo3DUploader({ url, onChange, label = "Archivo 3D principal" }) {
   );
 }
 
-// ─── Selector de filamentos colapsable por grupo ──────────────────────────────
+// ─── Galería de imágenes del producto ────────────────────────────────────────
+function GaleriaProducto({ productoId }) {
+  const [imagenes, setImagenes] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    viernesApi.listImagenesProducto(productoId).then(setImagenes).catch(console.error);
+  }, [productoId]);
+
+  async function handleFile(file) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await viernesApi.uploadImagen(fd);
+      if (res?.url) {
+        const img = await viernesApi.addImagenProducto(productoId, { url: res.url, orden: imagenes.length });
+        setImagenes(prev => [...prev, img]);
+      }
+    } catch (e) { alert("Error subiendo imagen: " + e.message); }
+    finally { setUploading(false); }
+  }
+
+  async function remove(img) {
+    try {
+      await viernesApi.deleteImagenProducto(productoId, img.id);
+      setImagenes(prev => prev.filter(i => i.id !== img.id));
+    } catch (e) { alert("Error eliminando imagen: " + e.message); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        {imagenes.map(img => (
+          <div key={img.id} className="relative group">
+            <img src={`${API_BASE}${img.url}`} className="w-24 h-24 object-cover rounded-xl" alt="" />
+            <button onClick={() => remove(img)}
+              className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: "rgba(0,0,0,0.72)", color: "#f87171" }}>×</button>
+          </div>
+        ))}
+        <label className="w-24 h-24 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-all"
+          style={{ background: "var(--c-hover-2)", border: "2px dashed var(--c-border-med)", color: "var(--c-text-4)" }}>
+          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={e => handleFile(e.target.files?.[0])} disabled={uploading} />
+          {uploading
+            ? <span className="text-[10px]">Subiendo…</span>
+            : <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span className="text-[10px] font-medium">Añadir</span>
+              </>
+          }
+        </label>
+      </div>
+      <p className="text-xs" style={{ color: "var(--c-text-4)" }}>Las imágenes se guardan al subirlas y aparecen en el catálogo como ejemplos de piezas impresas.</p>
+    </div>
+  );
+}
+
+// ─── Selector de filamentos compacto en grid ─────────────────────────────────
+const ORDEN_GRUPOS = ['PLA', 'PLA+', 'PLA SILK', 'PETG', 'ASA', 'ABS', 'TPU', 'Resina'];
+
 function FilamentosSelector({ available, selected, onChange }) {
-  const grupos = available.reduce((acc, f) => {
+  const gruposRaw = available.reduce((acc, f) => {
     if (!acc[f.tipo_material]) acc[f.tipo_material] = [];
     acc[f.tipo_material].push(f);
     return acc;
   }, {});
 
-  // Grupos expandidos: por defecto solo los que tienen filamentos seleccionados
-  const [expanded, setExpanded] = useState(() => {
-    const init = {};
-    Object.keys(grupos).forEach(t => { init[t] = false; });
-    return init;
-  });
-
-  // Expandir grupos que tienen seleccionados cuando cambia `selected`
-  useEffect(() => {
-    if (selected.length === 0) return;
-    setExpanded(prev => {
-      const next = { ...prev };
-      selected.forEach(s => {
-        const fil = available.find(f => f.id === s.filamento_id);
-        if (fil) next[fil.tipo_material] = true;
-      });
-      return next;
-    });
-  }, []);  // solo al montar
+  // Ordenar grupos
+  const grupos = {};
+  ORDEN_GRUPOS.forEach(t => { if (gruposRaw[t]) grupos[t] = gruposRaw[t]; });
+  Object.keys(gruposRaw).forEach(t => { if (!grupos[t]) grupos[t] = gruposRaw[t]; });
 
   function toggle(filamentoId) {
     const exists = selected.find(s => s.filamento_id === filamentoId);
@@ -176,73 +224,103 @@ function FilamentosSelector({ available, selected, onChange }) {
     onChange(selected.map(s => s.filamento_id === filamentoId ? { ...s, archivo_3d_url: url } : s));
   }
 
-  function toggleGrupo(tipo) {
-    setExpanded(prev => ({ ...prev, [tipo]: !prev[tipo] }));
-  }
+  // Filamentos seleccionados que tienen archivo 3D opcional
+  const selConArchivo = selected.map(s => {
+    const fil = available.find(f => f.id === s.filamento_id);
+    return fil ? { ...s, fil } : null;
+  }).filter(Boolean);
 
   if (available.length === 0) return (
     <p className="text-xs" style={{ color: "var(--c-text-4)" }}>No hay filamentos. Créalos primero en la pestaña Filamentos.</p>
   );
 
   return (
-    <div className="space-y-2">
-      {Object.entries(grupos).map(([tipo, grupo]) => {
-        const selCount = grupo.filter(f => selected.find(s => s.filamento_id === f.id)).length;
-        const isOpen = expanded[tipo];
-        return (
-          <div key={tipo} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border-med)" }}>
-            {/* Header del grupo */}
-            <button
-              onClick={() => toggleGrupo(tipo)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-              style={{ background: selCount > 0 ? "rgba(139,92,246,0.06)" : "var(--c-hover)" }}
-            >
-              <span className="text-xs font-bold uppercase tracking-widest flex-1" style={{ color: "var(--c-text-3)" }}>{tipo}</span>
-              {selCount > 0 && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(139,92,246,0.18)", color: "var(--c-accent)" }}>
-                  {selCount} seleccionado{selCount !== 1 ? "s" : ""}
-                </span>
-              )}
-              <span className="text-[10px]" style={{ color: "var(--c-text-4)" }}>{grupo.length} colores</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                style={{ color: "var(--c-text-4)", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-
-            {/* Filamentos del grupo */}
-            {isOpen && (
-              <div className="divide-y" style={{ borderTop: "1px solid var(--c-border-med)" }}>
+    <div className="space-y-4">
+      {/* Grid de grupos — 2 columnas en desktop */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "0.75rem" }}>
+        {Object.entries(grupos).map(([tipo, grupo]) => {
+          const selCount = grupo.filter(f => selected.find(s => s.filamento_id === f.id)).length;
+          return (
+            <div key={tipo} className="rounded-xl p-3 space-y-2"
+              style={{ background: selCount > 0 ? "rgba(139,92,246,0.05)" : "var(--c-hover)", border: `1px solid ${selCount > 0 ? "rgba(139,92,246,0.2)" : "var(--c-border-med)"}` }}>
+              {/* Header compacto */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest flex-1" style={{ color: "var(--c-text-3)" }}>{tipo}</span>
+                {selCount > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{ background: "rgba(139,92,246,0.2)", color: "var(--c-accent)" }}>
+                    {selCount}/{grupo.length}
+                  </span>
+                )}
+                <button
+                  className="text-[9px] font-medium px-1.5 py-0.5 rounded"
+                  style={{ color: "var(--c-text-4)", background: "var(--c-hover-2)" }}
+                  onClick={() => {
+                    const allSel = grupo.every(f => selected.find(s => s.filamento_id === f.id));
+                    if (allSel) onChange(selected.filter(s => !grupo.find(f => f.id === s.filamento_id)));
+                    else {
+                      const toAdd = grupo.filter(f => !selected.find(s => s.filamento_id === f.id))
+                        .map(f => ({ filamento_id: f.id, archivo_3d_url: "" }));
+                      onChange([...selected, ...toAdd]);
+                    }
+                  }}>
+                  {grupo.every(f => selected.find(s => s.filamento_id === f.id)) ? "Quitar todos" : "Todos"}
+                </button>
+              </div>
+              {/* Dots grid */}
+              <div className="flex flex-wrap gap-1.5">
                 {grupo.map(fil => {
-                  const sel = selected.find(s => s.filamento_id === fil.id);
+                  const sel = !!selected.find(s => s.filamento_id === fil.id);
                   return (
-                    <div key={fil.id}>
-                      <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors"
-                        style={{ background: sel ? "rgba(139,92,246,0.05)" : "transparent" }}>
-                        <input type="checkbox" checked={!!sel} onChange={() => toggle(fil.id)} />
-                        <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: fil.hex_codigo, border: "1px solid var(--c-border-med)" }} />
-                        <span className="text-sm flex-1" style={{ color: "var(--c-text)" }}>{fil.nombre}</span>
-                        {!fil.en_stock && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171" }}>Sin stock</span>
-                        )}
-                      </label>
-                      {sel && (
-                        <div className="px-4 pb-3 pt-1" style={{ background: "rgba(139,92,246,0.04)" }}>
-                          <p className="text-[10px] mb-1.5" style={{ color: "var(--c-text-4)" }}>
-                            Archivo 3D específico para {fil.nombre} (opcional)
-                          </p>
-                          <Archivo3DUploader url={sel.archivo_3d_url} onChange={url => setArchivo(fil.id, url)} label={`archivo ${fil.nombre}`} />
-                        </div>
+                    <button
+                      key={fil.id}
+                      title={fil.nombre + (!fil.en_stock ? " · Sin stock" : "")}
+                      onClick={() => toggle(fil.id)}
+                      className="relative rounded-full transition-all"
+                      style={{
+                        width: 22, height: 22, flexShrink: 0,
+                        background: fil.hex_codigo,
+                        border: sel ? "2.5px solid var(--c-accent)" : "2px solid transparent",
+                        boxShadow: sel ? "0 0 0 1px rgba(139,92,246,0.5)" : "0 0 0 1px rgba(255,255,255,0.08)",
+                        opacity: fil.en_stock ? 1 : 0.45,
+                        outline: "none",
+                      }}>
+                      {!fil.en_stock && (
+                        <span style={{
+                          position: "absolute", inset: 0, borderRadius: "50%",
+                          background: "linear-gradient(135deg, transparent calc(50% - 1px), #ef4444 calc(50% - 1px), #ef4444 calc(50% + 1px), transparent calc(50% + 1px))",
+                        }} />
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
-            )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Archivos 3D por filamento seleccionado (solo los que el usuario quiera configurar) */}
+      {selConArchivo.length > 0 && (
+        <details className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border-med)" }}>
+          <summary className="px-4 py-2.5 cursor-pointer text-xs font-medium select-none"
+            style={{ background: "var(--c-hover)", color: "var(--c-text-3)", listStyle: "none" }}>
+            Archivos 3D por filamento — {selConArchivo.length} seleccionado{selConArchivo.length !== 1 ? "s" : ""}
+          </summary>
+          <div className="divide-y" style={{ borderTop: "1px solid var(--c-border-med)" }}>
+            {selConArchivo.map(({ fil, filamento_id, archivo_3d_url }) => (
+              <div key={filamento_id} className="px-4 py-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ background: fil.hex_codigo, border: "1px solid var(--c-border-med)" }} />
+                  <span className="text-xs font-medium" style={{ color: "var(--c-text-2)" }}>{fil.nombre}</span>
+                  <span className="text-[10px]" style={{ color: "var(--c-text-4)" }}>{fil.tipo_material}</span>
+                </div>
+                <Archivo3DUploader url={archivo_3d_url} onChange={url => setArchivo(filamento_id, url)} label={`archivo ${fil.nombre}`} />
+              </div>
+            ))}
           </div>
-        );
-      })}
+        </details>
+      )}
     </div>
   );
 }
@@ -287,6 +365,7 @@ export default function CatalogoProductoDetail() {
           tamano_maximo_mm: String(p.tamano_maximo_mm),
           permite_multicolor: p.permite_multicolor, max_colores: p.max_colores,
           activo: p.activo, publicado: p.publicado,
+          es_personalizable: p.es_personalizable ?? false,
         });
         setSelFilamentos(p.filamentos.map(f => ({ filamento_id: f.filamento_id, archivo_3d_url: f.archivo_3d_url || "" })));
       })
@@ -347,6 +426,7 @@ export default function CatalogoProductoDetail() {
           tamano_minimo_mm: String(data.tamano_minimo_mm ?? ""),
           tamano_maximo_mm: String(data.tamano_maximo_mm ?? ""),
           permite_multicolor: data.permite_multicolor ?? false,
+          es_personalizable: data.es_personalizable ?? false,
           max_colores: data.max_colores ?? 1,
           activo: data.activo ?? true,
           publicado: data.publicado ?? false,
@@ -602,14 +682,27 @@ export default function CatalogoProductoDetail() {
 
         {/* ── Visibilidad ── */}
         <SectionTitle>Visibilidad</SectionTitle>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "var(--c-text-2)" }}>
             <input type="checkbox" checked={form.activo} onChange={fCheck("activo")} /> Activo
           </label>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "var(--c-text-2)" }}>
             <input type="checkbox" checked={form.publicado} onChange={fCheck("publicado")} /> Publicado en el website
           </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "var(--c-text-2)" }}>
+            <input type="checkbox" checked={form.es_personalizable} onChange={fCheck("es_personalizable")} /> Personalizable (foto/dibujo del cliente)
+          </label>
         </div>
+
+        {/* ── Galería ── */}
+        <SectionTitle>Galería — referencias e impresos</SectionTitle>
+        {isNew
+          ? <p className="text-xs" style={{ color: "var(--c-text-4)" }}>Guarda el producto primero para añadir imágenes.</p>
+          : <>
+              <p className="text-xs" style={{ color: "var(--c-text-4)" }}>Sube imágenes de referencia (dibujo/foto del cliente) y fotos de piezas ya impresas.</p>
+              <GaleriaProducto productoId={id} />
+            </>
+        }
 
         {/* ── Acciones ── */}
         <div className="flex items-center justify-between pt-2">

@@ -16,6 +16,7 @@ import PiezaDetail from "./pages/PiezaDetail";
 import Catalogo from "./pages/Catalogo";
 import CatalogoProductoDetail from "./pages/CatalogoProductoDetail";
 import Inventario from "./pages/Inventario";
+import RedesSociales from "./pages/RedesSociales";
 
 // guard súper simple (por ahora)
 function RequireAuth({ children }) {
@@ -50,6 +51,7 @@ export function AppRoutes() {
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoProductoDetail />} />
         <Route path="inventario" element={<Inventario />} />
+        <Route path="redes" element={<RedesSociales />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/app" replace />} />

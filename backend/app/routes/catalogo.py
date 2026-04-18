@@ -33,11 +33,13 @@ from app.models.catalogo import (
     CatalogoFilamento,
     CatalogoProducto,
     CatalogoProductoFilamento,
+    CatalogoProductoImagen,
 )
+from app.schemas.catalogo import ImagenOut
 from app.schemas.catalogo import (
     FilamentoCreate, FilamentoUpdate, FilamentoOut,
     ProductoCreate, ProductoUpdate, ProductoOut, ProductoListItem,
-    CalcularPrecioRequest, CalcularPrecioResponse,
+    CalcularPrecioRequest, CalcularPrecioResponse, ImagenOut,
 )
 from app.services.precio_catalogo import calcular_precio
 
@@ -115,10 +117,12 @@ def desasignar_filamento_todos(filamento_id: int, db: Session = Depends(get_db),
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _load_producto(db: Session, producto_id: int) -> CatalogoProducto:
+    from sqlalchemy.orm import selectinload as _si
     producto = (
         db.query(CatalogoProducto)
         .options(
             selectinload(CatalogoProducto.filamentos).selectinload(CatalogoProductoFilamento.filamento),
+            selectinload(CatalogoProducto.imagenes),
         )
         .filter(CatalogoProducto.id == producto_id)
         .first()
@@ -237,6 +241,7 @@ def get_producto_publico(slug: str, db: Session = Depends(get_db)):
         db.query(CatalogoProducto)
         .options(
             selectinload(CatalogoProducto.filamentos).selectinload(CatalogoProductoFilamento.filamento),
+            selectinload(CatalogoProducto.imagenes),
         )
         .filter(
             CatalogoProducto.slug == slug,
@@ -338,3 +343,43 @@ async def archivo_3d_publico(filename: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Archivo no encontrado en disco")
 
     return FileResponse(path=str(path), filename=filename)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GALERÍA DE IMÁGENES DE PRODUCTO  (dashboard — requiere auth)
+# ══════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel as PydanticBase
+
+class ImagenAddPayload(PydanticBase):
+    url: str
+    orden: int = 0
+
+
+@router.get("/productos/{producto_id}/imagenes", response_model=List[ImagenOut])
+def list_imagenes(producto_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return db.query(CatalogoProductoImagen).filter(
+        CatalogoProductoImagen.producto_id == producto_id
+    ).order_by(CatalogoProductoImagen.orden).all()
+
+
+@router.post("/productos/{producto_id}/imagenes", response_model=ImagenOut)
+def add_imagen(producto_id: int, payload: ImagenAddPayload, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    img = CatalogoProductoImagen(producto_id=producto_id, url=payload.url, orden=payload.orden)
+    db.add(img)
+    db.commit()
+    db.refresh(img)
+    return img
+
+
+@router.delete("/productos/{producto_id}/imagenes/{imagen_id}")
+def delete_imagen(producto_id: int, imagen_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    img = db.query(CatalogoProductoImagen).filter(
+        CatalogoProductoImagen.id == imagen_id,
+        CatalogoProductoImagen.producto_id == producto_id,
+    ).first()
+    if not img:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+    db.delete(img)
+    db.commit()
+    return {"ok": True}

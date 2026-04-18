@@ -38,12 +38,20 @@ class ProductoFilamentoItem(BaseModel):
 
 # ─── Producto ─────────────────────────────────────────────────────────────────
 
+class ImagenOut(BaseModel):
+    id: int
+    url: str
+    orden: int
+    model_config = {"from_attributes": True}
+
+
 class ProductoBase(BaseModel):
     slug: Optional[str] = None
     nombre: str
     descripcion: Optional[str] = None
     archivo_3d_url: Optional[str] = None
     foto_preview_url: Optional[str] = None
+    es_personalizable: bool = False
     tiempo_impresion_minutos: float = Field(gt=0)
     tiempo_minimo_minutos: Optional[float] = None
     tiempo_maximo_minutos: Optional[float] = None
@@ -78,6 +86,7 @@ class ProductoOut(ProductoBase):
     id: int
     created_at: datetime
     filamentos: list[ProductoFilamentoOut] = []
+    imagenes: list[ImagenOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -87,13 +96,14 @@ class ProductoListItem(BaseModel):
     slug: Optional[str] = None
     nombre: str
     foto_preview_url: Optional[str] = None
+    es_personalizable: bool = False
     tiempo_impresion_minutos: float
     tamano_minimo_mm: float
     tamano_maximo_mm: float
     permite_multicolor: bool
     publicado: bool
     created_at: datetime
-    precio_desde: Optional[float] = None  # precio mínimo calculado con el filamento más barato al tamaño mínimo
+    precio_desde: Optional[float] = None
 
     model_config = {"from_attributes": True}
 

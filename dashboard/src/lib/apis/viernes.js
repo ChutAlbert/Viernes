@@ -61,6 +61,17 @@ export const viernesApi = {
   updateProductoCatalogo: (id, payload) => apiRequest("put", `/catalogo/productos/${id}`, payload),
   deleteProductoCatalogo: (id) => apiRequestDelete(`/catalogo/productos/${id}`),
 
+  // galería de imágenes de producto
+  listImagenesProducto: (id) => apiRequest("get", `/catalogo/productos/${id}/imagenes`),
+  addImagenProducto: (id, payload) => apiRequest("post", `/catalogo/productos/${id}/imagenes`, payload),
+  deleteImagenProducto: (productoId, imagenId) => apiRequestDelete(`/catalogo/productos/${productoId}/imagenes/${imagenId}`),
+
+  // redes sociales
+  listRedes: () => apiRequest("get", "/redes"),
+  createRed: (payload) => apiRequest("post", "/redes", payload),
+  updateRed: (id, payload) => apiRequest("put", `/redes/${id}`, payload),
+  deleteRed: (id) => apiRequestDelete(`/redes/${id}`),
+
   // inventario
   listInventarioItems: () => apiRequest("get", "/inventario/items"),
   createInventarioItem: (payload) => apiRequest("post", "/inventario/items", payload),

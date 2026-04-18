@@ -6,6 +6,7 @@ import {
   useProducto,
   calcularPrecio,
   archivoUrl,
+  imagenUrl,
 } from '@/composables/useCatalogo'
 
 const route = useRoute()
@@ -13,6 +14,7 @@ const router = useRouter()
 const slug = route.params.slug as string
 
 const { producto, loading, error } = useProducto(slug)
+const galeriaActiva = ref<string | null>(null)
 
 // ─── Selección del usuario ─────────────────────────────────────────────────
 const selFilamentoId = ref<number | null>(null)
@@ -223,6 +225,21 @@ const ctaUrl = computed(() => {
             :tamano-base="producto.tamano_base_mm"
           />
         </div>
+
+        <!-- Galería de imágenes de ejemplo -->
+        <div v-if="producto.imagenes && producto.imagenes.length > 0" class="galeria-section">
+          <p class="galeria-label">Referencias e impresos</p>
+          <div class="galeria-grid">
+            <img
+              v-for="img in producto.imagenes"
+              :key="img.id"
+              :src="imagenUrl(img.url)"
+              class="galeria-img"
+              loading="lazy"
+              @click="galeriaActiva = img.url"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- Configurador -->
@@ -366,12 +383,19 @@ const ctaUrl = computed(() => {
         <button v-else class="btn cta-btn cta-disabled" disabled>Solicitar esta pieza</button>
       </div>
     </div>
+  <!-- Lightbox -->
+  <Transition name="lightbox-fade">
+    <div v-if="galeriaActiva" class="lightbox" @click="galeriaActiva = null">
+      <img :src="imagenUrl(galeriaActiva)" class="lightbox-img" @click.stop />
+      <button class="lightbox-close" @click="galeriaActiva = null">×</button>
+    </div>
+  </Transition>
   </div>
 </template>
 
 <style scoped>
 .producto-page { min-height: 100vh; background: var(--bg); padding-bottom: 6rem; }
-.back-bar { padding: 6.5rem 0 1.5rem; }
+.back-bar { padding: 6.5rem 1rem 1.5rem; }
 .back-btn {
   display: inline-flex; align-items: center; gap: 0.4rem;
   font-size: 0.85rem; font-weight: 500; color: var(--text-soft);
@@ -436,18 +460,17 @@ const ctaUrl = computed(() => {
 }
 .color-dot:hover:not(:disabled) { transform: scale(1.18); border-color: rgba(255,255,255,0.4); }
 .color-dot.active { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(34,211,238,0.35); transform: scale(1.12); }
-.color-dot.agotado { opacity: 0.7; cursor: pointer; }
-.color-dot.agotado.active { border-color: #f87171; box-shadow: 0 0 0 2px rgba(248,113,113,0.35); }
+.color-dot.agotado { opacity: 0.45; cursor: pointer; }
+.color-dot.agotado.active { border-color: rgba(139,92,246,0.6); box-shadow: 0 0 0 2px rgba(139,92,246,0.3); }
 .color-dot.agotado::after {
   content: ''; position: absolute; inset: 0; border-radius: 50%;
   background: linear-gradient(
     135deg,
-    transparent calc(50% - 1.5px),
-    #ef4444 calc(50% - 1.5px),
-    #ef4444 calc(50% + 1.5px),
-    transparent calc(50% + 1.5px)
+    transparent calc(50% - 1px),
+    #ef4444 calc(50% - 1px),
+    #ef4444 calc(50% + 1px),
+    transparent calc(50% + 1px)
   );
-  box-shadow: inset 0 0 0 2px #ef4444;
 }
 
 .agotado-aviso {
@@ -496,6 +519,24 @@ const ctaUrl = computed(() => {
 .slide-enter-active, .slide-leave-active { transition: all 0.25s ease; overflow: hidden; }
 .slide-enter-from, .slide-leave-to { opacity: 0; max-height: 0; }
 .slide-enter-to, .slide-leave-from { max-height: 400px; }
+
+/* Galería */
+.galeria-section { margin-top: 1rem; }
+.galeria-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.5rem; }
+.galeria-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.5rem; }
+.galeria-img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft); cursor: pointer; transition: border-color 0.2s; }
+.galeria-img:hover { border-color: rgba(34,211,238,0.35); }
+
+/* Lightbox */
+.lightbox { position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; }
+.lightbox-img { max-width: min(90vw, 860px); max-height: 88vh; border-radius: 12px; object-fit: contain; transition: transform 0.3s ease; }
+.lightbox-close { position: absolute; top: 1.25rem; right: 1.5rem; font-size: 2rem; line-height: 1; background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; transition: color 0.15s; }
+.lightbox-close:hover { color: #fff; }
+.lightbox-fade-enter-active, .lightbox-fade-leave-active { transition: opacity 0.25s ease; }
+.lightbox-fade-enter-active .lightbox-img, .lightbox-fade-enter-active .lightbox-close { transition: transform 0.3s ease, opacity 0.25s ease; }
+.lightbox-fade-enter-from, .lightbox-fade-leave-to { opacity: 0; }
+.lightbox-fade-enter-from .lightbox-img { transform: scale(0.92); }
+.lightbox-fade-enter-to .lightbox-img { transform: scale(1); }
 
 @media (max-width: 900px) {
   .producto-layout { grid-template-columns: 1fr; }

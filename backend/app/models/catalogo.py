@@ -4,6 +4,18 @@ from datetime import datetime
 from app.db import Base
 
 
+class RedSocial(Base):
+    __tablename__ = "redes_sociales"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    url: Mapped[str] = mapped_column(String(500))
+    icono: Mapped[str] = mapped_column(String(50))   # instagram, facebook, whatsapp, tiktok, x, youtube
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class CatalogoFilamento(Base):
     """
     Un filamento = tipo de material + color específico con su propia tarifa.
@@ -34,6 +46,7 @@ class CatalogoProducto(Base):
     descripcion: Mapped[str] = mapped_column(Text, nullable=True)
     archivo_3d_url: Mapped[str] = mapped_column(String(500), nullable=True)
     foto_preview_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    es_personalizable: Mapped[bool] = mapped_column(Boolean, default=False)
     tiempo_impresion_minutos: Mapped[float] = mapped_column(Float)
     tiempo_minimo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
     tiempo_maximo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
@@ -52,6 +65,21 @@ class CatalogoProducto(Base):
     filamentos: Mapped[list["CatalogoProductoFilamento"]] = relationship(
         back_populates="producto", cascade="all, delete-orphan"
     )
+    imagenes: Mapped[list["CatalogoProductoImagen"]] = relationship(
+        back_populates="producto", cascade="all, delete-orphan", order_by="CatalogoProductoImagen.orden"
+    )
+
+
+class CatalogoProductoImagen(Base):
+    __tablename__ = "catalogo_producto_imagenes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("catalogo_productos.id", ondelete="CASCADE"))
+    url: Mapped[str] = mapped_column(String(500))
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    producto: Mapped["CatalogoProducto"] = relationship(back_populates="imagenes")
 
 
 class CatalogoProductoFilamento(Base):

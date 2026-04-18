@@ -20,6 +20,21 @@ export interface ProductoFilamentoOut {
   filamento: Filamento
 }
 
+export interface ImagenProducto {
+  id: number
+  url: string
+  orden: number
+}
+
+export interface RedSocial {
+  id: number
+  nombre: string
+  url: string
+  icono: string
+  orden: number
+  activo: boolean
+}
+
 export interface ProductoListItem {
   id: number
   slug: string | null
@@ -31,6 +46,7 @@ export interface ProductoListItem {
   permite_multicolor: boolean
   publicado: boolean
   precio_desde: number | null
+  es_personalizable: boolean
 }
 
 export interface Producto extends ProductoListItem {
@@ -41,7 +57,9 @@ export interface Producto extends ProductoListItem {
   tamano_z_mm: number | null
   max_colores: number
   activo: boolean
+  es_personalizable: boolean
   filamentos: ProductoFilamentoOut[]
+  imagenes: ImagenProducto[]
 }
 
 export interface PrecioDesglose {
@@ -118,6 +136,14 @@ export function useProducto(slug: string) {
     .finally(() => { loading.value = false })
 
   return { producto, loading, error }
+}
+
+export function useRedes() {
+  const redes = ref<RedSocial[]>([])
+  get<RedSocial[]>('/redes/public')
+    .then(data => { redes.value = data })
+    .catch(() => {})
+  return { redes }
 }
 
 export async function calcularPrecio(payload: {

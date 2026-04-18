@@ -47,6 +47,12 @@ const ICON_INVENTARIO = (
     <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
   </svg>
 );
+const ICON_REDES = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+  </svg>
+);
 
 const NAV = [
   { to: "/app",           label: "Overview",    icon: ICON_OVERVIEW,  end: true },
@@ -57,6 +63,7 @@ const NAV = [
   { to: "/app/piezas",    label: "Piezas 3D",   icon: ICON_PIEZAS },
   { to: "/app/catalogo",   label: "Catálogo",    icon: ICON_CATALOGO },
   { to: "/app/inventario", label: "Inventario",  icon: ICON_INVENTARIO },
+  { to: "/app/redes",     label: "Redes Sociales", icon: ICON_REDES },
 ];
 
 export default function AppSidebar() {

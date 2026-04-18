@@ -69,6 +69,20 @@ function formatDesde(n: number) {
         </button>
       </div>
 
+      <!-- Banner figura personalizada -->
+      <div class="personalizable-banner animate-on-scroll">
+        <div class="pb-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </div>
+        <div class="pb-body">
+          <p class="pb-title">¿Tienes una figura en mente?</p>
+          <p class="pb-text">Podemos imprimir casi cualquier diseño a partir de una imagen, foto o descripción. Contáctanos y lo hacemos realidad.</p>
+        </div>
+        <a href="/contacto" class="pb-cta">Solicitar figura personalizada →</a>
+      </div>
+
       <!-- CTA -->
       <div class="preview-footer animate-on-scroll">
         <button class="btn-catalogo" @click="router.push('/catalogo')">
@@ -227,6 +241,43 @@ function formatDesde(n: number) {
   animation: pulse 1.5s ease-in-out infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* Banner personalizable */
+.personalizable-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 16px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+.pb-icon {
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  display: flex; align-items: center; justify-content: center;
+  color: #a78bfa;
+}
+.pb-body { flex: 1; min-width: 160px; }
+.pb-title { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+.pb-text { font-size: 0.82rem; color: var(--text-soft); line-height: 1.55; }
+.pb-cta {
+  flex-shrink: 0;
+  font-size: 0.82rem; font-weight: 700;
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  padding: 0.55rem 1.1rem;
+  border-radius: 99px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.pb-cta:hover { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
 
 /* Footer CTA */
 .preview-footer {
