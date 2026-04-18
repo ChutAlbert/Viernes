@@ -233,7 +233,7 @@ const ctaUrl = computed(() => {
             <img
               v-for="img in producto.imagenes"
               :key="img.id"
-              :src="imagenUrl(img.url)"
+              :src="imagenUrl(img.url) ?? undefined"
               class="galeria-img"
               loading="lazy"
               @click="galeriaActiva = img.url"
@@ -386,7 +386,7 @@ const ctaUrl = computed(() => {
   <!-- Lightbox -->
   <Transition name="lightbox-fade">
     <div v-if="galeriaActiva" class="lightbox" @click="galeriaActiva = null">
-      <img :src="imagenUrl(galeriaActiva)" class="lightbox-img" @click.stop />
+      <img :src="imagenUrl(galeriaActiva) ?? undefined" class="lightbox-img" @click.stop />
       <button class="lightbox-close" @click="galeriaActiva = null">×</button>
     </div>
   </Transition>
