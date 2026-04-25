@@ -362,66 +362,69 @@ export default function Notes() {
           )}
 
           {/* Editor */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-            <input
-              value={draft.title}
-              onChange={e => updateDraft({ title: e.target.value }, selected?.id)}
-              placeholder="Título de la nota…"
-              className="w-full text-xl font-semibold outline-none bg-transparent"
-              style={{ color: "var(--c-text)" }}
-            />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+              <input
+                value={draft.title}
+                onChange={e => updateDraft({ title: e.target.value }, selected?.id)}
+                placeholder="Título de la nota…"
+                className="w-full text-xl font-semibold outline-none bg-transparent"
+                style={{ color: "var(--c-text)" }}
+              />
 
-            <textarea
-              value={draft.content}
-              onChange={e => updateDraft({ content: e.target.value }, selected?.id)}
-              placeholder="Escribe aquí…"
-              className="w-full min-h-64 resize-none outline-none bg-transparent text-sm leading-relaxed"
-              style={{ color: "var(--c-text-2)", fontFamily: "inherit" }}
-            />
+              <textarea
+                value={draft.content}
+                onChange={e => updateDraft({ content: e.target.value }, selected?.id)}
+                placeholder="Escribe aquí…"
+                className="w-full h-full resize-none outline-none bg-transparent text-sm leading-relaxed"
+                style={{ color: "var(--c-text-2)", fontFamily: "inherit", minHeight: "200px" }}
+              />
 
-            {/* Tags */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>Etiquetas</p>
-              <div className="flex flex-wrap gap-1.5 items-center">
-                {draft.tags.map(t => (
-                  <span key={t} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
-                    #{t}
-                    <button onClick={() => removeTag(t)} style={{ color: "var(--c-text-4)" }}>×</button>
-                  </span>
-                ))}
-                <input
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={addTag}
-                  placeholder="Agregar etiqueta…"
-                  className="text-xs outline-none bg-transparent"
-                  style={{ color: "var(--c-text-3)", minWidth: "120px" }}
-                />
-              </div>
+              {/* Attachments */}
+              {selected?.attachments?.length > 0 && (
+                <div className="space-y-1.5 pt-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>Adjuntos</p>
+                  <div className="space-y-1">
+                    {selected.attachments.map(att => (
+                      <div key={att.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                        style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+                        <span className="text-sm flex-1 truncate" style={{ color: "var(--c-text-2)" }}>{att.name}</span>
+                        <a href={`http://localhost:8000${att.url}`} target="_blank" rel="noreferrer"
+                          className="text-xs px-2 py-1 rounded-lg"
+                          style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
+                          Ver
+                        </a>
+                        <button onClick={() => setConfirmAtt(att.name)}
+                          className="text-xs" style={{ color: "#f87171" }}>Eliminar</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Attachments */}
-            {selected?.attachments?.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>Archivos adjuntos</p>
-                <div className="space-y-1.5">
-                  {selected.attachments.map(att => (
-                    <div key={att.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                      style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
-                      <span className="text-sm flex-1 truncate" style={{ color: "var(--c-text-2)" }}>{att.name}</span>
-                      <a href={`http://localhost:8000${att.url}`} target="_blank" rel="noreferrer"
-                        className="text-xs px-2 py-1 rounded-lg"
-                        style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
-                        Ver
-                      </a>
-                      <button onClick={() => setConfirmAtt(att.name)}
-                        className="text-xs" style={{ color: "#f87171" }}>Eliminar</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Tags — compact footer bar */}
+            <div className="flex-shrink-0 flex items-center gap-2 px-6 py-2.5 flex-wrap"
+              style={{ borderTop: "1px solid var(--c-border)", minHeight: "42px" }}>
+              <span className="text-xs font-medium mr-0.5 flex-shrink-0" style={{ color: "var(--c-text-4)" }}>
+                Etiquetas:
+              </span>
+              {draft.tags.map(t => (
+                <span key={t} className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
+                  #{t}
+                  <button onClick={() => removeTag(t)} style={{ color: "var(--c-text-4)", lineHeight: 1 }}>×</button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={addTag}
+                placeholder={draft.tags.length === 0 ? "Añadir…" : "+"}
+                className="text-xs outline-none bg-transparent"
+                style={{ color: "var(--c-text-4)", width: draft.tags.length === 0 ? "80px" : "32px", minWidth: "32px" }}
+              />
+            </div>
           </div>
         </div>
       ) : (
