@@ -14,12 +14,7 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        "gallery_config",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("passphrase_hash", sa.String(255), nullable=False),
-        sa.Column("kdf_salt", sa.String(255), nullable=False),
-    )
+    op.execute("CREATE TABLE IF NOT EXISTS gallery_config (id SERIAL PRIMARY KEY, passphrase_hash VARCHAR(255) NOT NULL, kdf_salt VARCHAR(255) NOT NULL)")
 
 
 def downgrade():
