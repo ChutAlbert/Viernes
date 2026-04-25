@@ -20,19 +20,21 @@
 
 /* ── Variables (light) ────────────────────────────────────────────────────── */
 :root.light {
-  --bg: #f0f4f8;
-  --bg-surface: #ffffff;
-  --bg-elevated: #e8edf5;
+  --bg: #f8fafc;
+  --bg-surface: #f1f5f9;
+  --bg-elevated: #e9eef5;
   --bg-card: #ffffff;
-  --cyan: #0891b2;
-  --cyan-dim: #164e63;
-  --amber: #d97706;
+  --cyan: #0284c7;
+  --cyan-dim: #075985;
+  --amber: #b45309;
   --amber-dim: #78350f;
   --text: #0f172a;
   --text-muted: #64748b;
-  --text-soft: #475569;
+  --text-soft: #334155;
   --border: #cbd5e1;
   --border-soft: #e2e8f0;
+  --radius: 12px;
+  --radius-lg: 20px;
 }
 
 /* ── Reset ────────────────────────────────────────────────────────────────── */
@@ -105,11 +107,18 @@ section { padding: 5rem 0; }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--cyan), #0ea5e9);
-  color: #000;
+  color: #fff;
 }
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(34, 211, 238, 0.35);
+}
+:root.light .btn-primary {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+}
+:root.light .btn-primary:hover {
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.3);
 }
 
 .btn-outline {
@@ -135,6 +144,13 @@ section { padding: 5rem 0; }
   border-color: var(--cyan-dim);
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(14, 116, 144, 0.2);
+}
+
+:root.light .card {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+}
+:root.light .card:hover {
+  box-shadow: 0 8px 28px rgba(2, 132, 199, 0.12);
 }
 
 /* ── Scroll animations ────────────────────────────────────────────────────── */
@@ -170,3 +186,22 @@ section { padding: 5rem 0; }
 
 /* ── Selection ────────────────────────────────────────────────────────────── */
 ::selection { background: rgba(34, 211, 238, 0.2); color: var(--cyan); }
+
+/* ── Light mode explicit overrides ───────────────────────────────────────── */
+:root.light body { color: #0f172a; background: #f8fafc; }
+:root.light h1, :root.light h2, :root.light h3, :root.light h4 { color: #0f172a; }
+:root.light p { color: inherit; }
+
+/* ── Reduced motion / animation fallback ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-on-scroll {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

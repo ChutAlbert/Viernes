@@ -28,27 +28,31 @@ export default function Login() {
   }, [token, navigate]);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-5">
       <div>
-        <h1 className="text-3xl font-bold" style={{ color: "var(--c-text)" }}>Iniciar sesión</h1>
-        <p className="mt-1" style={{ color: "var(--c-text-3)" }}>Accede a tu dashboard de Viernes.</p>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--c-text)" }}>Iniciar sesión</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--c-text-3)" }}>Accede a tu dashboard de Viernes.</p>
       </div>
 
-      <Input label="Email" type="email" value={email} onChange={setEmail} />
+      <Input label="Email" type="email" value={email} onChange={setEmail} variant="dark" required />
       <Input
         label="Contraseña"
         type="password"
         value={password}
         onChange={setPassword}
+        variant="dark"
+        showPasswordToggle
+        required
       />
 
-      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+      {error ? <div className="text-sm text-red-400">{error}</div> : null}
 
       <Button
         type="submit"
         text="Entrar"
         loading={loading}
         loadingText="Entrando..."
+        className="w-full py-3 text-base"
       />
     </form>
   );

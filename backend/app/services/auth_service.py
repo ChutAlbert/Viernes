@@ -1,16 +1,24 @@
+import json
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.core.security import hash_password, verify_password, create_access_token
 
+DEFAULT_ADMIN_PERMISSIONS = None  # admin role bypasses permission checks
+
+
 class AuthService:
-    def setup_first_user(self, db: Session, email: str, password: str):
-        # solo permitir si no hay usuarios
+    def setup_first_user(self, db: Session, email: str, password: str, name: str = ""):
         exists = db.query(User).first()
-        print(email, password)
         if exists:
             return None
 
-        user = User(email=email, password_hash=hash_password(password), is_active=True)
+        user = User(
+            email=email,
+            name=name,
+            password_hash=hash_password(password),
+            role="admin",
+            is_active=True,
+        )
         db.add(user)
         db.commit()
         db.refresh(user)

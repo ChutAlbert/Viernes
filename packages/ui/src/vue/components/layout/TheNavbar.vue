@@ -136,6 +136,20 @@ onUnmounted(() => {
         <button class="mobile-link" @click="navigateTo('/#services')">Servicios</button>
         <a v-for="link in navLinks" :key="link.to" class="mobile-link" :href="link.to"
           @click.prevent="navigateTo(link.to)">{{ link.label }}</a>
+        <div class="mobile-divider" />
+        <button class="mobile-theme-btn" @click="toggleTheme">
+          <svg v-if="isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          {{ isDark ? 'Modo claro' : 'Modo oscuro' }}
+        </button>
         <a class="btn btn-primary mobile-cta" href="/contacto" @click.prevent="navigateTo('/contacto')">Contáctanos</a>
       </div>
     </Transition>
@@ -193,7 +207,11 @@ onUnmounted(() => {
   transform: translateX(-50%); width: 320px;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 0.5rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+:root.light .services-dropdown {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  background: var(--bg-card);
 }
 .dropdown-item {
   display: flex; align-items: flex-start; gap: 0.75rem;
@@ -221,6 +239,14 @@ onUnmounted(() => {
   color: var(--text);
   background: rgba(255,255,255,0.1);
 }
+:root.light .theme-toggle {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+:root.light .theme-toggle:hover {
+  background: var(--border-soft);
+  color: var(--text);
+}
 .hidden-mobile { display: inline-flex; }
 .hamburger {
   display: none; flex-direction: column; gap: 5px;
@@ -246,11 +272,25 @@ onUnmounted(() => {
   cursor: pointer; text-align: left; transition: var(--transition);
 }
 .mobile-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+:root.light .mobile-link:hover { background: var(--bg-elevated); }
 .mobile-cta { margin-top: 0.75rem; justify-content: center; }
 .dropdown-enter-active, .dropdown-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .dropdown-enter-from, .dropdown-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 .mobile-menu-enter-active, .mobile-menu-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .mobile-menu-enter-from, .mobile-menu-leave-to { opacity: 0; transform: translateY(-8px); }
+.mobile-divider {
+  height: 1px; background: var(--border-soft); margin: 0.25rem 0;
+}
+.mobile-theme-btn {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.875rem 1rem; border-radius: var(--radius);
+  font-size: 1rem; font-weight: 500; color: var(--text-soft);
+  background: none; border: none; font-family: inherit;
+  cursor: pointer; text-align: left; transition: var(--transition); width: 100%;
+}
+.mobile-theme-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+:root.light .mobile-theme-btn:hover { background: var(--bg-elevated); }
+
 @media (max-width: 768px) {
   .nav-links, .hidden-mobile { display: none; }
   .hamburger { display: flex; }

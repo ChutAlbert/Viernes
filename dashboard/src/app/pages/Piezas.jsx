@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { viernesApi } from "@/lib/apis/viernes";
+import { ConfirmModal } from "@viernes/ui/react";
 
 const TIPO_LABEL = {
   encargo: "Encargo",
@@ -18,6 +19,7 @@ export default function Piezas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
 
   useEffect(() => {
     load();
@@ -36,9 +38,7 @@ export default function Piezas() {
     }
   }
 
-  async function handleDelete(e, id) {
-    e.stopPropagation();
-    if (!confirm("¿Eliminar esta pieza? Esta acción no se puede deshacer.")) return;
+  async function handleDelete(id) {
     setDeleting(id);
     try {
       await viernesApi.deletePieza(id);
@@ -47,6 +47,7 @@ export default function Piezas() {
       alert("Error al eliminar: " + e.message);
     } finally {
       setDeleting(null);
+      setConfirmId(null);
     }
   }
 
@@ -167,7 +168,7 @@ export default function Piezas() {
               {/* Delete */}
               <div className="w-8 self-center flex justify-end">
                 <button
-                  onClick={(e) => handleDelete(e, p.id)}
+                  onClick={(e) => { e.stopPropagation(); setConfirmId(p.id); }}
                   disabled={deleting === p.id}
                   className="p-1.5 rounded-lg transition-all"
                   style={{ color: "var(--c-text-4)" }}
@@ -184,6 +185,16 @@ export default function Piezas() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar pieza"
+        description="¿Eliminar esta pieza? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => handleDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

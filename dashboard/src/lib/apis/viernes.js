@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestRaw, apiRequestDocs, apiRequestDelete } from "./client";
+import { apiRequest, apiRequestRaw, apiRequestDocs, apiRequestDelete, API_BASE_URL } from "./client";
 
 export const viernesApi = {
   health: () => apiRequest("get", "/health"),
@@ -82,4 +82,51 @@ export const viernesApi = {
   deleteInventarioCompra: (id) => apiRequestDelete(`/inventario/compras/${id}`),
   getInventarioResumen: () => apiRequest("get", "/inventario/resumen"),
   getInventarioAlertas: () => apiRequest("get", "/inventario/alertas"),
+
+  // notes
+  listNotes: () => apiRequest("get", "/notes"),
+  createNote: (payload) => apiRequest("post", "/notes", payload),
+  updateNote: (id, payload) => apiRequest("put", `/notes/${id}`, payload),
+  deleteNote: (id) => apiRequestDelete(`/notes/${id}`),
+  uploadNoteAttachment: (id, formData) => apiRequestDocs("post", `/notes/${id}/attachments`, formData),
+  deleteNoteAttachment: (id, filename) => apiRequestDelete(`/notes/${id}/attachments/${encodeURIComponent(filename)}`),
+
+  // vault (E2E password manager)
+  vaultConfig: () => apiRequest("get", "/vault/config"),
+  initVault: () => apiRequest("post", "/vault/config"),
+  listVaultEntries: () => apiRequest("get", "/vault/entries"),
+  createVaultEntry: (payload) => apiRequest("post", "/vault/entries", payload),
+  updateVaultEntry: (id, payload) => apiRequest("put", `/vault/entries/${id}`, payload),
+  deleteVaultEntry: (id) => apiRequestDelete(`/vault/entries/${id}`),
+
+  // users (admin only)
+  listUsers: () => apiRequest("get", "/users"),
+  createUser: (payload) => apiRequest("post", "/users", payload),
+  updateUser: (id, payload) => apiRequest("put", `/users/${id}`, payload),
+  deleteUser: (id) => apiRequestDelete(`/users/${id}`),
+
+  // tasks + voice notes
+  listTasks: () => apiRequest("get", "/tasks"),
+  pendingTasks: () => apiRequest("get", "/tasks/pending"),
+  createTask: (payload) => apiRequest("post", "/tasks", payload),
+  updateTask: (id, payload) => apiRequest("put", `/tasks/${id}`, payload),
+  toggleTaskComplete: (id) => apiRequest("patch", `/tasks/${id}/complete`),
+  deleteTask: (id) => apiRequestDelete(`/tasks/${id}`),
+  uploadTaskAudio: (id, formData) => apiRequestDocs("post", `/tasks/${id}/audio`, formData),
+
+  // gallery / visitas (super_admin only, E2E encrypted)
+  galleryConfig: () => apiRequest("get", "/gallery/config"),
+  gallerySetup: (payload) => apiRequest("post", "/gallery/setup", payload),
+  galleryVerify: (payload) => apiRequest("post", "/gallery/verify", payload),
+  galleryList: (params = {}) => apiRequest("get", "/gallery", params),
+  galleryTags: () => apiRequest("get", "/gallery/tags"),
+  galleryUpload: (formData) => apiRequestDocs("post", "/gallery", formData),
+  galleryUpdate: (id, payload) => apiRequest("put", `/gallery/${id}`, payload),
+  galleryDelete: (id) => apiRequestDelete(`/gallery/${id}`),
+  galleryFile: (id) => {
+    const token = localStorage.getItem("viernes_token");
+    return fetch(`${API_BASE_URL}/gallery/${id}/file`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
 };

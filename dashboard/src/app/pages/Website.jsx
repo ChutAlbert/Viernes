@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Surface, Button, Input, Textarea, Label, Modal, SearchSelect, FileInput } from "@viernes/ui/react";
+import { Surface, Button, Input, Textarea, Label, Modal, SearchSelect, FileInput, ConfirmModal } from "@viernes/ui/react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -105,6 +105,7 @@ function ServicesTab() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_SERVICE);
   const [saving, setSaving] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
 
   const load = useCallback(() => {
     apiFetch("/website/admin/services").then(setServices).catch(() => {});
@@ -146,8 +147,8 @@ function ServicesTab() {
   }
 
   async function remove(id) {
-    if (!confirm("¿Eliminar este servicio?")) return;
     await apiFetch(`/website/admin/services/${id}`, { method: "DELETE" });
+    setConfirmId(null);
     load();
   }
 
@@ -186,7 +187,7 @@ function ServicesTab() {
             </div>
             <div className="flex gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
               <button onClick={() => openEdit(svc)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar rápido</button>
-              <button onClick={() => remove(svc.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
+              <button onClick={() => setConfirmId(svc.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
@@ -282,6 +283,15 @@ function ServicesTab() {
           </div>
         </div>
       </Modal>
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar servicio"
+        description="¿Eliminar este servicio del website?"
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => remove(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }
@@ -296,6 +306,7 @@ function ContactsTab() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_CONTACT);
   const [saving, setSaving] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
 
   const load = useCallback(() => {
     apiFetch("/website/admin/contacts").then(setContacts).catch(() => {});
@@ -324,8 +335,8 @@ function ContactsTab() {
   }
 
   async function remove(id) {
-    if (!confirm("¿Eliminar este contacto?")) return;
     await apiFetch(`/website/admin/contacts/${id}`, { method: "DELETE" });
+    setConfirmId(null);
     load();
   }
 
@@ -352,7 +363,7 @@ function ContactsTab() {
             </span>
             <div className="flex gap-2">
               <button onClick={() => openEdit(c)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
-              <button onClick={() => remove(c.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
+              <button onClick={() => setConfirmId(c.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
@@ -386,6 +397,15 @@ function ContactsTab() {
           </div>
         </div>
       </Modal>
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar contacto"
+        description="¿Eliminar este contacto del website?"
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => remove(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }
@@ -399,6 +419,7 @@ function MembersTab() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_MEMBER);
   const [saving, setSaving] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
 
   const load = useCallback(() => {
     apiFetch("/website/admin/members").then(setMembers).catch(() => {});
@@ -432,8 +453,8 @@ function MembersTab() {
   }
 
   async function remove(id) {
-    if (!confirm("¿Eliminar este miembro?")) return;
     await apiFetch(`/website/admin/members/${id}`, { method: "DELETE" });
+    setConfirmId(null);
     load();
   }
 
@@ -457,7 +478,7 @@ function MembersTab() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => openEdit(m)} className="transition-colors text-sm px-3 py-1.5 rounded-lg" style={{ color: "var(--c-text-3)" }} onMouseEnter={e => { e.currentTarget.style.color = "var(--c-text)"; e.currentTarget.style.background = "var(--c-hover)"; }} onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-3)"; e.currentTarget.style.background = "transparent"; }}>Editar</button>
-              <button onClick={() => remove(m.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
+              <button onClick={() => setConfirmId(m.id)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-red-900/20">Eliminar</button>
             </div>
           </Surface>
         ))}
@@ -511,6 +532,15 @@ function MembersTab() {
           </div>
         </div>
       </Modal>
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar miembro"
+        description="¿Eliminar este miembro del equipo?"
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => remove(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

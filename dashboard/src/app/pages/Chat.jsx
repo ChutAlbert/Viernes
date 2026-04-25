@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { viernesApi } from "@apis/viernes";
+import { SearchSelect } from "@viernes/ui/react";
 
 export default function Chat() {
   const [sessions, setSessions] = useState([]);
@@ -211,16 +212,12 @@ export default function Chat() {
 
         <div className="flex items-center gap-2">
           <span className="text-sm shrink-0" style={{ color: "var(--c-text-2)" }}>Memoria</span>
-          <select
-            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
-            style={{ background: "var(--c-input-bg)", color: "var(--c-text)", border: "1px solid var(--c-border)" }}
+          <SearchSelect
+            variant="dark"
+            options={[{ value: "auto", label: "Auto" }, { value: "ask", label: "Preguntar" }, { value: "off", label: "Off" }]}
             value={memoryMode}
-            onChange={(e) => setMemoryMode(e.target.value)}
-          >
-            <option value="auto">Auto</option>
-            <option value="ask">Preguntar</option>
-            <option value="off">Off</option>
-          </select>
+            onChange={setMemoryMode}
+          />
         </div>
 
         {/* SOLO ESTA LISTA SCROLLEA */}

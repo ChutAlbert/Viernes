@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { viernesApi } from "@/lib/apis/viernes";
+import { SearchSelect, ConfirmModal } from "@viernes/ui/react";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const CATEGORIAS = [
@@ -44,19 +45,8 @@ function Input({ value, onChange, placeholder, type = "text", disabled }) {
   );
 }
 function Select({ value, onChange, options }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="px-3 py-2 rounded-lg text-sm outline-none w-full"
-      style={{ background: "var(--c-hover)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
-      onFocus={e => { e.target.style.borderColor = "var(--c-accent)"; }}
-      onBlur={e => { e.target.style.borderColor = "var(--c-border-med)"; }}>
-      {options.map(o => (
-        <option key={o.value ?? o} value={o.value ?? o} style={{ background: "var(--c-shell)" }}>
-          {o.label ?? o}
-        </option>
-      ))}
-    </select>
-  );
+  const opts = options.map(o => typeof o === "string" ? { value: o, label: o } : { value: String(o.value), label: o.label });
+  return <SearchSelect variant="dark" options={opts} value={value} onChange={onChange} />;
 }
 function CategoriaBadge({ cat }) {
   const meta = CAT_MAP[cat] ?? { label: cat, color: "#94a3b8" };
@@ -82,6 +72,7 @@ function TabItems({ items, loading, onRefresh }) {
   const [editing, setEditing] = useState(null); // null | "new" | id
   const [form, setForm] = useState(EMPTY_ITEM);
   const [saving, setSaving] = useState(false);
+  const [confirmItemId, setConfirmItemId] = useState(null);
 
   function startNew() { setForm(EMPTY_ITEM); setEditing("new"); }
   function startEdit(item) {
@@ -114,9 +105,9 @@ function TabItems({ items, loading, onRefresh }) {
   }
 
   async function del(id) {
-    if (!confirm("¿Eliminar este item? Se eliminarán también sus compras registradas.")) return;
     try { await viernesApi.deleteInventarioItem(id); onRefresh(); }
     catch (e) { alert("Error: " + e.message); }
+    finally { setConfirmItemId(null); }
   }
 
   // Agrupar por categoría
@@ -247,7 +238,7 @@ function TabItems({ items, loading, onRefresh }) {
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
                         </button>
-                        <button onClick={() => del(it.id)} className="p-1.5 rounded-lg transition-all" style={{ color: "var(--c-text-4)" }}
+                        <button onClick={() => setConfirmItemId(it.id)} className="p-1.5 rounded-lg transition-all" style={{ color: "var(--c-text-4)" }}
                           onMouseEnter={e => { e.currentTarget.style.color = "#f87171"; }}
                           onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-4)"; }}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -264,6 +255,15 @@ function TabItems({ items, loading, onRefresh }) {
           ))}
         </div>
       )}
+      <ConfirmModal
+        open={confirmItemId !== null}
+        title="Eliminar item"
+        description="¿Eliminar este item? Se eliminarán también sus compras registradas."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => del(confirmItemId)}
+        onCancel={() => setConfirmItemId(null)}
+      />
     </div>
   );
 }
@@ -275,6 +275,7 @@ function TabCompras({ items, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_COMPRA);
   const [saving, setSaving] = useState(false);
+  const [confirmCompraId, setConfirmCompraId] = useState(null);
 
   useEffect(() => { loadCompras(); }, []);
 
@@ -306,9 +307,9 @@ function TabCompras({ items, onRefresh }) {
   }
 
   async function del(id) {
-    if (!confirm("¿Eliminar esta compra? El stock del item se reducirá.")) return;
     try { await viernesApi.deleteInventarioCompra(id); loadCompras(); onRefresh(); }
     catch (e) { alert("Error: " + e.message); }
+    finally { setConfirmCompraId(null); }
   }
 
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -390,7 +391,7 @@ function TabCompras({ items, onRefresh }) {
                 {fmt$(c.precio_total)}
               </span>
               <span className="text-xs" style={{ color: "var(--c-text-4)" }}>{c.proveedor ?? "—"}</span>
-              <button onClick={() => del(c.id)} className="p-1.5 rounded-lg transition-all" style={{ color: "var(--c-text-4)" }}
+              <button onClick={() => setConfirmCompraId(c.id)} className="p-1.5 rounded-lg transition-all" style={{ color: "var(--c-text-4)" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#f87171"; }}
                 onMouseLeave={e => { e.currentTarget.style.color = "var(--c-text-4)"; }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -402,6 +403,15 @@ function TabCompras({ items, onRefresh }) {
           ))}
         </div>
       )}
+      <ConfirmModal
+        open={confirmCompraId !== null}
+        title="Eliminar compra"
+        description="¿Eliminar esta compra? El stock del item se reducirá."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => del(confirmCompraId)}
+        onCancel={() => setConfirmCompraId(null)}
+      />
     </div>
   );
 }

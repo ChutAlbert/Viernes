@@ -5,12 +5,13 @@ import jwt  # PyJWT
 import os
 
 from app.db import get_db
-from app.models.user import User  # AJUSTA a tu ruta real
+from app.models.user import User
 
 bearer = HTTPBearer(auto_error=False)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
+
 
 def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
@@ -30,7 +31,6 @@ def get_current_user(
     if raw_user_id is None:
         raise HTTPException(status_code=401, detail="Token missing user id")
 
-    # ✅ IMPORTANTÍSIMO: tu users.id es INT
     try:
         user_id = int(raw_user_id)
     except (TypeError, ValueError):
@@ -41,3 +41,15 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Se requiere rol de administrador")
+    return current_user
+
+
+def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Se requiere rol de super administrador")
+    return current_user

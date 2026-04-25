@@ -10,8 +10,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]  # .../Viernes
 DATA_DIR = PROJECT_ROOT / "data"
 DOCS_DIR = DATA_DIR / "docs"
 VECTOR_DIR = DATA_DIR / "vectordb"
-IMAGES_DIR = DATA_DIR / "images"
-FILES_DIR  = DATA_DIR / "files"
+IMAGES_DIR   = DATA_DIR / "images"
+FILES_DIR    = DATA_DIR / "files"
+GALLERY_DIR  = DATA_DIR / "gallery"
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 # En .env: CORS_ORIGINS=http://localhost:5173,https://sodigic.com

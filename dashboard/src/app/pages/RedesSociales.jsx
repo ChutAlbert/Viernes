@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { viernesApi } from "@/lib/apis/viernes";
+import { SearchSelect, ConfirmModal } from "@viernes/ui/react";
 
 const ICONOS = [
   { value: "instagram", label: "Instagram" },
@@ -29,12 +30,15 @@ function IconSvg({ icono, size = 18 }) {
   return <svg {...props} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 }
 
+const ICONOS_OPTS = ICONOS.map(i => ({ value: i.value, label: i.label }));
+
 export default function RedesSociales() {
   const [redes, setRedes] = useState([]);
   const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirmId, setConfirmId] = useState(null);
 
   useEffect(() => { load(); }, []);
 
@@ -64,9 +68,9 @@ export default function RedesSociales() {
   }
 
   async function remove(id) {
-    if (!confirm("¿Eliminar esta red social?")) return;
     try { await viernesApi.deleteRed(id); await load(); }
     catch (e) { setError(e.message); }
+    finally { setConfirmId(null); }
   }
 
   const inputCls = "px-3 py-2 rounded-lg text-sm outline-none w-full";
@@ -95,10 +99,12 @@ export default function RedesSociales() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Ícono</label>
-            <select className={inputCls} style={inputStyle} value={form.icono}
-              onChange={e => setForm(p => ({ ...p, icono: e.target.value }))}>
-              {ICONOS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-            </select>
+            <SearchSelect
+              variant="dark"
+              options={ICONOS_OPTS}
+              value={form.icono}
+              onChange={v => setForm(p => ({ ...p, icono: v }))}
+            />
           </div>
           <div className="flex flex-col gap-1.5 col-span-2">
             <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>URL</label>
@@ -145,10 +151,20 @@ export default function RedesSociales() {
             <span className="text-xs" style={{ color: "var(--c-text-4)" }}>#{red.orden}</span>
             <button onClick={() => startEdit(red)} className="text-xs px-3 py-1.5 rounded-lg"
               style={{ background: "var(--c-hover)", color: "var(--c-text-3)" }}>Editar</button>
-            <button onClick={() => remove(red.id)} className="text-xs" style={{ color: "#f87171" }}>Eliminar</button>
+            <button onClick={() => setConfirmId(red.id)} className="text-xs" style={{ color: "#f87171" }}>Eliminar</button>
           </div>
         ))}
       </div>
+
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar red social"
+        description="¿Eliminar esta red social? No se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => remove(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

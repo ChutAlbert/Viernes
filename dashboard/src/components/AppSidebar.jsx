@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { logout } from "@/store/slices/authSlice";
 
 const ICON_OVERVIEW = (
@@ -53,22 +53,88 @@ const ICON_REDES = (
     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
   </svg>
 );
+const ICON_NOTES = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>
+);
+const ICON_TASKS = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+  </svg>
+);
+const ICON_QR = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+    <rect x="3" y="14" width="7" height="7" rx="1"/>
+    <path d="M14 14h3v3"/><path d="M17 17h4"/><path d="M21 14v3"/>
+  </svg>
+);
+const ICON_VAULT = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    <circle cx="12" cy="16" r="1" fill="currentColor"/>
+  </svg>
+);
+const ICON_USERS = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
 
 const NAV = [
-  { to: "/app",           label: "Overview",    icon: ICON_OVERVIEW,  end: true },
-  { to: "/app/gmail",     label: "Gmail",       icon: ICON_GMAIL },
-  { to: "/app/chat",      label: "Chat IA",     icon: ICON_CHAT },
-  { to: "/app/docs",      label: "Documentos",  icon: ICON_DOCS },
-  { to: "/app/website",   label: "Website",     icon: ICON_WEBSITE },
-  { to: "/app/piezas",    label: "Piezas 3D",   icon: ICON_PIEZAS },
-  { to: "/app/catalogo",   label: "Catálogo",    icon: ICON_CATALOGO },
-  { to: "/app/inventario", label: "Inventario",  icon: ICON_INVENTARIO },
-  { to: "/app/redes",     label: "Redes Sociales", icon: ICON_REDES },
+  { to: "/app",            label: "Overview",       icon: ICON_OVERVIEW,  end: true, key: "overview" },
+  { to: "/app/gmail",      label: "Gmail",          icon: ICON_GMAIL,               key: "gmail" },
+  { to: "/app/chat",       label: "Chat IA",        icon: ICON_CHAT,                key: "chat" },
+  { to: "/app/docs",       label: "Documentos",     icon: ICON_DOCS,                key: "docs" },
+  { to: "/app/notas",      label: "Notas",          icon: ICON_NOTES,               key: "notas" },
+  { to: "/app/tareas",    label: "Tareas",         icon: ICON_TASKS,               key: "tareas" },
+  { to: "/app/qr",       label: "Generador QR",   icon: ICON_QR,                  key: "qr" },
+  { to: "/app/passwords",  label: "Contraseñas",    icon: ICON_VAULT,               key: "passwords" },
+  { to: "/app/website",    label: "Website",        icon: ICON_WEBSITE,             key: "website" },
+  { to: "/app/piezas",     label: "Piezas 3D",      icon: ICON_PIEZAS,              key: "piezas" },
+  { to: "/app/catalogo",   label: "Catálogo",       icon: ICON_CATALOGO,            key: "catalogo" },
+  { to: "/app/inventario", label: "Inventario",     icon: ICON_INVENTARIO,          key: "inventario" },
+  { to: "/app/redes",      label: "Redes Sociales", icon: ICON_REDES,               key: "redes" },
 ];
+
+const ICON_GALLERY = (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+    <polyline points="21 15 16 10 5 21"/>
+  </svg>
+);
+
+const ADMIN_NAV = [
+  { to: "/app/usuarios", label: "Usuarios",  icon: ICON_USERS,   key: "usuarios",  roles: ["admin", "super_admin"] },
+  { to: "/app/galeria",  label: "Visitas",   icon: ICON_GALLERY, key: "galeria",   roles: ["super_admin"] },
+];
+
+function canAccess(key, user) {
+  if (!user) return true;
+  if (user.role === "admin") return true;
+  if (!user.permissions) return true;
+  return user.permissions[key] !== false;
+}
+
+function getInitials(name, email) {
+  const src = name || email || "?";
+  return src.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
 
 export default function AppSidebar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const user = useSelector((s) => s.auth.user);
+
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+  const visibleNav = NAV.filter((item) => canAccess(item.key, user));
+  const displayName = user?.name || user?.email || "Usuario";
+  const displayRole = isAdmin ? "Admin" : "Usuario";
+  const displayInitials = getInitials(user?.name, user?.email);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -94,7 +160,7 @@ export default function AppSidebar() {
         <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>
           Menú
         </p>
-        {NAV.map(({ to, label, icon, end }) => (
+        {visibleNav.map(({ to, label, icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -105,16 +171,14 @@ export default function AppSidebar() {
               : { color: "var(--c-text-3)", borderLeft: "2px solid transparent", paddingLeft: "10px" }
             }
             onMouseEnter={(e) => {
-              const active = e.currentTarget.style.borderLeftColor === "var(--c-accent)" ||
-                             e.currentTarget.style.background.includes("hover-2");
+              const active = e.currentTarget.style.background.includes("hover-2");
               if (!active) {
                 e.currentTarget.style.background = "var(--c-hover)";
                 e.currentTarget.style.color = "var(--c-text-2)";
               }
             }}
             onMouseLeave={(e) => {
-              const active = e.currentTarget.style.borderLeftColor === "var(--c-accent)" ||
-                             e.currentTarget.style.background.includes("hover-2");
+              const active = e.currentTarget.style.background.includes("hover-2");
               if (!active) {
                 e.currentTarget.style.background = "transparent";
                 e.currentTarget.style.color = "var(--c-text-3)";
@@ -129,17 +193,57 @@ export default function AppSidebar() {
             )}
           </NavLink>
         ))}
+
+        {isAdmin && (
+          <>
+            <p className="px-3 pt-4 pb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>
+              Administración
+            </p>
+            {ADMIN_NAV.filter(({ roles }) => roles.includes(user?.role)).map(({ to, label, icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+                style={({ isActive }) => isActive
+                  ? { background: "var(--c-hover-2)", color: "var(--c-text)", borderLeft: "2px solid var(--c-accent)", paddingLeft: "10px" }
+                  : { color: "var(--c-text-3)", borderLeft: "2px solid transparent", paddingLeft: "10px" }
+                }
+                onMouseEnter={(e) => {
+                  const active = e.currentTarget.style.background.includes("hover-2");
+                  if (!active) {
+                    e.currentTarget.style.background = "var(--c-hover)";
+                    e.currentTarget.style.color = "var(--c-text-2)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const active = e.currentTarget.style.background.includes("hover-2");
+                  if (!active) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "var(--c-text-3)";
+                  }
+                }}
+              >
+                {({ isActive }) => (
+                  <>
+                    <span style={{ color: isActive ? "var(--c-accent)" : "var(--c-text-4)" }}>{icon}</span>
+                    {label}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="px-3 py-4 space-y-2" style={{ borderTop: "1px solid var(--c-border)" }}>
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: "var(--c-hover)" }}>
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-            JR
+            {displayInitials}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium truncate" style={{ color: "var(--c-text-2)" }}>Jesus Rico</p>
-            <p className="text-[10px] truncate" style={{ color: "var(--c-text-4)" }}>Admin</p>
+            <p className="text-xs font-medium truncate" style={{ color: "var(--c-text-2)" }}>{displayName}</p>
+            <p className="text-[10px] truncate" style={{ color: "var(--c-text-4)" }}>{displayRole}</p>
           </div>
         </div>
         <button

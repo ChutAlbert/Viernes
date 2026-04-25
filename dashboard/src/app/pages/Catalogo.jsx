@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { viernesApi } from "@/lib/apis/viernes";
+import { ConfirmModal } from "@viernes/ui/react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -141,6 +142,8 @@ function TabFilamentos() {
   const [editing, setEditing] = useState(null);         // null | "new" | id
   const [form, setForm] = useState(EMPTY_FIL);
   const [expanded, setExpanded] = useState({});
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [confirmBulk, setConfirmBulk] = useState(null); // "asignar" | "desasignar" | null
 
   useEffect(() => { load(); }, []);
 
@@ -171,13 +174,13 @@ function TabFilamentos() {
   }
 
   async function del(id) {
-    if (!confirm("¿Eliminar este filamento?")) return;
     try { await viernesApi.deleteFilamento(id); setItems(p => p.filter(i => i.id !== id)); }
     catch (e) { alert("Error: " + e.message); }
+    finally { setConfirmDel(null); }
   }
 
   async function handleAsignar() {
-    if (!confirm("¿Agregar este filamento a TODOS los productos del catálogo?")) return;
+    setConfirmBulk(null);
     setBulkLoading("asignar");
     try { const r = await viernesApi.asignarFilamentoTodos(editing); alert(`Filamento asignado a ${r.asignados} producto(s).`); }
     catch (e) { alert("Error: " + e.message); }
@@ -185,7 +188,7 @@ function TabFilamentos() {
   }
 
   async function handleDesasignar() {
-    if (!confirm("¿Quitar este filamento de TODOS los productos? Esto lo eliminará del catálogo de cada pieza.")) return;
+    setConfirmBulk(null);
     setBulkLoading("desasignar");
     try { const r = await viernesApi.desasignarFilamentoTodos(editing); alert(`Filamento eliminado de ${r.eliminados} producto(s).`); }
     catch (e) { alert("Error: " + e.message); }
@@ -258,7 +261,7 @@ function TabFilamentos() {
                         </span>
                         <div className="flex gap-1">
                           <Btn onClick={() => startEdit(item)}><IconEdit /></Btn>
-                          <Btn variant="danger" onClick={() => del(item.id)}><IconTrash /></Btn>
+                          <Btn variant="danger" onClick={() => setConfirmDel(item.id)}><IconTrash /></Btn>
                         </div>
                       </div>
                     ))}
@@ -275,10 +278,37 @@ function TabFilamentos() {
         <FilamentoModal
           editing={editing} form={form} setForm={setForm}
           onSave={save} onClose={closeModal} saving={saving}
-          onAsignar={handleAsignar} onDesasignar={handleDesasignar}
+          onAsignar={() => setConfirmBulk("asignar")} onDesasignar={() => setConfirmBulk("desasignar")}
           bulkLoading={bulkLoading}
         />
       )}
+      <ConfirmModal
+        open={confirmDel !== null}
+        title="Eliminar filamento"
+        description="¿Eliminar este filamento del catálogo?"
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => del(confirmDel)}
+        onCancel={() => setConfirmDel(null)}
+      />
+      <ConfirmModal
+        open={confirmBulk === "asignar"}
+        title="Asignar a todos los productos"
+        description="¿Agregar este filamento a TODOS los productos del catálogo?"
+        confirmText="Asignar"
+        variant="default"
+        onConfirm={handleAsignar}
+        onCancel={() => setConfirmBulk(null)}
+      />
+      <ConfirmModal
+        open={confirmBulk === "desasignar"}
+        title="Quitar de todos los productos"
+        description="¿Quitar este filamento de TODOS los productos? Esto lo eliminará del catálogo de cada pieza."
+        confirmText="Quitar"
+        variant="danger"
+        onConfirm={handleDesasignar}
+        onCancel={() => setConfirmBulk(null)}
+      />
     </div>
   );
 }
@@ -291,6 +321,7 @@ function TabProductos() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
 
   useEffect(() => { load(); }, []);
 
@@ -301,13 +332,11 @@ function TabProductos() {
     finally { setLoading(false); }
   }
 
-  async function del(e, id) {
-    e.stopPropagation();
-    if (!confirm("¿Eliminar este producto del catálogo?")) return;
+  async function del(id) {
     setDeleting(id);
     try { await viernesApi.deleteProductoCatalogo(id); setItems(p => p.filter(i => i.id !== id)); }
     catch (err) { alert("Error: " + err.message); }
-    finally { setDeleting(null); }
+    finally { setDeleting(null); setConfirmId(null); }
   }
 
   return (
@@ -353,12 +382,22 @@ function TabProductos() {
               </span>
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                 <Btn onClick={() => navigate(`/app/catalogo/${item.id}`)}><IconEdit /></Btn>
-                <Btn variant="danger" onClick={e => del(e, item.id)} disabled={deleting === item.id}><IconTrash /></Btn>
+                <Btn variant="danger" onClick={() => setConfirmId(item.id)} disabled={deleting === item.id}><IconTrash /></Btn>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmId !== null}
+        title="Eliminar producto"
+        description="¿Eliminar este producto del catálogo? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={() => del(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

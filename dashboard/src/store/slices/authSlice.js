@@ -5,21 +5,32 @@ const STORAGE_KEY = "viernes_token";
 
 const initialState = {
   token: localStorage.getItem(STORAGE_KEY) || null,
-  user: null, // luego cuando tengas /me
+  user: null,
   loading: false,
   error: null,
 };
 
-// Thunk async para login
 export const loginThunk = createAsyncThunk(
   "auth/login",
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const data = await authApi.login(email, password);
-      // suponiendo que regresa { access_token: "..." }
-      return data.access_token;
+      localStorage.setItem(STORAGE_KEY, data.access_token);
+      const user = await authApi.me();
+      return { token: data.access_token, user };
     } catch (err) {
       return rejectWithValue(err?.message ?? "Credenciales inválidas");
+    }
+  }
+);
+
+export const fetchMeThunk = createAsyncThunk(
+  "auth/fetchMe",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await authApi.me();
+    } catch (err) {
+      return rejectWithValue(err?.message ?? "Error al cargar usuario");
     }
   }
 );
@@ -48,12 +59,22 @@ const authSlice = createSlice({
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload;
-        localStorage.setItem(STORAGE_KEY, action.payload);
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        localStorage.setItem(STORAGE_KEY, action.payload.token);
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Credenciales inválidas";
+      })
+      .addCase(fetchMeThunk.fulfilled, (state, action) => {
+        state.user = action.payload;
+      })
+      .addCase(fetchMeThunk.rejected, (state) => {
+        // Token is invalid — force logout
+        state.token = null;
+        state.user = null;
+        localStorage.removeItem(STORAGE_KEY);
       });
   },
 });

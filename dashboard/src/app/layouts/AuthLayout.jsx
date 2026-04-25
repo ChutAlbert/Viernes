@@ -17,7 +17,7 @@ export default function AuthLayout() {
       >
         <div className="max-w-md space-y-4">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-cyan-400 flex items-center justify-center text-white font-bold text-lg">V</div>
+            <img src="/Logo_sf.png" alt="Viernes" className="h-10 w-auto" />
             <h2 className="text-3xl font-bold" style={{ color: "var(--c-text)" }}>Viernes</h2>
           </div>
           <p style={{ color: "var(--c-text-2)" }}>

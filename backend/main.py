@@ -4,9 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files, visits, catalogo, inventario, redes
+from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files, visits, catalogo, inventario, redes, notes, vault, users, gallery, tasks
 from app.services.ollama_service import OllamaService
-from app.core.config import IMAGES_DIR, FILES_DIR, CORS_ORIGINS
+from app.core.config import IMAGES_DIR, FILES_DIR, GALLERY_DIR, CORS_ORIGINS, DATA_DIR
+TASKS_AUDIO_DIR = DATA_DIR / "tasks_audio"
 
 
 def _warmup_models():
@@ -49,10 +50,21 @@ app.include_router(visits.router)
 app.include_router(catalogo.router)
 app.include_router(inventario.router)
 app.include_router(redes.router)
+app.include_router(notes.router)
+app.include_router(vault.router)
+app.include_router(users.router)
+app.include_router(gallery.router)
+app.include_router(tasks.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 FILES_DIR.mkdir(parents=True, exist_ok=True)
+GALLERY_DIR.mkdir(parents=True, exist_ok=True)  # encrypted blobs — no public StaticFiles
+TASKS_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+NOTES_DIR = DATA_DIR / "notes_files"
+NOTES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
+app.mount("/notes-files", StaticFiles(directory=str(NOTES_DIR)), name="notes-files")
+app.mount("/tasks-audio", StaticFiles(directory=str(TASKS_AUDIO_DIR)), name="tasks-audio")
 
 
 @app.get("/")

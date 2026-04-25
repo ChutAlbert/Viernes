@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { viernesApi } from "@/lib/apis/viernes";
+import { SearchSelect, ConfirmModal } from "@viernes/ui/react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -197,24 +198,8 @@ function StyledTextarea({ value, onChange, placeholder = "", rows = 3 }) {
 }
 
 function StyledSelect({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-all"
-      style={{
-        background: "var(--c-hover)",
-        border: "1px solid var(--c-border-med)",
-        color: "var(--c-text)",
-      }}
-      onFocus={(e) => { e.target.style.borderColor = "var(--c-accent)"; }}
-      onBlur={(e) => { e.target.style.borderColor = "var(--c-border-med)"; }}
-    >
-      {options.map(({ value: v, label }) => (
-        <option key={v} value={v} style={{ background: "var(--c-shell)" }}>{label}</option>
-      ))}
-    </select>
-  );
+  const opts = options.map(o => ({ value: String(o.value), label: o.label }));
+  return <SearchSelect variant="dark" options={opts} value={value} onChange={onChange} />;
 }
 
 // ── Pagos parciales ───────────────────────────────────────────────────────────
@@ -581,6 +566,7 @@ export default function PiezaDetail() {
   const [unsyncing, setUnsyncing] = useState(false);
   const [error, setError] = useState("");
   const [syncOk, setSyncOk] = useState(false);
+  const [confirmUnsync, setConfirmUnsync] = useState(false);
 
   useEffect(() => {
     if (isNew) return;
@@ -701,7 +687,7 @@ export default function PiezaDetail() {
   }
 
   async function handleUnsync() {
-    if (!confirm("¿Quitar esta pieza de Sodigic? Dejará de ser visible en el sitio público.")) return;
+    setConfirmUnsync(false);
     setUnsyncing(true);
     setError("");
     try {
@@ -774,7 +760,7 @@ export default function PiezaDetail() {
               )}
               {syncOk && (
                 <button
-                  onClick={handleUnsync}
+                  onClick={() => setConfirmUnsync(true)}
                   disabled={unsyncing}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
                   style={{ background: "rgba(34,197,94,0.1)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.2)" }}
@@ -977,6 +963,16 @@ export default function PiezaDetail() {
           }
         </Field>
       </div>
+
+      <ConfirmModal
+        open={confirmUnsync}
+        title="Quitar de Sodigic"
+        description="¿Quitar esta pieza de Sodigic? Dejará de ser visible en el sitio público."
+        confirmText="Quitar"
+        variant="danger"
+        onConfirm={handleUnsync}
+        onCancel={() => setConfirmUnsync(false)}
+      />
     </div>
   );
 }
