@@ -27,6 +27,29 @@ async function fetchAndDecrypt(item, aesKey) {
 // Module-level key cache — survives navigation without storing in localStorage
 let _sessionKey = null;
 
+// Decryption cache — id → blobUrl (or "error"), never revoked while session is active
+const _decryptCache = new Map();
+// Pending promises — prevents duplicate concurrent decryptions for the same item
+const _decryptPending = new Map();
+
+async function fetchAndDecryptCached(item, aesKey) {
+  if (_decryptCache.has(item.id)) return _decryptCache.get(item.id);
+  if (_decryptPending.has(item.id)) return _decryptPending.get(item.id);
+  const promise = fetchAndDecrypt(item, aesKey)
+    .then((url) => { _decryptCache.set(item.id, url); _decryptPending.delete(item.id); return url; })
+    .catch((e) => { _decryptCache.set(item.id, "error"); _decryptPending.delete(item.id); throw e; });
+  _decryptPending.set(item.id, promise);
+  return promise;
+}
+
+async function preDecryptAll(items, aesKey) {
+  const BATCH = 3;
+  const pending = items.filter((i) => !_decryptCache.has(i.id) && !_decryptPending.has(i.id));
+  for (let i = 0; i < pending.length; i += BATCH) {
+    await Promise.allSettled(pending.slice(i, i + BATCH).map((item) => fetchAndDecryptCached(item, aesKey)));
+  }
+}
+
 const QUESTIONS = [
   "¡Hola! ¿Cómo estás hoy?",
   "¿Qué tal te ha ido?",
@@ -296,17 +319,17 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
   const [showActions, setShowActions] = useState(false);
 
   useEffect(() => {
-    let objectUrl = null;
+    let cancelled = false;
     (async () => {
       try {
-        objectUrl = await fetchAndDecrypt(item, aesKey);
-        setSrc(objectUrl);
+        const url = await fetchAndDecryptCached(item, aesKey);
+        if (!cancelled) setSrc(url);
       } catch (e) {
         console.error("[Gallery] decrypt failed:", item.id, e.message);
-        setSrc("error");
+        if (!cancelled) setSrc("error");
       }
     })();
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    return () => { cancelled = true; }; // URL lives in cache — don't revoke
   }, [item.id, aesKey]);
 
   return (
@@ -386,20 +409,27 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
   const item = items[index];
   const [src, setSrc] = useState(null);
   const touchStartX = useRef(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef(null);
 
   useEffect(() => {
+    setPos({ x: 0, y: 0 });
+    // If already cached show instantly, no spinner
+    const cached = _decryptCache.get(item.id);
+    if (cached) { setSrc(cached); return; }
     setSrc(null);
-    let objectUrl = null;
+    let cancelled = false;
     (async () => {
       try {
-        objectUrl = await fetchAndDecrypt(item, aesKey);
-        setSrc(objectUrl);
+        const url = await fetchAndDecryptCached(item, aesKey);
+        if (!cancelled) setSrc(url);
       } catch (e) {
         console.error("[Gallery] lightbox decrypt failed:", item.id, e.message);
-        setSrc("error");
+        if (!cancelled) setSrc("error");
       }
     })();
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    return () => { cancelled = true; };
   }, [item.id, aesKey]);
 
   useEffect(() => {
@@ -412,6 +442,22 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, onNext, onPrev]);
 
+  // Drag logic for video
+  const startDrag = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    setDragging(true);
+    dragStart.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+  };
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => setPos({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
+    const onUp = () => setDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [dragging]);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "rgba(0,0,0,0.95)" }}
       onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
@@ -421,6 +467,8 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
         if (Math.abs(dx) > 50) { dx < 0 ? onNext() : onPrev(); }
         touchStartX.current = null;
       }}>
+
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ background: "rgba(0,0,0,0.5)" }}>
         <div>
           <p className="text-sm font-medium text-white">{item.display_name || item.filename}</p>
@@ -438,7 +486,8 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center relative overflow-hidden px-14">
+      {/* Content — no side padding, buttons overlay */}
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden">
         {!src ? (
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#a78bfa", borderTopColor: "transparent" }} />
@@ -447,23 +496,56 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
         ) : src === "error" ? (
           <p className="text-white/40 text-sm">Error al descifrar</p>
         ) : item.media_type === "video" ? (
-          <video key={src} src={src} className="max-w-full max-h-full rounded-xl" controls autoPlay />
+          /* Draggable video wrapper */
+          <div
+            className="relative"
+            style={{
+              transform: `translate(${pos.x}px, ${pos.y}px)`,
+              transition: dragging ? "none" : "transform 0.12s ease",
+              maxWidth: "100%", maxHeight: "100%",
+            }}
+          >
+            {/* Drag handle */}
+            <div
+              onMouseDown={startDrag}
+              className="absolute top-0 left-0 right-0 flex items-center justify-center gap-1 rounded-t-xl z-10 select-none"
+              style={{ height: "28px", background: "rgba(0,0,0,0.45)", cursor: dragging ? "grabbing" : "grab" }}
+              title="Arrastrar"
+            >
+              {[0,1,2,3,4,5].map((i) => (
+                <div key={i} className="w-1 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.35)" }} />
+              ))}
+            </div>
+            <video
+              key={src} src={src}
+              className="block rounded-xl"
+              style={{ maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}
+              controls autoPlay loop
+            />
+          </div>
         ) : (
-          <img key={src} src={src} className="max-w-full max-h-full object-contain rounded-xl" alt={item.display_name} />
+          <img key={src} src={src}
+            className="object-contain rounded-xl"
+            style={{ maxWidth: "min(96vw, 1200px)", maxHeight: "calc(100vh - 160px)" }}
+            alt={item.display_name} />
         )}
 
+        {/* Prev — smaller */}
         {index > 0 && (
-          <button onClick={onPrev} className="absolute left-2 p-3 rounded-full text-white hover:bg-white/15"
-            style={{ background: "rgba(0,0,0,0.4)" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <button onClick={onPrev}
+            className="absolute left-2 p-1.5 rounded-full text-white transition-opacity opacity-60 hover:opacity-100"
+            style={{ background: "rgba(0,0,0,0.55)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
         )}
+        {/* Next — smaller */}
         {index < items.length - 1 && (
-          <button onClick={onNext} className="absolute right-2 p-3 rounded-full text-white hover:bg-white/15"
-            style={{ background: "rgba(0,0,0,0.4)" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <button onClick={onNext}
+            className="absolute right-2 p-1.5 rounded-full text-white transition-opacity opacity-60 hover:opacity-100"
+            style={{ background: "rgba(0,0,0,0.55)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </button>
@@ -646,6 +728,10 @@ function GalleryView({ aesKey }) {
   const [loading, setLoading] = useState(true);
   const [nameFilter, setNameFilter] = useState("");
   const [tagFilter, setTagFilter] = useState([]);
+  const [sortOrder, setSortOrder] = useState("oldest");   // "oldest" | "newest"
+  const [mediaType, setMediaType] = useState("all");      // "all" | "image" | "video"
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [shuffledIds, setShuffledIds] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [uploadModal, setUploadModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -658,6 +744,8 @@ function GalleryView({ aesKey }) {
         const [data, tags] = await Promise.all([viernesApi.galleryList(), viernesApi.galleryTags()]);
         setItems(data);
         setAllTags(tags);
+        // Pre-decrypt all items in background after loading
+        preDecryptAll(data, aesKey);
       } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
@@ -672,7 +760,8 @@ function GalleryView({ aesKey }) {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  const filtered = items.filter((item) => {
+  // Base: name + tag + media type filters
+  const baseFiltered = items.filter((item) => {
     if (nameFilter) {
       const q = nameFilter.toLowerCase();
       if (!item.display_name.toLowerCase().includes(q) && !item.filename.toLowerCase().includes(q)) return false;
@@ -681,12 +770,49 @@ function GalleryView({ aesKey }) {
       const lower = (item.tags || []).map((t) => t.toLowerCase());
       if (!tagFilter.every((t) => lower.includes(t.toLowerCase()))) return false;
     }
+    if (mediaType !== "all" && item.media_type !== mediaType) return false;
     return true;
   });
+
+  // Apply sort or shuffle on top
+  let filtered;
+  if (isShuffled) {
+    const idMap = Object.fromEntries(baseFiltered.map((i) => [i.id, i]));
+    filtered = shuffledIds.map((id) => idMap[id]).filter(Boolean);
+    const known = new Set(shuffledIds);
+    baseFiltered.forEach((i) => { if (!known.has(i.id)) filtered.push(i); });
+  } else {
+    filtered = [...baseFiltered].sort((a, b) => {
+      const da = new Date(a.created_at), db = new Date(b.created_at);
+      return sortOrder === "oldest" ? da - db : db - da;
+    });
+  }
 
   function toggleTag(tag) {
     setTagFilter((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
   }
+
+  function handleShuffle() {
+    if (isShuffled) {
+      setIsShuffled(false);
+      setShuffledIds([]);
+    } else {
+      const arr = [...baseFiltered.map((i) => i.id)];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      setShuffledIds(arr);
+      setIsShuffled(true);
+    }
+  }
+
+  function clearAllFilters() {
+    setNameFilter(""); setTagFilter([]); setSortOrder("oldest");
+    setMediaType("all"); setIsShuffled(false); setShuffledIds([]);
+  }
+
+  const hasActiveFilters = nameFilter || tagFilter.length > 0 || mediaType !== "all" || sortOrder !== "oldest" || isShuffled;
 
   function handleUploaded(item) {
     setItems((prev) => [item, ...prev]);
@@ -702,6 +828,11 @@ function GalleryView({ aesKey }) {
     setDeleting(id);
     try {
       await viernesApi.galleryDelete(id);
+      // Clean up cached URL for this item
+      const cached = _decryptCache.get(id);
+      if (cached && cached !== "error") URL.revokeObjectURL(cached);
+      _decryptCache.delete(id);
+      _decryptPending.delete(id);
       setItems((prev) => prev.filter((i) => i.id !== id));
     } catch (e) { alert("Error: " + e.message); }
     finally { setDeleting(null); setConfirmDelete(null); }
@@ -729,27 +860,85 @@ function GalleryView({ aesKey }) {
       </div>
 
       {/* Filters */}
-      <div className="px-6 py-3 flex-shrink-0 space-y-2" style={{ borderBottom: "1px solid var(--c-border)" }}>
-        <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
-          placeholder="Buscar por nombre…"
-          className="w-full max-w-sm rounded-lg px-3 py-2 text-sm outline-none"
-          style={{ background: "var(--c-input-bg, var(--c-hover))", color: "var(--c-text)", border: "1px solid var(--c-border)" }} />
+      <div className="px-6 py-3 flex-shrink-0 space-y-2.5" style={{ borderBottom: "1px solid var(--c-border)" }}>
+
+        {/* Row 1: search + clear */}
+        <div className="flex items-center gap-2">
+          <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
+            placeholder="Buscar por nombre…"
+            className="flex-1 max-w-sm rounded-lg px-3 py-1.5 text-sm outline-none"
+            style={{ background: "var(--c-input-bg, var(--c-hover))", color: "var(--c-text)", border: "1px solid var(--c-border)" }} />
+          {hasActiveFilters && (
+            <button onClick={clearAllFilters} className="text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+              style={{ color: "var(--c-text-4)", border: "1px solid var(--c-border)" }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#f87171"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--c-text-4)"}>
+              Limpiar todo
+            </button>
+          )}
+        </div>
+
+        {/* Row 2: sort + media type + shuffle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sort */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+            {[["oldest", "Primeros"], ["newest", "Recientes"]].map(([val, lbl]) => (
+              <button key={val} onClick={() => { setSortOrder(val); setIsShuffled(false); setShuffledIds([]); }}
+                className="px-2.5 py-1 text-xs font-medium transition-colors"
+                style={sortOrder === val && !isShuffled
+                  ? { background: "var(--c-accent)", color: "#fff" }
+                  : { background: "var(--c-hover)", color: "var(--c-text-4)" }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {/* Media type */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+            {[["all", "Todos"], ["image", "Fotos"], ["video", "Videos"]].map(([val, lbl]) => (
+              <button key={val} onClick={() => setMediaType(val)}
+                className="px-2.5 py-1 text-xs font-medium transition-colors"
+                style={mediaType === val
+                  ? { background: "var(--c-hover-2)", color: "var(--c-text)", borderBottom: "2px solid var(--c-accent)" }
+                  : { background: "var(--c-hover)", color: "var(--c-text-4)", borderBottom: "2px solid transparent" }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          {/* Shuffle */}
+          <button onClick={handleShuffle}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+            style={isShuffled
+              ? { background: "var(--c-accent)", color: "#fff" }
+              : { background: "var(--c-hover)", border: "1px solid var(--c-border)", color: "var(--c-text-4)" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+              <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+            </svg>
+            {isShuffled ? "Aleatorio activo" : "Aleatorio"}
+          </button>
+
+          {/* count */}
+          <span className="text-xs ml-auto" style={{ color: "var(--c-text-4)" }}>
+            {filtered.length} {filtered.length === 1 ? "archivo" : "archivos"}
+          </span>
+        </div>
+
+        {/* Row 3: tag chips */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs self-center mr-1" style={{ color: "var(--c-text-3)", fontSize: "0.75rem", fontWeight: 600 }}>Etiquetas:</span>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Tags:</span>
             {allTags.map((t) => {
               const active = tagFilter.includes(t);
               return (
                 <button key={t} onClick={() => toggleTag(t)}
-                  className="px-2.5 py-0.5 rounded-full text-xs font-medium transition-all"
+                  className="px-2 py-0.5 rounded-full text-xs font-medium transition-all"
                   style={active ? { background: "var(--c-accent)", color: "#fff" } : { background: "var(--c-hover-2)", color: "var(--c-text-3)", border: "1px solid var(--c-border)" }}>
                   {t}
                 </button>
               );
             })}
-            {tagFilter.length > 0 && (
-              <button onClick={() => setTagFilter([])} className="text-xs px-2 py-0.5" style={{ color: "var(--c-text-4)" }}>Limpiar</button>
-            )}
           </div>
         )}
       </div>
