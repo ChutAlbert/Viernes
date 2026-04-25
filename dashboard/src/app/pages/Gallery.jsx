@@ -42,14 +42,6 @@ async function fetchAndDecryptCached(item, aesKey) {
   return promise;
 }
 
-async function preDecryptAll(items, aesKey) {
-  const BATCH = 3;
-  const pending = items.filter((i) => !_decryptCache.has(i.id) && !_decryptPending.has(i.id));
-  for (let i = 0; i < pending.length; i += BATCH) {
-    await Promise.allSettled(pending.slice(i, i + BATCH).map((item) => fetchAndDecryptCached(item, aesKey)));
-  }
-}
-
 const QUESTIONS = [
   "¡Hola! ¿Cómo estás hoy?",
   "¿Qué tal te ha ido?",
@@ -744,8 +736,6 @@ function GalleryView({ aesKey }) {
         const [data, tags] = await Promise.all([viernesApi.galleryList(), viernesApi.galleryTags()]);
         setItems(data);
         setAllTags(tags);
-        // Pre-decrypt all items in background after loading
-        preDecryptAll(data, aesKey);
       } catch { /* ignore */ }
       finally { setLoading(false); }
     })();
