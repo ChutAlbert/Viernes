@@ -32,10 +32,37 @@ const _decryptCache = new Map();
 // Pending promises — prevents duplicate concurrent decryptions for the same item
 const _decryptPending = new Map();
 
-async function fetchAndDecryptCached(item, aesKey) {
-  if (_decryptCache.has(item.id)) return _decryptCache.get(item.id);
+// Processes one decryption at a time; priority items jump to the front
+class DecryptQueue {
+  constructor(concurrency = 1) {
+    this._c = concurrency; this._running = 0;
+    this._normal = []; this._priority = [];
+  }
+  add(fn, priority = false) {
+    return new Promise((resolve, reject) => {
+      (priority ? this._priority : this._normal).push({ fn, resolve, reject });
+      this._run();
+    });
+  }
+  _run() {
+    while (this._running < this._c && (this._priority.length || this._normal.length)) {
+      const t = this._priority.length ? this._priority.shift() : this._normal.shift();
+      this._running++;
+      t.fn().then(t.resolve, t.reject).finally(() => { this._running--; this._run(); });
+    }
+  }
+}
+const _decryptQueue = new DecryptQueue(1);
+
+async function fetchAndDecryptQueued(item, aesKey, priority = false) {
+  if (_decryptCache.has(item.id)) {
+    const v = _decryptCache.get(item.id);
+    if (v === "error") throw new Error("cached error");
+    return v;
+  }
   if (_decryptPending.has(item.id)) return _decryptPending.get(item.id);
-  const promise = fetchAndDecrypt(item, aesKey)
+  const promise = _decryptQueue
+    .add(() => fetchAndDecrypt(item, aesKey), priority)
     .then((url) => { _decryptCache.set(item.id, url); _decryptPending.delete(item.id); return url; })
     .catch((e) => { _decryptCache.set(item.id, "error"); _decryptPending.delete(item.id); throw e; });
   _decryptPending.set(item.id, promise);
@@ -309,20 +336,26 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
   const [src, setSrc] = useState(null);
   const [hovered, setHovered] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    if (retryCount > 0) {
+      _decryptCache.delete(item.id);
+      _decryptPending.delete(item.id);
+    }
+    setSrc(null);
     (async () => {
       try {
-        const url = await fetchAndDecryptCached(item, aesKey);
+        const url = await fetchAndDecryptQueued(item, aesKey, retryCount > 0);
         if (!cancelled) setSrc(url);
       } catch (e) {
         console.error("[Gallery] decrypt failed:", item.id, e.message);
         if (!cancelled) setSrc("error");
       }
     })();
-    return () => { cancelled = true; }; // URL lives in cache — don't revoke
-  }, [item.id, aesKey]);
+    return () => { cancelled = true; };
+  }, [item.id, aesKey, retryCount]);
 
   return (
     <div
@@ -342,6 +375,13 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <p className="text-[10px] text-center" style={{ color: "var(--c-text-4)" }}>No se pudo descifrar</p>
+          <button
+            onClick={(e) => { e.stopPropagation(); setRetryCount((c) => c + 1); }}
+            className="text-[10px] px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+            style={{ background: "rgba(139,92,246,0.2)", color: "#c4b5fd" }}
+          >
+            Reintentar
+          </button>
         </div>
       ) : item.media_type === "video" ? (
         <>
@@ -404,17 +444,30 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef(null);
+  const [lbRetryKey, setLbRetryKey] = useState(0);
+  const lbRetryForId = useRef(null);
+
+  function handleLbRetry() {
+    lbRetryForId.current = item.id;
+    _decryptCache.delete(item.id);
+    _decryptPending.delete(item.id);
+    setSrc(null);
+    setLbRetryKey((k) => k + 1);
+  }
 
   useEffect(() => {
     setPos({ x: 0, y: 0 });
-    // If already cached show instantly, no spinner
-    const cached = _decryptCache.get(item.id);
-    if (cached) { setSrc(cached); return; }
+    const isRetry = lbRetryForId.current === item.id;
+    lbRetryForId.current = null;
+    if (!isRetry) {
+      const cached = _decryptCache.get(item.id);
+      if (cached && cached !== "error") { setSrc(cached); return; }
+    }
     setSrc(null);
     let cancelled = false;
     (async () => {
       try {
-        const url = await fetchAndDecryptCached(item, aesKey);
+        const url = await fetchAndDecryptQueued(item, aesKey, true);
         if (!cancelled) setSrc(url);
       } catch (e) {
         console.error("[Gallery] lightbox decrypt failed:", item.id, e.message);
@@ -422,7 +475,7 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [item.id, aesKey]);
+  }, [item.id, aesKey, lbRetryKey]);
 
   useEffect(() => {
     function onKey(e) {
@@ -486,7 +539,16 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
             <p className="text-xs text-white/40">Descifrando…</p>
           </div>
         ) : src === "error" ? (
-          <p className="text-white/40 text-sm">Error al descifrar</p>
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-white/40 text-sm">Error al descifrar</p>
+            <button
+              onClick={handleLbRetry}
+              className="px-4 py-1.5 rounded-lg text-sm hover:opacity-80 transition-opacity"
+              style={{ background: "rgba(139,92,246,0.25)", color: "#c4b5fd" }}
+            >
+              Reintentar
+            </button>
+          </div>
         ) : item.media_type === "video" ? (
           /* Draggable video wrapper */
           <div
@@ -1008,8 +1070,8 @@ export default function Gallery() {
   const [aesKey, setAesKey] = useState(_sessionKey);
 
   useEffect(() => {
-    if (_sessionKey) { setPhase("unlocked"); return; }
     (async () => {
+      if (_sessionKey) { setPhase("unlocked"); return; }
       try {
         const { configured } = await viernesApi.galleryConfig();
         setPhase(configured ? "locked" : "setup");
