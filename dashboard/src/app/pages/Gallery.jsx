@@ -144,126 +144,196 @@ function TagInput({ tags, onChange, suggestions = [] }) {
 }
 
 // ─── Upload Modal ─────────────────────────────────────────────────────────────
+const MAX_VIDEOS = 2;
+const MAX_IMAGES = 5;
+
 function UploadModal({ open, onClose, onUploaded, allTags, aesKey }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [name, setName] = useState("");
+  const [files, setFiles] = useState([]); // [{ file, previewUrl, type }]
   const [tags, setTags] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(null); // { current, total }
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
-    if (!open) { setFile(null); setPreview(null); setName(""); setTags([]); setError(""); }
+    if (!open) {
+      setFiles((prev) => { prev.forEach((f) => URL.revokeObjectURL(f.previewUrl)); return []; });
+      setTags([]); setError(""); setProgress(null);
+    }
   }, [open]);
 
   useEffect(() => {
-    if (open?.file) pickFile(open.file);
+    if (!open?.file) return;
+    const f = open.file;
+    const type = f.type.startsWith("video") ? "video" : "image";
+    setFiles((prev) => {
+      const videos = prev.filter((x) => x.type === "video").length;
+      const images = prev.filter((x) => x.type === "image").length;
+      if (type === "video" && videos >= MAX_VIDEOS) return prev;
+      if (type === "image" && images >= MAX_IMAGES) return prev;
+      return [...prev, { file: f, previewUrl: URL.createObjectURL(f), type }];
+    });
   }, [open]);
 
-  function pickFile(f) {
-    if (!f) return;
-    setFile(f);
-    setName((prev) => prev || f.name.replace(/\.[^.]+$/, ""));
-    setPreview({ url: URL.createObjectURL(f), type: f.type.startsWith("video") ? "video" : "image" });
+  function addFiles(newFiles) {
+    let err = "";
+    const toAdd = [];
+    setFiles((prev) => {
+      let videos = prev.filter((f) => f.type === "video").length;
+      let images = prev.filter((f) => f.type === "image").length;
+      for (const f of newFiles) {
+        const type = f.type.startsWith("video") ? "video" : "image";
+        if (type === "video" && videos >= MAX_VIDEOS) { err = `Máximo ${MAX_VIDEOS} videos a la vez`; continue; }
+        if (type === "image" && images >= MAX_IMAGES) { err = `Máximo ${MAX_IMAGES} fotos a la vez`; continue; }
+        toAdd.push({ file: f, previewUrl: URL.createObjectURL(f), type });
+        if (type === "video") videos++; else images++;
+      }
+      return [...prev, ...toAdd];
+    });
+    if (err) setError(err);
+  }
+
+  function removeFile(index) {
+    setFiles((prev) => {
+      URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+    setError("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!file) { setError("Selecciona un archivo"); return; }
-    setUploading(true);
-    setError("");
-    try {
-      const buf = await file.arrayBuffer();
-      const encBuf = await encryptFile(aesKey, buf);
-      const encBlob = new Blob([encBuf], { type: "application/octet-stream" });
-      const suffix = file.name.match(/\.[^.]+$/)?.[0] || ".bin";
-      const fd = new FormData();
-      fd.append("file", encBlob, `enc${suffix}`);
-      fd.append("display_name", name.trim());
-      fd.append("media_type", preview.type);
-      fd.append("tags", JSON.stringify(tags));
-      const item = await viernesApi.galleryUpload(fd);
-      onUploaded(item);
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
+    if (files.length === 0) { setError("Selecciona al menos un archivo"); return; }
+    setUploading(true); setError("");
+    for (let i = 0; i < files.length; i++) {
+      setProgress({ current: i + 1, total: files.length });
+      const { file, type } = files[i];
+      try {
+        const buf = await file.arrayBuffer();
+        const encBuf = await encryptFile(aesKey, buf);
+        const encBlob = new Blob([encBuf], { type: "application/octet-stream" });
+        const suffix = file.name.match(/\.[^.]+$/)?.[0] || ".bin";
+        const fd = new FormData();
+        fd.append("file", encBlob, `enc${suffix}`);
+        fd.append("display_name", type === "video" ? "video" : "foto");
+        fd.append("media_type", type);
+        fd.append("tags", JSON.stringify(tags));
+        const item = await viernesApi.galleryUpload(fd);
+        onUploaded(item);
+      } catch (err) {
+        setError(`Error en archivo ${i + 1}: ${err.message}`);
+        setUploading(false); setProgress(null); return;
+      }
     }
+    onClose();
+    setUploading(false); setProgress(null);
   }
 
   if (!open) return null;
 
-  const inputStyle = {
-    background: "var(--c-input-bg, var(--c-hover))", color: "var(--c-text)",
-    border: "1px solid var(--c-border)", borderRadius: "0.5rem",
-    padding: "0.5rem 0.75rem", fontSize: "0.875rem", width: "100%", outline: "none",
-  };
+  const videoCount = files.filter((f) => f.type === "video").length;
+  const imageCount = files.filter((f) => f.type === "image").length;
+  const limitReached = videoCount >= MAX_VIDEOS && imageCount >= MAX_IMAGES;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
-      <div className="w-full max-w-md rounded-2xl shadow-2xl"
-        style={{ background: "var(--c-surface)", border: "1px solid var(--c-border-med)" }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--c-border)" }}>
-          <h2 className="text-base font-semibold" style={{ color: "var(--c-text)" }}>Agregar a visitas</h2>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl flex flex-col"
+        style={{ background: "var(--c-surface)", border: "1px solid var(--c-border-med)", maxHeight: "90vh" }}>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--c-border)" }}>
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: "var(--c-text)" }}>Agregar a visitas</h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--c-text-4)" }}>
+              Máx. {MAX_VIDEOS} videos · {MAX_IMAGES} fotos
+            </p>
+          </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-[var(--c-hover)]" style={{ color: "var(--c-text-4)" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Drop zone */}
-          <div
-            className="rounded-xl relative overflow-hidden cursor-pointer transition-colors"
-            style={{
-              minHeight: preview ? "auto" : "130px",
-              border: `2px dashed ${dragging ? "var(--c-accent)" : "var(--c-border-med)"}`,
-              background: dragging ? "rgba(139,92,246,0.07)" : "var(--c-hover)",
-            }}
-            onClick={() => !preview && fileRef.current?.click()}
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); pickFile(e.dataTransfer.files[0]); }}
-          >
-            {preview ? (
-              <div style={{ pointerEvents: "none" }}>
-                {preview.type === "video"
-                  ? <video src={preview.url} className="w-full max-h-56 object-contain rounded-xl" style={{ pointerEvents: "auto" }} controls />
-                  : <img src={preview.url} className="w-full max-h-56 object-contain rounded-xl" alt="preview" />
-                }
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-6" style={{ pointerEvents: "none" }}>
-                <svg className="mb-2 opacity-40" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                </svg>
-                <p className="text-xs" style={{ color: dragging ? "var(--c-accent)" : "var(--c-text-4)" }}>
-                  {dragging ? "Suelta aquí" : "Clic, arrastra o Ctrl+V"}
-                </p>
-              </div>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => pickFile(e.target.files[0])} />
-          {preview && <button type="button" onClick={() => { setFile(null); setPreview(null); setName(""); }} className="text-xs" style={{ color: "var(--c-text-4)" }}>Cambiar archivo</button>}
+          {!limitReached && (
+            <div
+              className="rounded-xl cursor-pointer transition-colors flex flex-col items-center justify-center p-5"
+              style={{
+                minHeight: "90px",
+                border: `2px dashed ${dragging ? "var(--c-accent)" : "var(--c-border-med)"}`,
+                background: dragging ? "rgba(139,92,246,0.07)" : "var(--c-hover)",
+              }}
+              onClick={() => fileRef.current?.click()}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false); }}
+              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); addFiles(Array.from(e.dataTransfer.files)); }}
+            >
+              <svg className="mb-1.5 opacity-40" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <p className="text-xs" style={{ color: dragging ? "var(--c-accent)" : "var(--c-text-4)" }}>
+                {dragging ? "Suelta aquí" : "Clic o arrastra archivos"}
+              </p>
+              <p className="text-[10px] mt-1" style={{ color: "var(--c-text-4)" }}>
+                {videoCount}/{MAX_VIDEOS} videos · {imageCount}/{MAX_IMAGES} fotos
+              </p>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
+            onChange={(e) => { addFiles(Array.from(e.target.files)); e.target.value = ""; }} />
+
+          {/* File list */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg p-2"
+                  style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+                  {f.type === "video" ? (
+                    <video src={f.previewUrl} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" muted />
+                  ) : (
+                    <img src={f.previewUrl} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" alt="" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium" style={{ color: "var(--c-text)" }}>
+                      {f.type === "video" ? "video" : "foto"}
+                    </p>
+                    <p className="text-[10px] truncate" style={{ color: "var(--c-text-4)" }}>{f.file.name}</p>
+                  </div>
+                  <button type="button" onClick={() => removeFile(i)} disabled={uploading}
+                    className="p-1 rounded-lg flex-shrink-0 hover:bg-[var(--c-hover-2)] disabled:opacity-40"
+                    style={{ color: "var(--c-text-4)" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tags */}
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--c-text-3)" }}>Nombre</label>
-            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del archivo" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--c-text-3)" }}>Etiquetas</label>
+            <label className="block text-xs font-semibold mb-1" style={{ color: "var(--c-text-3)" }}>
+              Etiquetas{files.length > 1 ? " (para todos)" : ""}
+            </label>
             <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
           </div>
+
           {error && <p className="text-sm" style={{ color: "#f87171" }}>{error}</p>}
+
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm hover:bg-[var(--c-hover)]"
+            <button type="button" onClick={onClose} disabled={uploading}
+              className="px-4 py-2 rounded-lg text-sm hover:bg-[var(--c-hover)] disabled:opacity-40"
               style={{ color: "var(--c-text-3)", border: "1px solid var(--c-border)" }}>Cancelar</button>
-            <button type="submit" disabled={uploading} className="px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-85"
-              style={{ background: "var(--c-accent)", color: "#fff" }}>{uploading ? "Cifrando y subiendo…" : "Subir"}</button>
+            <button type="submit" disabled={uploading || files.length === 0}
+              className="px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 hover:opacity-85"
+              style={{ background: "var(--c-accent)", color: "#fff" }}>
+              {uploading
+                ? `Subiendo ${progress?.current}/${progress?.total}…`
+                : `Subir ${files.length > 0 ? `${files.length} ` : ""}archivo${files.length !== 1 ? "s" : ""}`}
+            </button>
           </div>
         </form>
       </div>
@@ -332,13 +402,14 @@ function EditModal({ item, onClose, onSaved, allTags }) {
 }
 
 // ─── Media Card (with lazy decrypt) ──────────────────────────────────────────
-function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
+function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting, shouldLoad }) {
   const [src, setSrc] = useState(null);
   const [hovered, setHovered] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    if (!shouldLoad) return;
     let cancelled = false;
     if (retryCount > 0) {
       _decryptCache.delete(item.id);
@@ -355,7 +426,7 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [item.id, aesKey, retryCount]);
+  }, [item.id, aesKey, retryCount, shouldLoad]);
 
   return (
     <div
@@ -365,7 +436,9 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting }) {
       onMouseLeave={() => { setHovered(false); setShowActions(false); }}
       onClick={onClick}
     >
-      {!src ? (
+      {!shouldLoad ? (
+        <div className="w-full h-full" style={{ background: "var(--c-hover)" }} />
+      ) : !src ? (
         <div className="w-full h-full flex items-center justify-center">
           <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--c-accent)", borderTopColor: "transparent" }} />
         </div>
@@ -780,6 +853,7 @@ function GalleryView({ aesKey }) {
   const [items, setItems] = useState([]);
   const [allTags, setAllTags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterSelected, setFilterSelected] = useState(false);
   const [nameFilter, setNameFilter] = useState("");
   const [tagFilter, setTagFilter] = useState([]);
   const [sortOrder, setSortOrder] = useState("oldest");   // "oldest" | "newest"
@@ -842,6 +916,7 @@ function GalleryView({ aesKey }) {
 
   function toggleTag(tag) {
     setTagFilter((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+    setFilterSelected(true);
   }
 
   function handleShuffle() {
@@ -856,12 +931,14 @@ function GalleryView({ aesKey }) {
       }
       setShuffledIds(arr);
       setIsShuffled(true);
+      setFilterSelected(true);
     }
   }
 
   function clearAllFilters() {
     setNameFilter(""); setTagFilter([]); setSortOrder("oldest");
     setMediaType("all"); setIsShuffled(false); setShuffledIds([]);
+    setFilterSelected(false);
   }
 
   const hasActiveFilters = nameFilter || tagFilter.length > 0 || mediaType !== "all" || sortOrder !== "oldest" || isShuffled;
@@ -916,7 +993,7 @@ function GalleryView({ aesKey }) {
 
         {/* Row 1: search + clear */}
         <div className="flex items-center gap-2">
-          <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
+          <input value={nameFilter} onChange={(e) => { setNameFilter(e.target.value); setFilterSelected(true); }}
             placeholder="Buscar por nombre…"
             className="flex-1 max-w-sm rounded-lg px-3 py-1.5 text-sm outline-none"
             style={{ background: "var(--c-input-bg, var(--c-hover))", color: "var(--c-text)", border: "1px solid var(--c-border)" }} />
@@ -935,7 +1012,7 @@ function GalleryView({ aesKey }) {
           {/* Sort */}
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
             {[["oldest", "Primeros"], ["newest", "Recientes"]].map(([val, lbl]) => (
-              <button key={val} onClick={() => { setSortOrder(val); setIsShuffled(false); setShuffledIds([]); }}
+              <button key={val} onClick={() => { setSortOrder(val); setIsShuffled(false); setShuffledIds([]); setFilterSelected(true); }}
                 className="px-2.5 py-1 text-xs font-medium transition-colors"
                 style={sortOrder === val && !isShuffled
                   ? { background: "var(--c-accent)", color: "#fff" }
@@ -948,7 +1025,7 @@ function GalleryView({ aesKey }) {
           {/* Media type */}
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
             {[["all", "Todos"], ["image", "Fotos"], ["video", "Videos"]].map(([val, lbl]) => (
-              <button key={val} onClick={() => setMediaType(val)}
+              <button key={val} onClick={() => { setMediaType(val); setFilterSelected(true); }}
                 className="px-2.5 py-1 text-xs font-medium transition-colors"
                 style={mediaType === val
                   ? { background: "var(--c-hover-2)", color: "var(--c-text)", borderBottom: "2px solid var(--c-accent)" }
@@ -999,14 +1076,23 @@ function GalleryView({ aesKey }) {
       <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
           <p className="text-center py-20 text-sm" style={{ color: "var(--c-text-4)" }}>Cargando…</p>
+        ) : !filterSelected ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ color: "var(--c-text-4)" }}>
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <p className="text-sm text-center" style={{ color: "var(--c-text-4)" }}>
+              {items.length === 0
+                ? "Agrega archivos con el botón o pega con Ctrl+V."
+                : "Selecciona un filtro para ver el contenido."}
+            </p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" style={{ color: "var(--c-text-4)" }}>
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p className="text-sm" style={{ color: "var(--c-text-4)" }}>
-              {items.length === 0 ? "Agrega archivos con el botón o pega con Ctrl+V." : "Sin resultados."}
-            </p>
+            <p className="text-sm" style={{ color: "var(--c-text-4)" }}>Sin resultados.</p>
           </div>
         ) : (
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
@@ -1015,6 +1101,7 @@ function GalleryView({ aesKey }) {
                 key={item.id}
                 item={item}
                 aesKey={aesKey}
+                shouldLoad={filterSelected}
                 onClick={() => setLightboxIndex(filtered.indexOf(item))}
                 onEdit={() => setEditItem(item)}
                 onDelete={() => setConfirmDelete(item.id)}
