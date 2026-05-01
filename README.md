@@ -4,39 +4,50 @@ Aplicación full-stack con backend en FastAPI y dos frontends: **dashboard** (Re
 
 ## Requisitos previos
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL
-- [Ollama](https://ollama.com/) corriendo localmente
+- **Python 3.11+** → https://www.python.org/downloads/
+- **Node.js 20+** → https://nodejs.org/
+- **PostgreSQL 16** → https://www.postgresql.org/download/
+- **Ollama** → https://ollama.com/download
+- **Git** → https://git-scm.com/
+
+---
 
 ## 1. Backend (FastAPI)
 
-### Instalar dependencias
-
 ```bash
 cd backend
+
+# Crear entorno virtual
 python -m venv .venv
 
-# Activar en Windows (PowerShell/CMD):
+# Activar (Windows)
 .venv\Scripts\activate
 
-# Activar en bash/Git Bash:
-source .venv/Scripts/activate
+# Activar (Mac/Linux)
+source .venv/bin/activate
 
+# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-### Configurar variables de entorno
-
-Crea el archivo `backend/.env` con el siguiente contenido:
+### Variables de entorno — `backend/.env`
 
 ```env
-DATABASE_URL=postgresql+psycopg://postgres:local@127.0.0.1:5432/viernes
+# Base de datos
+DATABASE_URL=postgresql+psycopg://usuario:contraseña@127.0.0.1:5432/viernes
 
-JWT_SECRET=tu_secreto_aqui
+# JWT
+JWT_SECRET=cambiar_por_clave_segura
 JWT_ALG=HS256
 JWT_EXPIRES_MIN=43200
 
+# CORS — frontends permitidos
+CORS_ORIGINS=http://localhost:5173,http://localhost:4173
+
+# IPs excluidas del conteo de visitas
+EXCLUDED_IPS=127.0.0.1,::1
+
+# Ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_CHAT_MODEL=qwen3:8b
 OLLAMA_REASONING_MODEL=deepseek-r1:8b
@@ -44,7 +55,7 @@ OLLAMA_EMBED_MODEL=nomic-embed-text
 OLLAMA_VISION_MODEL=llava:7b
 ```
 
-### Modelos de Ollama requeridos
+### Modelos de Ollama
 
 ```bash
 ollama pull qwen3:8b
@@ -53,67 +64,95 @@ ollama pull nomic-embed-text
 ollama pull llava:7b
 ```
 
-### Correr migraciones
+### Migraciones y usuario inicial
 
 ```bash
-cd backend
-.venv/Scripts/alembic upgrade head
-```
+# Aplicar migraciones
+alembic upgrade head
 
-### Crear usuario inicial
-
-```bash
-cd backend
+# Crear usuario administrador (credenciales definidas en seed.py)
 python seed.py
 ```
 
-Crea el usuario por defecto:
-- **Email:** jesus@gmail.com
-- **Password:** viernes123
-
-### Iniciar el servidor
+### Iniciar servidor
 
 ```bash
-cd backend
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
 ```
 
-El backend corre en `http://localhost:8000`.
+API en `http://localhost:8000` — Docs en `http://localhost:8000/docs`
 
 ---
 
-## 2. Frontend — Dashboard (React)
+## 2. Frontend
+
+Desde la raíz del monorepo instala todas las dependencias una sola vez:
 
 ```bash
-# Desde la raíz del proyecto
 npm install
-npm run dev --workspace=dashboard
 ```
 
-Corre en `http://localhost:5173`.
-
----
-
-## 3. Frontend — Website (Vue)
+### Dashboard (React) — `http://localhost:5173`
 
 ```bash
-# Desde la raíz del proyecto
-npm install  # si no lo hiciste antes
-npm run dev --workspace=website
+cd dashboard
+npm run dev
 ```
 
-Corre en `http://localhost:4173`.
+### Website (Vue) — `http://localhost:4173`
+
+```bash
+cd website
+npm run dev
+```
+
+Cambios en `packages/ui/src/` se reflejan en ambos frontends automáticamente.
 
 ---
 
-## Comandos útiles
+### Variables de entorno — `dashboard/.env`
+
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+### Variables de entorno — `website/.env`
+
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+---
+
+## Migraciones (Alembic)
+
+Con el entorno virtual activado desde `backend/`:
+
+```bash
+# Aplicar pendientes
+alembic upgrade head
+
+# Nueva migración tras cambiar modelos
+alembic revision --autogenerate -m "descripcion"
+
+# Ver estado actual
+alembic current
+
+# Ver historial
+alembic history
+
+# Revertir última
+alembic downgrade -1
+```
+
+---
+
+## Comandos rápidos
 
 | Acción | Comando |
 |---|---|
 | Iniciar backend | `cd backend && uvicorn main:app --reload` |
-| Aplicar migraciones | `cd backend && .venv/Scripts/alembic upgrade head` |
-| Crear usuario inicial | `cd backend && python seed.py` |
-| Crear migración | `cd backend && .venv/Scripts/alembic revision --autogenerate -m "descripcion"` |
-| Ver migración actual | `cd backend && .venv/Scripts/alembic current` |
-| Iniciar dashboard | `npm run dev --workspace=dashboard` |
-| Iniciar website | `npm run dev --workspace=website` |
+| Aplicar migraciones | `alembic upgrade head` |
+| Crear usuario admin | `python seed.py` |
+| Iniciar dashboard | `cd dashboard && npm run dev` |
+| Iniciar website | `cd website && npm run dev` |
