@@ -2,17 +2,24 @@ from typing import Optional, Any
 from pydantic import BaseModel, EmailStr
 
 DEFAULT_PERMISSIONS = {
+    # home
     "overview": True,
-    "gmail": True,
+    # viernes
     "chat": True,
+    "gmail": True,
     "docs": True,
+    # agenda
+    "tareas": True,
     "notas": True,
-    "passwords": True,
+    # sodigic
     "website": True,
-    "piezas": True,
     "catalogo": True,
+    "piezas": True,
     "inventario": True,
     "redes": True,
+    # funciones
+    "qr": True,
+    "passwords": True,
 }
 
 

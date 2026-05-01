@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Viernes",
+    "slug": "viernes-mobile",
+    "version": "1.0.0",
+    "scheme": "viernes",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f1117"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f1117"
+      },
+      "package": "mx.miw.viernes"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "mx.miw.viernes"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
