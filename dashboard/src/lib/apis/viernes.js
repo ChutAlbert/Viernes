@@ -15,6 +15,15 @@ export const viernesApi = {
   // ✅ stream SSE
   chatStream: (payload) => apiRequestRaw("post", "/chat/stream", payload),
 
+  // voz-a-voz: envía audio, recibe { transcript, reply, session_id, audio_b64 }
+  chatVoice: (audioBlob, sessionId, memoryMode = "auto") => {
+    const fd = new FormData();
+    fd.append("audio", audioBlob, "recording.webm");
+    if (sessionId) fd.append("session_id", sessionId);
+    fd.append("memory_mode", memoryMode);
+    return apiRequestDocs("post", "/chat/voice", fd);
+  },
+
   // gmail
   gmailStatus: () => apiRequest("get", "/gmail/status"),
   gmailInbox: (limit = 15) => apiRequest("get", "/gmail/inbox", { limit }),

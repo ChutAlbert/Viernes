@@ -33,4 +33,14 @@ google-auth>=2.29.0
 google-auth-oauthlib>=1.2.0
 google-api-python-client>=2.130.0
 
+# ── Voz: STT (faster-whisper) + TTS (kokoro-onnx) ────────────────────────────
+# faster-whisper requiere: pip install faster-whisper
+# En Windows con CUDA: pip install faster-whisper --extra-index-url https://download.pytorch.org/whl/cu121
+faster-whisper>=1.1.0
+# kokoro-onnx: pip install kokoro-onnx
+# Descarga modelos desde https://huggingface.co/hexgrad/Kokoro-82M
+# → kokoro-v1.0.onnx y voices-v1.0.bin → colocar en data/voice_models/
+kokoro-onnx>=0.4.0
+soundfile>=0.12.1
+
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { viernesApi } from "@apis/viernes";
 import { SearchSelect } from "@viernes/ui/react";
 
@@ -11,6 +11,13 @@ export default function Chat() {
   const bottomRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // ── Voz ──────────────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef   = useRef([]);
+  const activeAudioRef   = useRef(null); // para detener TTS si empieza otra grabación
 
   function getGreeting() {
     const hour = new Date().getHours();
@@ -83,6 +90,106 @@ export default function Chat() {
           : m,
       ),
     );
+  }
+
+  // ── Lógica de grabación ───────────────────────────────────────────────────
+
+  const startRecording = useCallback(async () => {
+    if (isLoading || isProcessingVoice) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      // Para TTS anterior que pueda estar sonando
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.start(100); // chunks cada 100ms
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch {
+      setError("No se pudo acceder al micrófono. Verifica los permisos.");
+    }
+  }, [isLoading, isProcessingVoice]);
+
+  const stopRecording = useCallback(async () => {
+    setIsRecording(false);
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+
+    await new Promise((resolve) => {
+      recorder.onstop = resolve;
+      recorder.stop();
+    });
+    recorder.stream.getTracks().forEach((t) => t.stop());
+
+    if (audioChunksRef.current.length === 0) return;
+    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    await sendVoice(blob);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function sendVoice(blob) {
+    setIsProcessingVoice(true);
+    setError(null);
+    const tempUserId     = `u-voice-${Date.now()}`;
+    const tempAssistantId = `temp-${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: tempUserId,     role: "user",      content: "🎤 Transcribiendo…" },
+      { id: tempAssistantId, role: "assistant", content: "", is_streaming: true },
+    ]);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+
+    try {
+      const result = await viernesApi.chatVoice(blob, activeSessionId, memoryMode);
+
+      // Actualiza mensaje de usuario con la transcripción real
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempUserId
+            ? { ...m, content: `🎤 ${result.transcript}` }
+            : m,
+        ),
+      );
+
+      // Actualiza respuesta del asistente
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempAssistantId
+            ? { ...m, content: result.reply, is_streaming: false }
+            : m,
+        ),
+      );
+
+      setActiveSessionId(result.session_id);
+      await refreshSessions();
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+
+      // Reproduce audio TTS si el backend lo devolvió
+      if (result.audio_b64) {
+        const binary = atob(result.audio_b64);
+        const buf    = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+        const url   = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+        const audio = new Audio(url);
+        activeAudioRef.current = audio;
+        audio.play().catch(() => {});
+        audio.onended = () => URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err?.message || "Error al procesar voz");
+      setMessages((prev) => prev.filter((m) => m.id !== tempAssistantId && m.id !== tempUserId));
+    } finally {
+      setIsProcessingVoice(false);
+    }
   }
 
   async function send(e) {
@@ -293,9 +400,19 @@ export default function Chat() {
 
         {/* Composer fijo abajo */}
         <div className="shrink-0 p-3" style={{ borderTop: "1px solid var(--c-border-med)" }}>
+          {isRecording && (
+            <div className="text-sm mb-2 flex items-center gap-2" style={{ color: "rgb(239,68,68)" }}>
+              <span className="animate-pulse">●</span> Grabando… suelta para enviar
+            </div>
+          )}
+          {isProcessingVoice && (
+            <div className="text-sm mb-2" style={{ color: "var(--c-text-3)" }}>
+              Viernes está procesando tu mensaje de voz…
+            </div>
+          )}
           {isLoading && (
             <div className="text-sm mb-2" style={{ color: "var(--c-text-3)" }}>
-              Viernes está pensando...
+              Viernes está pensando…
             </div>
           )}
           {error && <div className="text-red-400 text-sm mb-2">{error}</div>}
@@ -307,13 +424,39 @@ export default function Chat() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Escribe..."
-              disabled={isLoading}
+              disabled={isLoading || isProcessingVoice}
             />
+
+            {/* Botón push-to-talk */}
+            <button
+              type="button"
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+              onTouchEnd={(e)   => { e.preventDefault(); stopRecording();  }}
+              disabled={isLoading || isProcessingVoice}
+              title={isRecording ? "Suelta para enviar" : "Mantén para hablar"}
+              className="rounded-lg px-3 py-2 text-sm transition disabled:opacity-50 select-none"
+              style={{
+                background: isRecording
+                  ? "rgba(239,68,68,0.2)"
+                  : isProcessingVoice
+                    ? "rgba(139,92,246,0.15)"
+                    : "var(--c-hover)",
+                color:  isRecording ? "rgb(239,68,68)" : "var(--c-text)",
+                border: isRecording
+                  ? "1px solid rgba(239,68,68,0.5)"
+                  : "1px solid var(--c-border-med)",
+              }}
+            >
+              {isProcessingVoice ? "⏳" : isRecording ? "🔴" : "🎤"}
+            </button>
+
             <button
               className="rounded-lg px-4 py-2 text-sm transition disabled:opacity-50"
               style={{ background: "var(--c-hover)", color: "var(--c-text)", border: "1px solid var(--c-border-med)" }}
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isProcessingVoice}
             >
               {isLoading ? "..." : "Enviar"}
             </button>

@@ -1,15 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 import json
 import uuid
+import re
+import base64
 
 from app.db import get_db
 from app.schemas.chat import ChatIn, ChatOut
 from app.services.rag_service import RagService
 from app.services.ollama_service import OllamaService
 from app.services.web_search_service import WebSearchService
+from app.services.voice_service import VoiceService
 
 from app.models.chat_sessions import ChatSession
 from app.models.chat_messages import ChatMessage
@@ -21,10 +24,17 @@ from datetime import datetime, date
 from decimal import Decimal
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-rag  = RagService()
-llm  = OllamaService.for_chat()       # modelo principal
-llmr = OllamaService.for_reasoning()  # modelo de razonamiento
-web  = WebSearchService(max_results=4)
+rag   = RagService()
+llm   = OllamaService.for_chat()       # modelo principal  (PC1 local)
+llmr  = OllamaService.for_reasoning()  # modelo reasoning  (PC2 via LAN o local)
+web   = WebSearchService(max_results=4)
+voice = VoiceService.get()
+
+# Palabras clave que indican que el usuario quiere buscar en internet explícitamente
+_SEARCH_RE = re.compile(
+    r"\b(busca|buscar|googlea|busca en internet|investiga en internet|search online|search for)\b",
+    re.IGNORECASE,
+)
 
 # ─── System prompts ───────────────────────────────────────────────────────────
 
@@ -53,27 +63,6 @@ Reglas:
 - Si usas resultados web, menciona brevemente la fuente.
 - Si no tienes suficiente contexto, pregunta."""
 
-SYSTEM_DECISION = """Tu única tarea es decidir si necesitas buscar en internet para responder.
-
-IMPORTANTE: Tienes base de datos local completa de Pokémon GO (stats, moves, tipos,
-efectividad, mejores atacantes, raids). Para cualquier pregunta de Pokémon GO → ANSWER.
-
-Responde SOLO con uno de estos formatos, sin texto adicional:
-
-Si NO necesitas buscar:
-ANSWER
-
-Si SÍ necesitas buscar (noticias, precios, eventos del mundo real, clima):
-SEARCH: <consulta específica>
-
-Ejemplos:
-"stats de Dragonite en Pokémon GO" → ANSWER
-"mejor counter para Mewtwo" → ANSWER
-"moves de Charizard" → ANSWER
-"raids activos esta semana" → SEARCH: pokemon go raids this week 2026
-"precio del bitcoin hoy" → SEARCH: bitcoin price today
-"versión actual de React" → SEARCH: React latest version 2026
-"cómo hacer un for loop" → ANSWER"""
 
 
 SYSTEM_MODEL_SELECTOR = """Decide si este mensaje requiere razonamiento profundo o es una conversación normal.
@@ -111,70 +100,49 @@ def sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False, default=json_safe)}\n\n"
 
 
-# ─── ReAct: decisión de búsqueda ─────────────────────────────────────────────
+# ─── Selección de modelo + búsqueda explícita ────────────────────────────────
 
 def decide_model(user_msg: str) -> OllamaService:
-    """
-    Elige entre el modelo de chat y el de razonamiento según la complejidad.
-    Usa chat_fast (20 tokens) para que la decisión sea casi instantánea.
-    """
+    """Elige chat vs reasoning con una inferencia rápida (20 tokens)."""
     decision = llm.chat_fast([
-        {"role": "system",  "content": SYSTEM_MODEL_SELECTOR},
-        {"role": "user",    "content": user_msg},
+        {"role": "system", "content": SYSTEM_MODEL_SELECTOR},
+        {"role": "user",   "content": user_msg},
     ]).strip().upper()
-
-    print(f"[ModelRouter] Decisión: {decision!r}")
+    print(f"[ModelRouter] {decision!r}")
     return llmr if decision.startswith("REASONING") else llm
 
 
-def decide_search(user_msg: str) -> str | None:
+def _extract_search_query(text: str) -> str | None:
     """
-    Pregunta al modelo si necesita buscar en internet.
-    Retorna la query de búsqueda si necesita, None si no.
-    Usa num_predict muy bajo para que sea rápido (~1-2s).
+    Retorna la query si el usuario pide explícitamente una búsqueda web,
+    ej. "busca el precio del bitcoin" → "el precio del bitcoin".
+    Sin keyword explícito → None (usa RAG local sin tocar internet).
     """
-    decision = llm.chat_fast([
-        {"role": "system", "content": SYSTEM_DECISION},
-        {"role": "user", "content": user_msg},
-    ])
-
-    decision = decision.strip()
-    print(f"[ReAct] Decisión: {decision!r}")
-
-    if decision.upper().startswith("SEARCH:"):
-        query = decision[7:].strip()
-        return query if query else None
-
-    return None  # ANSWER o cualquier otra cosa → no busca
+    m = _SEARCH_RE.search(text)
+    if not m:
+        return None
+    after = text[m.end():].strip().lstrip(":").strip()
+    return after if after else text
 
 
 def run_with_react(messages: list) -> tuple[list, bool, OllamaService]:
     """
-    Flujo ReAct + selección de modelo:
-    1. Selecciona modelo (chat vs reasoning) según complejidad del mensaje
-    2. Decide si necesita buscar en internet
-    3. Si sí: busca, persiste en vectordb y añade contexto
-    Retorna: (messages_enriquecidos, usó_web, modelo_a_usar)
+    1. Selecciona modelo (chat vs reasoning)
+    2. Busca en internet SOLO si el usuario lo pidió explícitamente
+    3. El RAG local siempre inyecta contexto de búsquedas previas guardadas
     """
-    user_msg = ""
-    for m in reversed(messages):
-        if m["role"] == "user":
-            user_msg = m["content"]
-            break
+    user_msg = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
 
-    # Ambas decisiones usan chat_fast → muy rápido
-    selected_llm = decide_model(user_msg)
-    query        = decide_search(user_msg)
-
+    selected_llm     = decide_model(user_msg)
+    query            = _extract_search_query(user_msg)
     used_web         = False
     current_messages = list(messages)
 
     if query:
-        print(f"[ReAct] Buscando: '{query}'")
-        results    = web.search_and_persist(query, rag)
+        print(f"[Search] Búsqueda explícita: '{query}'")
+        results     = web.search_and_persist(query, rag)
         web_context = web.format_for_context(results)
-        used_web   = bool(results)
-
+        used_web    = bool(results)
         if web_context:
             current_messages.append({
                 "role":    "system",
@@ -389,3 +357,96 @@ def chat(payload: ChatIn, db: Session = Depends(get_db)):
     db.commit()
 
     return {"session_id": str(session.id), "reply": reply, "used_context": bool(rag_context)}
+
+
+# ─── Endpoint voz-a-voz ───────────────────────────────────────────────────────
+
+@router.post("/voice")
+async def chat_voice(
+    audio:        UploadFile = File(...),
+    session_id:   Optional[str] = Form(None),
+    memory_mode:  str = Form("auto"),
+    db:           Session = Depends(get_db),
+    user:         User    = Depends(get_current_user),
+):
+    """
+    Recibe audio del micrófono → transcribe (Whisper) → LLM → sintetiza (Kokoro).
+    Devuelve { transcript, reply, session_id, used_web, audio_b64 }.
+    """
+    if not voice.stt_available:
+        raise HTTPException(status_code=503, detail="faster-whisper no instalado")
+
+    audio_bytes = await audio.read()
+
+    # 1) STT
+    try:
+        transcript = voice.transcribe(audio_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"STT error: {e}")
+
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No se pudo transcribir el audio (silencio o formato inválido)")
+
+    # 2) Sesión
+    session = None
+    if session_id:
+        session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+    if not session:
+        session = ChatSession(id=uuid.uuid4(), title=None, is_title_auto_generated=True)
+        db.add(session); db.commit(); db.refresh(session)
+
+    # 3) Guardar mensajes
+    user_msg_db = ChatMessage(id=uuid.uuid4(), session_id=session.id, role="user", content=transcript)
+    asst_msg_db = ChatMessage(id=uuid.uuid4(), session_id=session.id, role="assistant", content="")
+    db.add(user_msg_db); db.add(asst_msg_db)
+    session.touch_last_message(); db.add(session); db.commit(); db.refresh(asst_msg_db)
+
+    # 4) RAG + historial
+    rag_context = rag.retrieve_context(transcript, k=5) if memory_mode != "off" else ""
+    recent = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.id)
+        .order_by(ChatMessage.created_at.desc()).limit(8).all()
+    )
+    recent = list(reversed(recent))
+
+    system = SYSTEM_BASE
+    if rag_context:
+        system += f"\n\nCONTEXTO:\n{rag_context}"
+
+    # Para respuestas de voz: conciso, sin markdown ni listas
+    system += "\n\nIMPORTANTE: Esta es una respuesta de voz. Sé muy conciso (2-3 oraciones máximo). Sin markdown, sin listas, solo texto natural hablado."
+
+    messages = [{"role": "system", "content": system}]
+    for r in recent:
+        if r.role in ("user", "assistant") and r.content:
+            messages.append({"role": r.role, "content": r.content})
+    messages.append({"role": "user", "content": transcript})
+
+    # 5) LLM
+    final_messages, used_web, active_llm = run_with_react(messages)
+    reply = active_llm.chat(final_messages)
+
+    # 6) Persistir respuesta
+    asst_msg_db.content = reply
+    if (not session.title) or session.is_title_auto_generated:
+        session.title = (transcript[:48] + "…") if len(transcript) > 48 else transcript
+        session.is_title_auto_generated = True
+    session.touch_last_message(); db.add(session); db.add(asst_msg_db); db.commit()
+
+    # 7) TTS (opcional — si Kokoro no está configurado, devuelve solo texto)
+    audio_b64 = None
+    if voice.tts_available:
+        try:
+            raw_audio = voice.synthesize(reply)
+            audio_b64 = base64.b64encode(raw_audio).decode()
+        except Exception as e:
+            print(f"[TTS] Error (continúa sin audio): {e}")
+
+    return {
+        "transcript": transcript,
+        "reply":       reply,
+        "session_id":  str(session.id),
+        "used_web":    used_web,
+        "audio_b64":   audio_b64,
+    }
