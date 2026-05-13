@@ -1,7 +1,7 @@
 import requests
 import json
 from app.core.config import (
-    OLLAMA_CHAT_URL, OLLAMA_EMBED_URL, OLLAMA_BASE_URL,
+    OLLAMA_CHAT_URL, OLLAMA_REASONING_CHAT_URL, OLLAMA_EMBED_URL, OLLAMA_BASE_URL,
     CHAT_MODEL, REASONING_MODEL, EMBED_MODEL,
 )
 
@@ -33,6 +33,7 @@ class OllamaService:
     @classmethod
     def for_reasoning(cls) -> "OllamaService":
         inst = cls(model=REASONING_MODEL)
+        inst.base_url = OLLAMA_REASONING_CHAT_URL  # puede apuntar a PC2 via LAN
         inst._options = {
             "num_ctx":     8192,
             "num_predict": 2048,
