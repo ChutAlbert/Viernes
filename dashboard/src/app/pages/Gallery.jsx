@@ -860,6 +860,8 @@ function GalleryView({ aesKey }) {
   const [mediaType, setMediaType] = useState("all");      // "all" | "image" | "video"
   const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledIds, setShuffledIds] = useState([]);
+  const [noTagsFilter, setNoTagsFilter] = useState(false);
+  const [tagsCollapsed, setTagsCollapsed] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [uploadModal, setUploadModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -892,6 +894,7 @@ function GalleryView({ aesKey }) {
       const q = nameFilter.toLowerCase();
       if (!item.display_name.toLowerCase().includes(q) && !item.filename.toLowerCase().includes(q)) return false;
     }
+    if (noTagsFilter && (item.tags || []).length > 0) return false;
     if (tagFilter.length > 0) {
       const lower = (item.tags || []).map((t) => t.toLowerCase());
       if (!tagFilter.every((t) => lower.includes(t.toLowerCase()))) return false;
@@ -938,10 +941,10 @@ function GalleryView({ aesKey }) {
   function clearAllFilters() {
     setNameFilter(""); setTagFilter([]); setSortOrder("oldest");
     setMediaType("all"); setIsShuffled(false); setShuffledIds([]);
-    setFilterSelected(false);
+    setNoTagsFilter(false); setFilterSelected(false);
   }
 
-  const hasActiveFilters = nameFilter || tagFilter.length > 0 || mediaType !== "all" || sortOrder !== "oldest" || isShuffled;
+  const hasActiveFilters = nameFilter || tagFilter.length > 0 || noTagsFilter || mediaType !== "all" || sortOrder !== "oldest" || isShuffled;
 
   function handleUploaded(item) {
     setItems((prev) => [item, ...prev]);
@@ -1055,21 +1058,45 @@ function GalleryView({ aesKey }) {
         </div>
 
         {/* Row 3: tag chips */}
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Tags:</span>
-            {allTags.map((t) => {
-              const active = tagFilter.includes(t);
-              return (
-                <button key={t} onClick={() => toggleTag(t)}
-                  className="px-2 py-0.5 rounded-full text-xs font-medium transition-all"
-                  style={active ? { background: "var(--c-accent)", color: "#fff" } : { background: "var(--c-hover-2)", color: "var(--c-text-3)", border: "1px solid var(--c-border)" }}>
-                  {t}
-                </button>
-              );
-            })}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium flex-shrink-0" style={{ color: "var(--c-text-4)" }}>Tags:</span>
+            <button
+              onClick={() => { setNoTagsFilter((v) => !v); setFilterSelected(true); }}
+              className="px-2 py-0.5 rounded-full text-xs font-medium transition-all flex-shrink-0"
+              style={noTagsFilter
+                ? { background: "var(--c-accent)", color: "#fff" }
+                : { background: "var(--c-hover-2)", color: "var(--c-text-3)", border: "1px solid var(--c-border)" }}>
+              Sin etiquetas
+            </button>
+            {allTags.length > 0 && (
+              <button
+                onClick={() => setTagsCollapsed((v) => !v)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all flex-shrink-0 ml-auto"
+                style={{ background: "var(--c-hover)", color: "var(--c-text-4)", border: "1px solid var(--c-border)" }}>
+                {tagsCollapsed ? "Mostrar" : "Ocultar"}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  style={{ transform: tagsCollapsed ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.2s" }}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            )}
           </div>
-        )}
+          {!tagsCollapsed && allTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {allTags.map((t) => {
+                const active = tagFilter.includes(t);
+                return (
+                  <button key={t} onClick={() => toggleTag(t)}
+                    className="px-2 py-0.5 rounded-full text-xs font-medium transition-all"
+                    style={active ? { background: "var(--c-accent)", color: "#fff" } : { background: "var(--c-hover-2)", color: "var(--c-text-3)", border: "1px solid var(--c-border)" }}>
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Grid */}
