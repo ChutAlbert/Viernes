@@ -92,4 +92,8 @@ export const viernesApi = {
   createUser:  (p)              => apiRequest('post', '/users', p),
   updateUser:  (id, p)          => apiRequest('put', `/users/${id}`, p),
   deleteUser:  (id)             => apiRequestDelete(`/users/${id}`),
+
+  // locations
+  updateLocation:   (p)         => apiRequest('post', '/locations/update', p),
+  needsRefresh:     (deviceId)  => apiRequest('get', `/locations/${deviceId}/needs-refresh`),
 };

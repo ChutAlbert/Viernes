@@ -108,6 +108,12 @@ export const viernesApi = {
   updateVaultEntry: (id, payload) => apiRequest("put", `/vault/entries/${id}`, payload),
   deleteVaultEntry: (id) => apiRequestDelete(`/vault/entries/${id}`),
 
+  // locations (admin only)
+  listLocations: () => apiRequest("get", "/locations"),
+  updateLocation: (deviceId, payload) => apiRequest("put", `/locations/${deviceId}`, payload),
+  requestLocationUpdate: (deviceId) => apiRequest("post", `/locations/${deviceId}/request-update`),
+  deleteLocation: (deviceId) => apiRequestDelete(`/locations/${deviceId}`),
+
   // users (admin only)
   listUsers: () => apiRequest("get", "/users"),
   createUser: (payload) => apiRequest("post", "/users", payload),

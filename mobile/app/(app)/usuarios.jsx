@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Modal, Switch, KeyboardAvoidingView, Platform, Alert,
+  TextInput, Modal, Switch, KeyboardAvoidingView, Platform,
+  ScrollView, Alert,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Screen } from '../../components/Screen';
@@ -14,7 +15,34 @@ const ROLE_COLOR = {
   user:        { text: colors.text3,      bg: colors.hover },
 };
 
-function UserCard({ user, onDelete, onToggle }) {
+const PERM_LABELS = {
+  overview:   'Panel principal',
+  chat:       'Chat IA',
+  gmail:      'Gmail',
+  docs:       'Documentos',
+  tareas:     'Tareas',
+  notas:      'Notas',
+  website:    'Website',
+  catalogo:   'Catálogo',
+  piezas:     'Piezas 3D',
+  inventario: 'Inventario',
+  redes:      'Redes Sociales',
+  qr:         'Generador QR',
+  passwords:  'Contraseñas',
+};
+
+const PERM_GROUPS = [
+  { label: 'General',   keys: ['overview'] },
+  { label: 'Viernes',   keys: ['chat', 'gmail', 'docs'] },
+  { label: 'Agenda',    keys: ['tareas', 'notas'] },
+  { label: 'Sodigic',   keys: ['website', 'catalogo', 'piezas', 'inventario', 'redes'] },
+  { label: 'Funciones', keys: ['qr', 'passwords'] },
+];
+
+const DEFAULT_PERMS = Object.fromEntries(Object.keys(PERM_LABELS).map((k) => [k, true]));
+
+// ── UserCard ─────────────────────────────────────────────────────────────────
+function UserCard({ user, onDelete, onToggle, onEdit }) {
   const r = ROLE_COLOR[user.role] || ROLE_COLOR.user;
   const initials = (user.name || user.email || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -31,6 +59,9 @@ function UserCard({ user, onDelete, onToggle }) {
         </View>
       </View>
       <View style={styles.cardRight}>
+        <TouchableOpacity onPress={() => onEdit(user)} activeOpacity={0.7} style={styles.editBtn}>
+          <Text style={styles.editBtnText}>✎</Text>
+        </TouchableOpacity>
         <Switch
           value={user.is_active}
           onValueChange={() => onToggle(user)}
@@ -46,11 +77,12 @@ function UserCard({ user, onDelete, onToggle }) {
   );
 }
 
+// ── AddModal ──────────────────────────────────────────────────────────────────
 function AddModal({ visible, onClose, onAdd }) {
-  const [email, setEmail]     = useState('');
-  const [name, setName]       = useState('');
-  const [pass, setPass]       = useState('');
-  const [role, setRole]       = useState('user');
+  const [email, setEmail]   = useState('');
+  const [name, setName]     = useState('');
+  const [pass, setPass]     = useState('');
+  const [role, setRole]     = useState('user');
   const reset = () => { setEmail(''); setName(''); setPass(''); setRole('user'); };
 
   const submit = async () => {
@@ -112,11 +144,91 @@ function AddModal({ visible, onClose, onAdd }) {
   );
 }
 
+// ── EditModal (permisos + rol) ─────────────────────────────────────────────
+function EditModal({ user, onClose, onSave }) {
+  const [role, setRole] = useState(user.role);
+  const [perms, setPerms] = useState({ ...DEFAULT_PERMS, ...(user.permissions || {}) });
+
+  const toggle = (key) => setPerms((p) => ({ ...p, [key]: !p[key] }));
+
+  const submit = async () => {
+    const permissions = (role === 'admin' || role === 'super_admin') ? null : perms;
+    await onSave(user.id, { role, permissions });
+    onClose();
+  };
+
+  const isAdmin = role === 'admin' || role === 'super_admin';
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        {/* Header */}
+        <View style={styles.editHeader}>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+            <Text style={styles.editBack}>← Cancelar</Text>
+          </TouchableOpacity>
+          <Text style={styles.editTitle} numberOfLines={1}>{user.name || user.email}</Text>
+          <TouchableOpacity onPress={submit} activeOpacity={0.7}>
+            <Text style={styles.editSave}>Guardar</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.editBody}>
+          {/* Rol */}
+          <Text style={styles.sectionHeader}>Rol</Text>
+          <View style={styles.roleRow}>
+            {['user', 'admin', 'super_admin'].map((r) => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.roleBtn, role === r && styles.roleBtnActive]}
+                onPress={() => setRole(r)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>{r}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Permisos — solo si es rol user */}
+          {isAdmin ? (
+            <View style={styles.adminNote}>
+              <Text style={styles.adminNoteText}>Los administradores tienen acceso a todas las secciones.</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.sectionHeader, { marginTop: spacing.xl }]}>Permisos</Text>
+              {PERM_GROUPS.map((group) => (
+                <View key={group.label} style={styles.permGroup}>
+                  <Text style={styles.permGroupLabel}>{group.label}</Text>
+                  {group.keys.map((key) => (
+                    <View key={key} style={styles.permRow}>
+                      <Text style={styles.permLabel}>{PERM_LABELS[key]}</Text>
+                      <Switch
+                        value={perms[key] !== false}
+                        onValueChange={() => toggle(key)}
+                        trackColor={{ false: colors.border, true: colors.accent }}
+                        thumbColor={perms[key] !== false ? '#fff' : colors.text4}
+                        style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 export default function UsuariosScreen() {
   const currentUser = useSelector((s) => s.auth.user);
   const [users, setUsers]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   const load = useCallback(() => viernesApi.listUsers().then(setUsers).catch(() => {}), []);
   useEffect(() => { load(); }, []);
@@ -146,6 +258,13 @@ export default function UsuariosScreen() {
     } catch {}
   };
 
+  const handleSave = async (id, payload) => {
+    try {
+      const updated = await viernesApi.updateUser(id, payload);
+      setUsers((p) => p.map((u) => u.id === id ? { ...u, ...updated } : u));
+    } catch {}
+  };
+
   return (
     <Screen padded={false}>
       <FlatList
@@ -155,7 +274,12 @@ export default function UsuariosScreen() {
         refreshing={refreshing}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <UserCard user={item} onDelete={handleDelete} onToggle={handleToggle} />
+          <UserCard
+            user={item}
+            onDelete={handleDelete}
+            onToggle={handleToggle}
+            onEdit={setEditingUser}
+          />
         )}
         ListEmptyComponent={<Text style={styles.empty}>Sin usuarios</Text>}
       />
@@ -163,6 +287,13 @@ export default function UsuariosScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
       <AddModal visible={showAdd} onClose={() => setShowAdd(false)} onAdd={handleAdd} />
+      {editingUser && (
+        <EditModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSave={handleSave}
+        />
+      )}
     </Screen>
   );
 }
@@ -179,6 +310,8 @@ const styles = StyleSheet.create({
   roleBadge:      { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm },
   roleText:       { fontSize: 10, fontWeight: '600' },
   cardRight:      { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  editBtn:        { padding: 4 },
+  editBtnText:    { color: colors.text4, fontSize: typography.base },
   del:            { color: colors.text4, fontSize: typography.base, padding: 4 },
   empty:          { color: colors.text4, textAlign: 'center', marginTop: spacing.xxl, fontSize: typography.base },
   fab:            { position: 'absolute', bottom: spacing.xl, right: spacing.xl, width: 52, height: 52, borderRadius: radius.full, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', elevation: 6 },
@@ -193,10 +326,23 @@ const styles = StyleSheet.create({
   roleBtn:        { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', backgroundColor: colors.hover },
   roleBtnActive:  { backgroundColor: colors.accentBg, borderColor: colors.accent },
   roleBtnText:    { color: colors.text3, fontSize: 11, fontWeight: '600' },
-  roleBtnTextActive:{ color: colors.accentText },
+  roleBtnTextActive: { color: colors.accentText },
   actions:        { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm },
   cancelBtn:      { flex: 1, paddingVertical: 12, borderRadius: radius.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   cancelText:     { color: colors.text3, fontSize: typography.base },
   addBtn:         { flex: 1, paddingVertical: 12, borderRadius: radius.md, alignItems: 'center', backgroundColor: colors.accent },
   addText:        { color: '#fff', fontSize: typography.base, fontWeight: '600' },
+  // Edit modal
+  editHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  editBack:       { color: colors.text3, fontSize: typography.base },
+  editTitle:      { color: colors.text, fontSize: typography.base, fontWeight: '600', flex: 1, textAlign: 'center', marginHorizontal: spacing.md },
+  editSave:       { color: colors.accentText, fontSize: typography.base, fontWeight: '600' },
+  editBody:       { padding: spacing.lg, paddingBottom: spacing.xxl },
+  sectionHeader:  { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm },
+  adminNote:      { backgroundColor: colors.accentBg, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.accent + '44' },
+  adminNoteText:  { color: colors.accentText, fontSize: typography.sm },
+  permGroup:      { marginBottom: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  permGroupLabel: { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.hover },
+  permRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.border },
+  permLabel:      { color: colors.text2, fontSize: typography.sm },
 });

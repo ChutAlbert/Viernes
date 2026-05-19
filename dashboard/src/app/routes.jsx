@@ -24,6 +24,7 @@ import Users from "./pages/Users";
 import Gallery from "./pages/Gallery";
 import Tasks from "./pages/Tasks";
 import QRGenerator from "./pages/QRGenerator";
+import Ubicaciones from "./pages/Ubicaciones";
 
 import { fetchMeThunk } from "@/store/slices/authSlice";
 
@@ -82,7 +83,8 @@ export function AppRoutes() {
         <Route path="notas" element={<Notes />} />
         <Route path="passwords" element={<Passwords />} />
         <Route path="usuarios" element={<RequireAdmin><Users /></RequireAdmin>} />
-        <Route path="galeria" element={<RequireAdmin><Gallery /></RequireAdmin>} />
+        <Route path="galeria"     element={<RequireAdmin><Gallery /></RequireAdmin>} />
+        <Route path="ubicaciones" element={<RequireAdmin><Ubicaciones /></RequireAdmin>} />
         <Route path="tareas" element={<Tasks />} />
         <Route path="qr" element={<QRGenerator />} />
       </Route>

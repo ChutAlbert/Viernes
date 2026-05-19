@@ -49,7 +49,9 @@ OLLAMA_REASONING_CHAT_URL = f"{_reasoning_base}/api/chat"
 COLLECTION_NAME = "viernes_docs"
 
 # ─── Voz (STT / TTS) ─────────────────────────────────────────────────────────
-# faster-whisper: "tiny" | "base" | "small" | "medium" | "large-v3"
+# Ruta local al modelo Whisper (carpeta con model.bin, config.json, etc.)
+# Si se deja vacío, faster-whisper intenta descargar WHISPER_MODEL_SIZE de HuggingFace
+WHISPER_MODEL_PATH = os.getenv("WHISPER_MODEL_PATH", "")
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "large-v3")
 # "cuda" para NVIDIA (RTX) | "cpu" para AMD o sin GPU
 WHISPER_DEVICE     = os.getenv("WHISPER_DEVICE", "cuda")

@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import threading
 
-from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files, visits, catalogo, inventario, redes, notes, vault, users, gallery, tasks
+from app.routes import auth, chat, documents, ingest, health, gmail, website, images, pieza, files, visits, catalogo, inventario, redes, notes, vault, users, gallery, tasks, locations
 from app.services.ollama_service import OllamaService
 from app.core.config import IMAGES_DIR, FILES_DIR, GALLERY_DIR, CORS_ORIGINS, DATA_DIR
 TASKS_AUDIO_DIR = DATA_DIR / "tasks_audio"
@@ -55,6 +55,7 @@ app.include_router(vault.router)
 app.include_router(users.router)
 app.include_router(gallery.router)
 app.include_router(tasks.router)
+app.include_router(locations.router)
 
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 FILES_DIR.mkdir(parents=True, exist_ok=True)

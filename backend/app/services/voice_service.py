@@ -1,7 +1,9 @@
 import io
+import os
+import tempfile
 import numpy as np
 import soundfile as sf
-from app.core.config import WHISPER_MODEL_SIZE, WHISPER_DEVICE, VOICE_DATA_DIR, KOKORO_MODEL_FILE, KOKORO_VOICE
+from app.core.config import WHISPER_MODEL_PATH, WHISPER_MODEL_SIZE, WHISPER_DEVICE, VOICE_DATA_DIR, KOKORO_MODEL_FILE, KOKORO_VOICE
 
 
 class VoiceService:
@@ -25,9 +27,11 @@ class VoiceService:
         if self._stt is None:
             from faster_whisper import WhisperModel
             compute = "float16" if WHISPER_DEVICE == "cuda" else "int8"
-            print(f"[Voice] Cargando Whisper '{WHISPER_MODEL_SIZE}' en {WHISPER_DEVICE} ({compute})…")
+            # Usa ruta local si está configurada, si no intenta descargar
+            model_ref = WHISPER_MODEL_PATH if WHISPER_MODEL_PATH else WHISPER_MODEL_SIZE
+            print(f"[Voice] Cargando Whisper '{model_ref}' en {WHISPER_DEVICE} ({compute})…")
             self._stt = WhisperModel(
-                WHISPER_MODEL_SIZE,
+                model_ref,
                 device=WHISPER_DEVICE,
                 compute_type=compute,
             )
@@ -35,21 +39,26 @@ class VoiceService:
         return self._stt
 
     def transcribe(self, audio_bytes: bytes, language: str = "es") -> str:
-        """Convierte audio (bytes WebM/WAV/OGG) a texto en español."""
+        """Convierte audio (WebM/WAV/OGG) a texto. Usa archivo temporal para soportar WebM del navegador."""
         stt = self._load_stt()
-        buf = io.BytesIO(audio_bytes)
-        audio_np, _ = sf.read(buf, dtype="float32")
-        if audio_np.ndim > 1:
-            audio_np = audio_np.mean(axis=1)  # stereo → mono
 
-        segments, _ = stt.transcribe(
-            audio_np,
-            language=language,
-            beam_size=5,
-            vad_filter=True,          # filtra silencios automáticamente
-            vad_parameters={"min_silence_duration_ms": 300},
-        )
-        return " ".join(s.text.strip() for s in segments).strip()
+        # Detectar formato por magic bytes para poner la extensión correcta
+        suffix = ".ogg" if audio_bytes[:4] == b"OggS" else ".webm"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        try:
+            segments, _ = stt.transcribe(
+                tmp_path,
+                language=language,
+                beam_size=5,
+                vad_filter=True,
+                vad_parameters={"min_silence_duration_ms": 300},
+            )
+            return " ".join(s.text.strip() for s in segments).strip()
+        finally:
+            os.unlink(tmp_path)
 
     # ── TTS ───────────────────────────────────────────────────────────────────
 

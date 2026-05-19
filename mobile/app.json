@@ -17,14 +17,28 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f1117"
       },
-      "package": "mx.miw.viernes"
+      "package": "mx.miw.viernes",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "mx.miw.viernes"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Viernes necesita tu ubicación para actualizarla en segundo plano.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

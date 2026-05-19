@@ -10,3 +10,4 @@ from .note import Note  # noqa
 from .password_vault import PasswordEntry, VaultConfig  # noqa
 from .gallery import GalleryItem, GalleryConfig  # noqa
 from .task import Task  # noqa
+from .device_location import DeviceLocation  # noqa

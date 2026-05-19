@@ -94,45 +94,38 @@ export default function Chat() {
 
   // ── Lógica de grabación ───────────────────────────────────────────────────
 
-  const startRecording = useCallback(async () => {
+  const toggleRecording = useCallback(async () => {
     if (isLoading || isProcessingVoice) return;
+
+    // Si ya graba → detener y enviar
+    if (isRecording) {
+      setIsRecording(false);
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") return;
+      await new Promise((resolve) => { recorder.onstop = resolve; recorder.stop(); });
+      recorder.stream.getTracks().forEach((t) => t.stop());
+      if (audioChunksRef.current.length === 0) return;
+      const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+      await sendVoice(blob);
+      return;
+    }
+
+    // Si no graba → iniciar
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-
-      // Para TTS anterior que pueda estar sonando
-      if (activeAudioRef.current) {
-        activeAudioRef.current.pause();
-        activeAudioRef.current = null;
-      }
-
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-      recorder.start(100); // chunks cada 100ms
+      if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current = null; }
+      const mimeType = ["audio/ogg;codecs=opus", "audio/webm;codecs=opus", "audio/webm"]
+        .find((m) => MediaRecorder.isTypeSupported(m)) || "";
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.start();
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
     } catch {
       setError("No se pudo acceder al micrófono. Verifica los permisos.");
     }
-  }, [isLoading, isProcessingVoice]);
-
-  const stopRecording = useCallback(async () => {
-    setIsRecording(false);
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") return;
-
-    await new Promise((resolve) => {
-      recorder.onstop = resolve;
-      recorder.stop();
-    });
-    recorder.stream.getTracks().forEach((t) => t.stop());
-
-    if (audioChunksRef.current.length === 0) return;
-    const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-    await sendVoice(blob);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoading, isProcessingVoice, isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function sendVoice(blob) {
     setIsProcessingVoice(true);
@@ -402,7 +395,7 @@ export default function Chat() {
         <div className="shrink-0 p-3" style={{ borderTop: "1px solid var(--c-border-med)" }}>
           {isRecording && (
             <div className="text-sm mb-2 flex items-center gap-2" style={{ color: "rgb(239,68,68)" }}>
-              <span className="animate-pulse">●</span> Grabando… suelta para enviar
+              <span className="animate-pulse">●</span> Grabando… presiona 🔴 para enviar
             </div>
           )}
           {isProcessingVoice && (
@@ -427,15 +420,12 @@ export default function Chat() {
               disabled={isLoading || isProcessingVoice}
             />
 
-            {/* Botón push-to-talk */}
+            {/* Botón toggle grabar */}
             <button
               type="button"
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-              onTouchEnd={(e)   => { e.preventDefault(); stopRecording();  }}
+              onClick={toggleRecording}
               disabled={isLoading || isProcessingVoice}
-              title={isRecording ? "Suelta para enviar" : "Mantén para hablar"}
+              title={isRecording ? "Click para enviar" : "Click para hablar"}
               className="rounded-lg px-3 py-2 text-sm transition disabled:opacity-50 select-none"
               style={{
                 background: isRecording
