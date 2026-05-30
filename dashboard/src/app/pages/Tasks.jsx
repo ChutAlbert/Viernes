@@ -8,8 +8,53 @@ const PRIORITY = {
   low:    { label: "Baja",  color: "#22c55e", bg: "#22c55e15", border: "#22c55e40" },
 };
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
+// ── Scheduled web notification IDs (timeoutIds per task) ──────────────────────
+// { taskId: [timeoutId, timeoutId, ...] }
+const _notifTimers = {};
 
+function clearTaskTimers(taskId) {
+  (_notifTimers[taskId] || []).forEach((id) => clearTimeout(id));
+  delete _notifTimers[taskId];
+}
+
+function scheduleWebNotifications(task) {
+  clearTaskTimers(task.id);
+  if (!task.reminders_enabled || !task.due_date || !task.due_time || task.completed) return;
+  if (Notification.permission !== "granted") return;
+
+  const [y, mo, d] = task.due_date.split("-").map(Number);
+  const [h, m] = task.due_time.split(":").map(Number);
+  const dueMs = new Date(y, mo - 1, d, h, m, 0, 0).getTime();
+  const now = Date.now();
+
+  const schedule = (offsetMs, title, body) => {
+    const fireAt = dueMs - offsetMs - now;
+    if (fireAt <= 0) return null;
+    return setTimeout(() => new Notification(title, { body, icon: "/favicon.ico" }), fireAt);
+  };
+
+  const ids = [];
+  if (task.reminder_12h) {
+    const id = schedule(12 * 3600 * 1000, "⏰ Tarea en 12 horas", `"${task.title}" vence a las ${task.due_time}`);
+    if (id) ids.push(id);
+  }
+  if (task.reminder_30m) {
+    const id = schedule(30 * 60 * 1000, "⏰ Tarea en 30 minutos", `"${task.title}" vence pronto`);
+    if (id) ids.push(id);
+  }
+  if (task.reminder_10m) {
+    const id = schedule(10 * 60 * 1000, "🔔 Tarea en 10 minutos", `"${task.title}" vence muy pronto`);
+    if (id) ids.push(id);
+  }
+  if (task.reminder_custom_minutes) {
+    const id = schedule(task.reminder_custom_minutes * 60 * 1000,
+      `⏰ Tarea en ${task.reminder_custom_minutes} min`, `"${task.title}" vence pronto`);
+    if (id) ids.push(id);
+  }
+  if (ids.length) _notifTimers[task.id] = ids;
+}
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
 const IconMic = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -17,46 +62,40 @@ const IconMic = () => (
     <line x1="8" y1="23" x2="16" y2="23"/>
   </svg>
 );
-
 const IconStop = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
 );
-
 const IconPlay = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
 );
-
 const IconCheck = () => (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
-
 const IconTrash = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
     <path d="M9 6V4h6v2"/>
   </svg>
 );
-
 const IconEdit = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 );
-
-const IconAudio = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+const IconBell = ({ active }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"}
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
   </svg>
 );
 
 // ── Voice Recorder ─────────────────────────────────────────────────────────────
-
 function VoiceRecorder({ onBlob }) {
-  const [phase, setPhase] = useState("idle"); // idle | recording | done
+  const [phase, setPhase] = useState("idle");
   const [blobUrl, setBlobUrl] = useState(null);
   const [duration, setDuration] = useState(0);
   const mrRef = useRef(null);
@@ -147,15 +186,44 @@ function VoiceRecorder({ onBlob }) {
   );
 }
 
-// ── Task Modal ─────────────────────────────────────────────────────────────────
+// ── Reminder Toggle row ────────────────────────────────────────────────────────
+function ReminderToggle({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      <span
+        onClick={() => onChange(!checked)}
+        className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-all"
+        style={{
+          background: checked ? "var(--c-accent)" : "transparent",
+          border: checked ? "none" : "1.5px solid var(--c-border-med)",
+          cursor: "pointer",
+        }}
+      >
+        {checked && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+      </span>
+      <span className="text-xs" style={{ color: "var(--c-text-3)" }}>{label}</span>
+    </label>
+  );
+}
 
+// ── Task Modal ─────────────────────────────────────────────────────────────────
 function TaskModal({ task, onSave, onClose }) {
-  const [title, setTitle] = useState(task?.title || "");
-  const [description, setDescription] = useState(task?.description || "");
-  const [priority, setPriority] = useState(task?.priority || "medium");
-  const [dueDate, setDueDate] = useState(task?.due_date || "");
+  const [title, setTitle]         = useState(task?.title || "");
+  const [description, setDesc]    = useState(task?.description || "");
+  const [priority, setPriority]   = useState(task?.priority || "medium");
+  const [dueDate, setDueDate]     = useState(task?.due_date || "");
+  const [dueTime, setDueTime]     = useState(task?.due_time || "");
   const [audioBlob, setAudioBlob] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]       = useState(false);
+
+  // recordatorios
+  const [remindersEnabled, setRemindersEnabled] = useState(task?.reminders_enabled ?? false);
+  const [rem12h, setRem12h]   = useState(task?.reminder_12h  ?? true);
+  const [rem30m, setRem30m]   = useState(task?.reminder_30m  ?? true);
+  const [rem10m, setRem10m]   = useState(task?.reminder_10m  ?? true);
+  const [remCustom, setRemCustom] = useState(
+    task?.reminder_custom_minutes ? String(task.reminder_custom_minutes) : ""
+  );
 
   const isEdit = !!task;
 
@@ -163,7 +231,19 @@ function TaskModal({ task, onSave, onClose }) {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      const payload = { title: title.trim(), description, priority, due_date: dueDate || null, completed: task?.completed || false };
+      const payload = {
+        title: title.trim(),
+        description,
+        priority,
+        due_date: dueDate || null,
+        due_time: dueTime || null,
+        completed: task?.completed || false,
+        reminders_enabled:       remindersEnabled,
+        reminder_12h:            rem12h,
+        reminder_30m:            rem30m,
+        reminder_10m:            rem10m,
+        reminder_custom_minutes: remCustom ? parseInt(remCustom) : null,
+      };
       const saved = isEdit
         ? await viernesApi.updateTask(task.id, payload)
         : await viernesApi.createTask(payload);
@@ -200,10 +280,7 @@ function TaskModal({ task, onSave, onClose }) {
           {/* Title */}
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Título *</label>
-            <input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
               placeholder="¿Qué hay que hacer?"
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
@@ -216,11 +293,8 @@ function TaskModal({ task, onSave, onClose }) {
           {/* Description */}
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Descripción</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Notas adicionales…"
-              rows={3}
+            <textarea value={description} onChange={(e) => setDesc(e.target.value)}
+              placeholder="Notas adicionales…" rows={3}
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all resize-none"
               style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
               onFocus={(e) => e.currentTarget.style.borderColor = "var(--c-accent)"}
@@ -233,34 +307,89 @@ function TaskModal({ task, onSave, onClose }) {
             <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Prioridad</label>
             <div className="flex gap-2">
               {Object.entries(PRIORITY).map(([key, p]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setPriority(key)}
+                <button key={key} type="button" onClick={() => setPriority(key)}
                   className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
                   style={priority === key
                     ? { background: p.bg, border: `1px solid ${p.border}`, color: p.color }
                     : { background: "var(--c-shell)", border: "1px solid var(--c-border)", color: "var(--c-text-4)" }
                   }
-                >
-                  {p.label}
-                </button>
+                >{p.label}</button>
               ))}
             </div>
           </div>
 
-          {/* Due date */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Fecha límite</label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
-              style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)", colorScheme: "dark" }}
-              onFocus={(e) => e.currentTarget.style.borderColor = "var(--c-accent)"}
-              onBlur={(e) => e.currentTarget.style.borderColor = "var(--c-border-med)"}
-            />
+          {/* Fecha + Hora */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Fecha límite</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)", colorScheme: "dark" }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--c-accent)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--c-border-med)"}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--c-text-3)" }}>Hora</label>
+              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)", color: "var(--c-text)", colorScheme: "dark" }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--c-accent)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--c-border-med)"}
+              />
+            </div>
+          </div>
+
+          {/* ── Recordatorios ── */}
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+            {/* Toggle header */}
+            <button
+              type="button"
+              onClick={() => setRemindersEnabled((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm transition-colors"
+              style={{ background: remindersEnabled ? "var(--c-accent)18" : "var(--c-shell)" }}
+            >
+              <span className="flex items-center gap-2 font-medium" style={{ color: remindersEnabled ? "var(--c-accent-text)" : "var(--c-text-3)" }}>
+                <IconBell active={remindersEnabled} />
+                Recordatorios
+              </span>
+              {/* toggle pill */}
+              <div className="relative w-9 h-5 rounded-full transition-colors flex-shrink-0"
+                style={{ background: remindersEnabled ? "var(--c-accent)" : "var(--c-border-med)" }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+                  style={{ left: remindersEnabled ? "18px" : "2px" }} />
+              </div>
+            </button>
+
+            {/* Options */}
+            {remindersEnabled && (
+              <div className="px-4 py-3 space-y-2.5" style={{ borderTop: "1px solid var(--c-border)" }}>
+                {(!dueDate || !dueTime) && (
+                  <p className="text-xs" style={{ color: "#f59e0b" }}>
+                    ⚠ Necesitas fecha y hora para programar recordatorios.
+                  </p>
+                )}
+                <ReminderToggle label="12 horas antes" checked={rem12h} onChange={setRem12h} />
+                <ReminderToggle label="30 minutos antes" checked={rem30m} onChange={setRem30m} />
+                <ReminderToggle label="10 minutos antes" checked={rem10m} onChange={setRem10m} />
+
+                {/* Custom */}
+                <div className="flex items-center gap-3 pt-1">
+                  <span className="text-xs flex-1" style={{ color: "var(--c-text-3)" }}>Personalizado (minutos antes)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={remCustom}
+                    onChange={(e) => setRemCustom(e.target.value)}
+                    placeholder="ej. 60"
+                    className="w-20 px-2 py-1.5 rounded-lg text-xs outline-none text-center"
+                    style={{ background: "var(--c-bg)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = "var(--c-accent)"}
+                    onBlur={(e) => e.currentTarget.style.borderColor = "var(--c-border-med)"}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Voice note */}
@@ -281,9 +410,7 @@ function TaskModal({ task, onSave, onClose }) {
           >
             Cancelar
           </button>
-          <button
-            onClick={handleSave}
-            disabled={!title.trim() || saving}
+          <button onClick={handleSave} disabled={!title.trim() || saving}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
             style={{ background: "var(--c-accent)", color: "#fff" }}
           >
@@ -296,15 +423,13 @@ function TaskModal({ task, onSave, onClose }) {
 }
 
 // ── Audio Player ───────────────────────────────────────────────────────────────
-
 function AudioPlayer({ url }) {
   const [open, setOpen] = useState(false);
   if (!url) return null;
   return (
     <span>
       {!open ? (
-        <button
-          onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        <button onClick={(e) => { e.stopPropagation(); setOpen(true); }}
           title="Reproducir nota de voz"
           className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] transition-all"
           style={{ background: "var(--c-accent)18", border: "1px solid var(--c-accent)33", color: "var(--c-accent-text)" }}
@@ -319,7 +444,6 @@ function AudioPlayer({ url }) {
 }
 
 // ── Task Card ──────────────────────────────────────────────────────────────────
-
 function TaskCard({ task, onToggle, onEdit, onDelete }) {
   const [hovered, setHovered] = useState(false);
   const p = PRIORITY[task.priority] || PRIORITY.medium;
@@ -341,8 +465,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
       style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)", opacity: task.completed ? 0.65 : 1 }}
     >
       {/* Checkbox */}
-      <button
-        onClick={() => onToggle(task)}
+      <button onClick={() => onToggle(task)}
         className="flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all mt-0.5"
         style={task.completed
           ? { background: "var(--c-accent)", borderColor: "var(--c-accent)", color: "#fff" }
@@ -372,7 +495,13 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
           {date && (
             <span className="text-[11px] flex items-center gap-1" style={{ color: date.overdue ? "#ef4444" : "var(--c-text-4)" }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              {date.text}{date.overdue && " (vencida)"}
+              {date.text}{task.due_time && ` ${task.due_time}`}{date.overdue && " (vencida)"}
+            </span>
+          )}
+          {task.reminders_enabled && (
+            <span className="text-[11px] flex items-center gap-1" style={{ color: "var(--c-accent-text)" }}>
+              <IconBell active={true} />
+              <span>Recordatorios</span>
             </span>
           )}
           {task.voice_note_url && <AudioPlayer url={task.voice_note_url} />}
@@ -381,47 +510,86 @@ function TaskCard({ task, onToggle, onEdit, onDelete }) {
 
       {/* Actions */}
       <div className="flex items-center gap-1 flex-shrink-0" style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.15s" }}>
-        <button
-          onClick={() => onEdit(task)}
+        <button onClick={() => onEdit(task)}
           className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
           style={{ color: "var(--c-text-4)" }}
           onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-hover)"; e.currentTarget.style.color = "var(--c-text-2)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-text-4)"; }}
           title="Editar"
-        >
-          <IconEdit />
-        </button>
-        <button
-          onClick={() => onDelete(task)}
+        ><IconEdit /></button>
+        <button onClick={() => onDelete(task)}
           className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
           style={{ color: "var(--c-text-4)" }}
           onMouseEnter={(e) => { e.currentTarget.style.background = "#ef444415"; e.currentTarget.style.color = "#ef4444"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--c-text-4)"; }}
           title="Eliminar"
-        >
-          <IconTrash />
-        </button>
+        ><IconTrash /></button>
+      </div>
+    </div>
+  );
+}
+
+// ── Notification Permission Banner ─────────────────────────────────────────────
+function NotifBanner({ onGrant }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed || typeof Notification === "undefined") return null;
+  if (Notification.permission === "granted") return null;
+  if (Notification.permission === "denied") return null;
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl text-sm"
+      style={{ background: "#f59e0b15", border: "1px solid #f59e0b40" }}>
+      <div className="flex items-center gap-2" style={{ color: "#f59e0b" }}>
+        <IconBell active={false} />
+        <span>Activa las notificaciones del navegador para recibir recordatorios de tareas.</span>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={async () => {
+            const perm = await Notification.requestPermission();
+            if (perm === "granted") onGrant();
+            setDismissed(true);
+          }}
+          className="px-3 py-1.5 rounded-xl text-xs font-medium"
+          style={{ background: "#f59e0b", color: "#000" }}
+        >Activar</button>
+        <button onClick={() => setDismissed(true)}
+          className="text-xs px-2 py-1 rounded-lg transition-colors"
+          style={{ color: "#f59e0b88" }}
+        >✕</button>
       </div>
     </div>
   );
 }
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
-
 export default function Tasks() {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending"); // all | pending | done
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTask, setEditTask] = useState(null);
+  const [tasks, setTasks]             = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [filter, setFilter]           = useState("pending");
+  const [priorityFilter, setPF]       = useState("all");
+  const [modalOpen, setModalOpen]     = useState(false);
+  const [editTask, setEditTask]       = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [notifGranted, setNotifGranted] = useState(
+    typeof Notification !== "undefined" && Notification.permission === "granted"
+  );
 
   const load = useCallback(() => {
-    viernesApi.listTasks().then(setTasks).catch(() => {}).finally(() => setLoading(false));
+    viernesApi.listTasks().then((ts) => {
+      setTasks(ts);
+      // Re-programa notificaciones en cada carga (por si se refresca la página)
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        ts.forEach(scheduleWebNotifications);
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Limpia timers al desmontar
+  useEffect(() => () => { Object.keys(_notifTimers).forEach(clearTaskTimers); }, []);
 
   const filtered = tasks.filter((t) => {
     if (filter === "pending" && t.completed) return false;
@@ -431,11 +599,16 @@ export default function Tasks() {
   });
 
   const pending = tasks.filter((t) => !t.completed).length;
-  const done = tasks.filter((t) => t.completed).length;
+  const done    = tasks.filter((t) => t.completed).length;
 
   const handleToggle = async (task) => {
     const updated = await viernesApi.toggleTaskComplete(task.id).catch(() => null);
-    if (updated) setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    if (updated) {
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      // Si se completó, cancela sus notificaciones
+      if (updated.completed) clearTaskTimers(updated.id);
+      else if (updated.reminders_enabled) scheduleWebNotifications(updated);
+    }
   };
 
   const handleSave = (saved, hadAudio) => {
@@ -443,25 +616,28 @@ export default function Tasks() {
       setTasks((prev) => prev.map((t) => (t.id === saved.id ? saved : t)));
     } else {
       if (hadAudio) {
-        // reload to get final voice_note_url from server
         viernesApi.listTasks().then(setTasks).catch(() => {});
       } else {
         setTasks((prev) => [saved, ...prev]);
       }
     }
+    // Reprograma notificaciones para esta tarea
+    clearTaskTimers(saved.id);
+    if (notifGranted && !saved.completed) scheduleWebNotifications(saved);
     setModalOpen(false);
     setEditTask(null);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    clearTaskTimers(deleteTarget.id);
     await viernesApi.deleteTask(deleteTarget.id).catch(() => {});
     setTasks((prev) => prev.filter((t) => t.id !== deleteTarget.id));
     setDeleteTarget(null);
   };
 
   const openCreate = () => { setEditTask(null); setModalOpen(true); };
-  const openEdit = (task) => { setEditTask(task); setModalOpen(true); };
+  const openEdit   = (task) => { setEditTask(task); setModalOpen(true); };
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -473,8 +649,7 @@ export default function Tasks() {
             {pending} pendiente{pending !== 1 ? "s" : ""} · {done} completada{done !== 1 ? "s" : ""}
           </p>
         </div>
-        <button
-          onClick={openCreate}
+        <button onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
           style={{ background: "var(--c-accent)", color: "#fff" }}
           onMouseEnter={(e) => e.currentTarget.style.opacity = "0.88"}
@@ -484,6 +659,12 @@ export default function Tasks() {
           Nueva tarea
         </button>
       </div>
+
+      {/* Notification banner */}
+      <NotifBanner onGrant={() => {
+        setNotifGranted(true);
+        tasks.forEach(scheduleWebNotifications);
+      }} />
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -500,7 +681,7 @@ export default function Tasks() {
         </div>
         <div className="flex rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
           {[["all", "Todas"], ["high", "Alta"], ["medium", "Media"], ["low", "Baja"]].map(([val, lbl]) => (
-            <button key={val} onClick={() => setPriorityFilter(val)}
+            <button key={val} onClick={() => setPF(val)}
               className="px-3 py-1.5 text-xs font-medium transition-colors"
               style={priorityFilter === val
                 ? { background: "var(--c-hover-2)", color: "var(--c-text)" }
@@ -534,12 +715,8 @@ export default function Tasks() {
       ) : (
         <div className="space-y-2.5">
           {filtered.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onToggle={handleToggle}
-              onEdit={openEdit}
-              onDelete={setDeleteTarget}
+            <TaskCard key={task.id} task={task}
+              onToggle={handleToggle} onEdit={openEdit} onDelete={setDeleteTarget}
             />
           ))}
         </div>
@@ -547,13 +724,10 @@ export default function Tasks() {
 
       {/* Modals */}
       {modalOpen && (
-        <TaskModal
-          task={editTask}
-          onSave={handleSave}
+        <TaskModal task={editTask} onSave={handleSave}
           onClose={() => { setModalOpen(false); setEditTask(null); }}
         />
       )}
-
       <ConfirmModal
         open={!!deleteTarget}
         title="Eliminar tarea"

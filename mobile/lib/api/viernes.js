@@ -35,6 +35,7 @@ export const viernesApi = {
   updateTask:         (id, p)   => apiRequest('put', `/tasks/${id}`, p),
   toggleTaskComplete: (id)      => apiRequest('patch', `/tasks/${id}/complete`),
   deleteTask:         (id)      => apiRequestDelete(`/tasks/${id}`),
+  uploadTaskAudio:    (id, fd)  => apiRequestDocs('post', `/tasks/${id}/audio`, fd),
 
   // notes
   listNotes:   ()               => apiRequest('get', '/notes'),
