@@ -5,6 +5,7 @@ import NosotrosView from '@/views/NosotrosView.vue'
 import ContactoView from '@/views/ContactoView.vue'
 import CatalogoView from '@/views/CatalogoView.vue'
 import CatalogoProductoView from '@/views/CatalogoProductoView.vue'
+import PruebaView from '@/views/PruebaView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +34,11 @@ const router = createRouter({
       path: '/catalogo',
       name: 'catalogo',
       component: CatalogoView,
+    },
+    {
+      path: '/prueba',
+      name: 'prueba',
+      component: PruebaView,
     },
     {
       path: '/catalogo/:slug',
