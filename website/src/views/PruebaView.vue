@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 
 // ponytail: maxTouchPoints detecta hardware táctil incluso en "modo desktop"
 const isMobile = ref(false)
+const clicks = ref(0)
 
 onMounted(() => {
   isMobile.value = navigator.maxTouchPoints > 0
@@ -16,8 +17,8 @@ onMounted(() => {
       <p>Si estás en un celular (aunque uses modo desktop), no puedes ver esto.</p>
     </section>
 
-    <button :disabled="isMobile" :class="{ 'no-click': isMobile }">
-      {{ isMobile ? 'No soy clickeable' : 'Soy clickeable' }}
+    <button :disabled="isMobile" :class="{ 'no-click': isMobile }" @click="clicks++">
+      {{ isMobile ? 'No soy clickeable' : `Clicks: ${clicks}` }}
     </button>
   </main>
 </template>
