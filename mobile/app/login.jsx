@@ -5,9 +5,11 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginThunk } from '../store/slices/authSlice';
-import { colors, typography, spacing, radius } from '../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../lib/theme';
 
 export default function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const dispatch = useDispatch();
@@ -81,7 +83,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root:       { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: spacing.xl },
   card:       { backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border },
   logoWrap:   { alignItems: 'center', marginBottom: spacing.xxl },

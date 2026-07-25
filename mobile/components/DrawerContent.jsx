@@ -1,31 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutThunk } from '../store/slices/authSlice';
-import { colors, typography, spacing, radius } from '../lib/theme';
+import { useTheme, useStyles, THEMES, typography, spacing, radius } from '../lib/theme';
 
-const GROUPS = [
+// Workspace accent colors are identity colors — fixed across themes.
+const WORKSPACES = [
   {
-    key: 'viernes',
-    label: 'Viernes',
+    key: 'viernes', label: 'Viernes', color: '#7c3aed',
+    sub: 'Tu asistente y centro de mando.',
     items: [
-      { route: '/(app)/chat',       label: 'Chat IA',     key: 'chat' },
-      { route: '/(app)/gmail',      label: 'Gmail',       key: 'gmail' },
-      { route: '/(app)/docs',       label: 'Documentos',  key: 'docs' },
+      { route: '/(app)/',      label: 'Overview',    key: 'overview' },
+      { route: '/(app)/chat',  label: 'Chat IA',     key: 'chat' },
+      { route: '/(app)/gmail', label: 'Gmail',       key: 'gmail' },
+      { route: '/(app)/docs',  label: 'Documentos',  key: 'docs' },
     ],
   },
   {
-    key: 'agenda',
-    label: 'Agenda',
+    key: 'personal', label: 'Personal', color: '#22d3ee',
+    sub: 'Tu día a día: tareas, notas y utilidades.',
     items: [
-      { route: '/(app)/tareas',     label: 'Tareas',      key: 'tareas' },
-      { route: '/(app)/notas',      label: 'Notas',       key: 'notas' },
+      { route: '/(app)/tareas',    label: 'Tareas',       key: 'tareas' },
+      { route: '/(app)/notas',     label: 'Notas',        key: 'notas' },
+      { group: 'Utilidades' },
+      { route: '/(app)/qr',        label: 'Generador QR', key: 'qr' },
+      { route: '/(app)/passwords', label: 'Contraseñas',  key: 'passwords' },
     ],
   },
   {
-    key: 'sodigic',
-    label: 'Sodigic',
+    key: 'sodigic', label: 'Sodigic', color: '#f59e0b',
+    sub: 'El negocio: catálogo, producción y web.',
     items: [
       { route: '/(app)/website',    label: 'Website',        key: 'website' },
       { route: '/(app)/catalogo',   label: 'Catálogo',       key: 'catalogo' },
@@ -35,28 +40,50 @@ const GROUPS = [
     ],
   },
   {
-    key: 'funciones',
-    label: 'Funciones',
+    key: 'admin', label: 'Admin', color: '#10b981', adminOnly: true,
+    sub: 'Gestión del sistema y accesos.',
     items: [
-      { route: '/(app)/qr',        label: 'Generador QR', key: 'qr' },
-      { route: '/(app)/passwords', label: 'Contraseñas',  key: 'passwords' },
+      { route: '/(app)/usuarios', label: 'Usuarios', key: 'usuarios', roles: ['admin', 'super_admin'] },
     ],
   },
 ];
 
-const ADMIN_GROUP = {
-  key: 'admin',
-  label: 'Administración',
-  items: [
-    { route: '/(app)/usuarios', label: 'Usuarios', key: 'usuarios', roles: ['admin', 'super_admin'] },
-  ],
-};
+function isAdminUser(user) {
+  return user?.role === 'admin' || user?.role === 'super_admin';
+}
 
 function canAccess(key, user) {
   if (!user) return false;
-  if (user.role === 'admin' || user.role === 'super_admin') return true;
+  if (isAdminUser(user)) return true;
   if (!user.permissions) return true;
   return user.permissions[key] !== false;
+}
+
+function visibleItems(ws, user) {
+  return ws.items.filter((it) =>
+    it.group || ((!it.roles || it.roles.includes(user?.role)) && canAccess(it.key, user))
+  );
+}
+
+function visibleWorkspaces(user) {
+  return WORKSPACES.filter((ws) => {
+    if (ws.adminOnly && !isAdminUser(user)) return false;
+    return visibleItems(ws, user).some((it) => !it.group);
+  });
+}
+
+function isActiveRoute(route, pathname) {
+  if (route === '/(app)/') {
+    return pathname === '/(app)' || pathname === '/(app)/' || pathname === '/(app)/index' || pathname === '/';
+  }
+  return pathname === route || pathname.startsWith(route + '/');
+}
+
+function findWorkspaceKey(pathname, user) {
+  for (const ws of visibleWorkspaces(user)) {
+    if (ws.items.some((it) => it.route && isActiveRoute(it.route, pathname))) return ws.key;
+  }
+  return 'viernes';
 }
 
 function getInitials(name, email) {
@@ -64,133 +91,125 @@ function getInitials(name, email) {
   return src.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
-function Chevron({ open }) {
-  return (
-    <Text style={{ color: colors.text4, fontSize: 10, transform: [{ rotate: open ? '0deg' : '-90deg' }] }}>
-      ▼
-    </Text>
-  );
-}
-
-function NavGroup({ group, user, pathname, onNavigate, open, onToggle }) {
-  const visibleItems = group.items.filter((item) =>
-    (!item.roles || item.roles.includes(user?.role)) && canAccess(item.key, user)
-  );
-  if (visibleItems.length === 0) return null;
-
-  return (
-    <View style={styles.group}>
-      <TouchableOpacity style={styles.groupHeader} onPress={onToggle} activeOpacity={0.7}>
-        <Text style={styles.groupLabel}>{group.label}</Text>
-        <Chevron open={open} />
-      </TouchableOpacity>
-      {open && visibleItems.map((item) => {
-        const isActive = pathname === item.route || pathname.startsWith(item.route + '/');
-        return (
-          <TouchableOpacity
-            key={item.route}
-            style={[styles.navItem, isActive && styles.navItemActive]}
-            onPress={() => onNavigate(item.route)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.activeBar, { opacity: isActive ? 1 : 0 }]} />
-            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
 export default function DrawerContent() {
   const router   = useRouter();
   const pathname = usePathname();
   const dispatch = useDispatch();
   const user     = useSelector((s) => s.auth.user);
+  const { colors, theme, setTheme } = useTheme();
+  const styles = useStyles(makeStyles);
 
-  const allKeys = [...GROUPS.map((g) => g.key), 'admin'];
-  const [open, setOpen] = useState(new Set(allKeys));
+  const spaces = visibleWorkspaces(user);
+  const [activeKey, setActiveKey] = useState(() => findWorkspaceKey(pathname, user));
 
-  const toggle = (key) => setOpen((prev) => {
-    const next = new Set(prev);
-    next.has(key) ? next.delete(key) : next.add(key);
-    return next;
-  });
+  useEffect(() => {
+    setActiveKey(findWorkspaceKey(pathname, user));
+  }, [pathname, user]);
 
-  const navigate = (route) => router.push(route);
+  const activeWs = spaces.find((w) => w.key === activeKey) || spaces[0];
+  const items = activeWs ? visibleItems(activeWs, user) : [];
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const switchWorkspace = (ws) => {
+    setActiveKey(ws.key);
+    const first = visibleItems(ws, user).find((it) => it.route);
+    if (first) router.push(first.route);
+  };
+
+  const isAdmin = isAdminUser(user);
   const initials = getInitials(user?.name, user?.email);
   const displayName = user?.name || user?.email || 'Usuario';
   const displayRole = isAdmin ? 'Admin' : 'Usuario';
-
-  const isHomeActive = pathname === '/(app)' || pathname === '/(app)/index' || pathname === '/';
 
   return (
     <View style={styles.root}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>V</Text>
-        </View>
+        <View style={styles.logo}><Text style={styles.logoText}>V</Text></View>
         <Text style={styles.brandName}>Viernes</Text>
       </View>
 
-      <ScrollView style={styles.nav} showsVerticalScrollIndicator={false}>
-        {/* Home solo */}
-        <View style={styles.group}>
-          <TouchableOpacity
-            style={[styles.navItem, isHomeActive && styles.navItemActive]}
-            onPress={() => navigate('/(app)/')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.activeBar, { opacity: isHomeActive ? 1 : 0 }]} />
-            <Text style={[styles.navLabel, isHomeActive && styles.navLabelActive]}>Overview</Text>
-          </TouchableOpacity>
+      {/* Workspace switcher */}
+      <View style={styles.switcherWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
+          {spaces.map((ws) => {
+            const on = ws.key === activeKey;
+            return (
+              <TouchableOpacity
+                key={ws.key}
+                onPress={() => switchWorkspace(ws)}
+                activeOpacity={0.7}
+                style={[styles.pill, on && { backgroundColor: ws.color + '22', borderColor: ws.color + '66' }]}
+              >
+                <View style={[styles.pillDot, { backgroundColor: ws.color, opacity: on ? 1 : 0.5 }]} />
+                <Text style={[styles.pillLabel, on && { color: ws.color }]}>{ws.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Active workspace header */}
+      {activeWs && (
+        <View style={styles.spaceHead}>
+          <Text style={styles.spaceKicker}>Espacio</Text>
+          <View style={styles.spaceTitleRow}>
+            <View style={[styles.spaceChip, { backgroundColor: activeWs.color }]} />
+            <Text style={styles.spaceTitle}>{activeWs.label}</Text>
+          </View>
+          <Text style={styles.spaceSub}>{activeWs.sub}</Text>
         </View>
+      )}
 
-        {/* Grouped sections */}
-        {GROUPS.map((group) => (
-          <NavGroup
-            key={group.key}
-            group={group}
-            user={user}
-            pathname={pathname}
-            onNavigate={navigate}
-            open={open.has(group.key)}
-            onToggle={() => toggle(group.key)}
-          />
-        ))}
-
-        {/* Admin group */}
-        {isAdmin && (
-          <NavGroup
-            group={ADMIN_GROUP}
-            user={user}
-            pathname={pathname}
-            onNavigate={navigate}
-            open={open.has('admin')}
-            onToggle={() => toggle('admin')}
-          />
-        )}
+      {/* Contextual item list */}
+      <ScrollView style={styles.nav} showsVerticalScrollIndicator={false}>
+        {items.map((it, i) => {
+          if (it.group) return <Text key={`g-${i}`} style={styles.groupLabel}>{it.group}</Text>;
+          const active = isActiveRoute(it.route, pathname);
+          return (
+            <TouchableOpacity
+              key={it.route}
+              style={[styles.navItem, active && styles.navItemActive]}
+              onPress={() => router.push(it.route)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.activeBar, { backgroundColor: activeWs.color, opacity: active ? 1 : 0 }]} />
+              <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
+
+      {/* Theme picker */}
+      <View style={styles.themeWrap}>
+        <Text style={styles.themeLabel}>Tema</Text>
+        <View style={styles.themeRow}>
+          {THEMES.map((t) => {
+            const on = t.key === theme;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                onPress={() => setTheme(t.key)}
+                activeOpacity={0.7}
+                style={[styles.swatch, { backgroundColor: t.swatch[0], borderColor: on ? colors.accentText : colors.borderMed, borderWidth: on ? 2 : 1 }]}
+                accessibilityLabel={`Tema ${t.label}`}
+              >
+                <View style={[styles.swatchAccent, { backgroundColor: t.swatch[1] }]} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
             <Text style={styles.userRole}>{displayRole}</Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => dispatch(logoutThunk())}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => dispatch(logoutThunk())} activeOpacity={0.7}>
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </View>
@@ -198,21 +217,40 @@ export default function DrawerContent() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root:          { flex: 1, backgroundColor: colors.shell },
   header:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
   logo:          { width: 30, height: 30, borderRadius: radius.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
   logoText:      { color: '#fff', fontWeight: '700', fontSize: typography.base },
   brandName:     { color: colors.text, fontWeight: '600', fontSize: typography.base, letterSpacing: 0.5 },
+
+  switcherWrap:  { borderBottomWidth: 1, borderBottomColor: colors.border },
+  switcher:      { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.sm },
+  pill:          { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: 'transparent', backgroundColor: colors.hover },
+  pillDot:       { width: 8, height: 8, borderRadius: 4 },
+  pillLabel:     { color: colors.text3, fontSize: typography.sm, fontWeight: '600' },
+
+  spaceHead:     { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  spaceKicker:   { color: colors.text4, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.4 },
+  spaceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
+  spaceChip:     { width: 10, height: 10, borderRadius: 3 },
+  spaceTitle:    { color: colors.text, fontSize: typography.lg, fontWeight: '700' },
+  spaceSub:      { color: colors.text3, fontSize: typography.xs, marginTop: 4 },
+
   nav:           { flex: 1, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  group:         { marginBottom: spacing.md },
-  groupHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.sm },
-  groupLabel:    { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2 },
+  groupLabel:    { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs },
   navItem:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, paddingHorizontal: spacing.md, borderRadius: radius.md, marginBottom: 2 },
   navItemActive: { backgroundColor: colors.hover },
-  activeBar:     { width: 2, height: 16, backgroundColor: colors.accent, borderRadius: 1, marginRight: spacing.sm },
+  activeBar:     { width: 2, height: 16, borderRadius: 1, marginRight: spacing.sm },
   navLabel:      { color: colors.text3, fontSize: typography.sm, fontWeight: '500', marginLeft: 2 },
   navLabelActive:{ color: colors.text },
+
+  themeWrap:     { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  themeLabel:    { color: colors.text4, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: spacing.sm },
+  themeRow:      { flexDirection: 'row', gap: spacing.sm },
+  swatch:        { width: 30, height: 30, borderRadius: radius.sm, overflow: 'hidden', justifyContent: 'flex-end', alignItems: 'flex-end' },
+  swatchAccent:  { width: '55%', height: '55%', borderTopLeftRadius: 4 },
+
   footer:        { padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm },
   userCard:      { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.hover },
   avatar:        { width: 32, height: 32, borderRadius: radius.full, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },

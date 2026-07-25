@@ -4,7 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 const PRESETS = [
   { label: 'URL', value: 'https://sodigic.com' },
@@ -14,6 +14,8 @@ const PRESETS = [
 ];
 
 export default function QRScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [text, setText]   = useState('');
   const [qr, setQr]       = useState('');
   const [size, setSize]   = useState(220);
@@ -99,7 +101,7 @@ export default function QRScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container:      { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   sectionLabel:   { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
   presets:        { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

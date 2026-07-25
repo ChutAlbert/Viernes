@@ -11,13 +11,13 @@ export default function DashboardLayout() {
     <div className="flex h-screen w-full overflow-hidden" style={{ background: "var(--c-bg)" }}>
       {/* Mobile drawer */}
       <Drawer open={open} onClose={() => setOpen(false)}>
-        <div className="w-64 h-full">
-          <AppSidebar />
+        <div className="w-[312px] max-w-[85vw] h-full">
+          <AppSidebar onNavigate={() => setOpen(false)} />
         </div>
       </Drawer>
 
       {/* Desktop sidebar */}
-      <div className="hidden md:flex w-64 flex-shrink-0 h-full">
+      <div className="hidden md:flex w-[312px] flex-shrink-0 h-full">
         <div className="w-full h-full">
           <AppSidebar />
         </div>

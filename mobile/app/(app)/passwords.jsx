@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function VaultEntry({ entry, onCopy, onDelete }) {
+  const styles = useStyles(makeStyles);
   const [showPass, setShowPass] = useState(false);
 
   return (
@@ -43,6 +44,8 @@ function VaultEntry({ entry, onCopy, onDelete }) {
 }
 
 function AddModal({ visible, onClose, onAdd }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [nombre, setNombre]   = useState('');
   const [usuario, setUsuario] = useState('');
   const [pass, setPass]       = useState('');
@@ -94,6 +97,8 @@ function AddModal({ visible, onClose, onAdd }) {
 }
 
 export default function PasswordsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [entries, setEntries]       = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
@@ -166,7 +171,7 @@ export default function PasswordsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   searchRow:   { padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   searchInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderMed, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.text, fontSize: typography.sm },
   list:        { padding: spacing.lg, gap: spacing.sm, paddingBottom: 90 },

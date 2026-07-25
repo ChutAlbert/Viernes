@@ -5,9 +5,11 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function ItemRow({ item, onDelete }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const pct = item.cantidad_minima > 0
     ? Math.min(100, (item.cantidad_actual / item.cantidad_minima) * 100)
     : 100;
@@ -39,6 +41,8 @@ function ItemRow({ item, onDelete }) {
 }
 
 function AddModal({ visible, onClose, onAdd }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [nombre, setNombre]   = useState('');
   const [cantidad, setCantidad] = useState('');
   const [minima, setMinima]   = useState('');
@@ -96,6 +100,7 @@ function AddModal({ visible, onClose, onAdd }) {
 }
 
 export default function InventarioScreen() {
+  const styles = useStyles(makeStyles);
   const [items, setItems]         = useState([]);
   const [alertas, setAlertas]     = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -155,7 +160,7 @@ export default function InventarioScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:         { padding: spacing.lg, gap: spacing.sm, paddingBottom: 90 },
   alertBanner:  { backgroundColor: colors.yellowBg, borderWidth: 1, borderColor: '#f59e0b44', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md },
   alertText:    { color: colors.yellow, fontSize: typography.sm, fontWeight: '600' },

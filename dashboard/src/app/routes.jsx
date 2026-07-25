@@ -25,6 +25,8 @@ import Gallery from "./pages/Gallery";
 import Tasks from "./pages/Tasks";
 import QRGenerator from "./pages/QRGenerator";
 import Ubicaciones from "./pages/Ubicaciones";
+import Spotify from "./pages/Spotify";
+import Precios from "./pages/Precios";
 
 import { fetchMeThunk } from "@/store/slices/authSlice";
 
@@ -80,6 +82,7 @@ export function AppRoutes() {
         <Route path="catalogo/:id" element={<CatalogoProductoDetail />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="redes" element={<RedesSociales />} />
+        <Route path="precios" element={<Precios />} />
         <Route path="notas" element={<Notes />} />
         <Route path="passwords" element={<Passwords />} />
         <Route path="usuarios" element={<RequireAdmin><Users /></RequireAdmin>} />
@@ -87,6 +90,7 @@ export function AppRoutes() {
         <Route path="ubicaciones" element={<RequireAdmin><Ubicaciones /></RequireAdmin>} />
         <Route path="tareas" element={<Tasks />} />
         <Route path="qr" element={<QRGenerator />} />
+        <Route path="spotify" element={<Spotify />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/app" replace />} />

@@ -6,9 +6,10 @@ import {
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
 import { API_BASE_URL } from '../../lib/api/client';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function ProductCard({ product }) {
+  const styles = useStyles(makeStyles);
   const img = product.imagenes?.[0]?.url
     ? { uri: `${API_BASE_URL}${product.imagenes[0].url}` }
     : null;
@@ -35,6 +36,8 @@ function ProductCard({ product }) {
 }
 
 export default function CatalogoScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [productos, setProductos] = useState([]);
   const [filtered, setFiltered]   = useState([]);
   const [search, setSearch]       = useState('');
@@ -91,7 +94,7 @@ export default function CatalogoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   searchRow:   { padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   searchInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderMed, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.text, fontSize: typography.sm },
   list:        { padding: spacing.md, paddingBottom: spacing.xxl },

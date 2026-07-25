@@ -4,6 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.100:8000';
 
+// Diagnóstico: confirma qué URL usa el bundle. Si sale el fallback .100,
+// el .env no se inyectó -> reinicia con `npx expo start -c`.
+if (!process.env.EXPO_PUBLIC_API_URL) {
+  console.warn('[API] EXPO_PUBLIC_API_URL vacío, usando fallback:', API_BASE_URL);
+} else {
+  console.log('[API] base:', API_BASE_URL);
+}
+
 export const TOKEN_KEY = 'viernes_token';
 
 // Module-level token — set on login/restore, read synchronously by interceptors

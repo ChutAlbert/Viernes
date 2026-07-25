@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 const PLAT_COLOR = {
   instagram: '#e1306c',
@@ -18,6 +18,8 @@ const PLAT_COLOR = {
 };
 
 function RedCard({ red, onDelete }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const color = PLAT_COLOR[red.plataforma?.toLowerCase()] || colors.accentText;
 
   return (
@@ -47,6 +49,8 @@ function RedCard({ red, onDelete }) {
 }
 
 function AddModal({ visible, onClose, onAdd }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [plataforma, setPlataforma] = useState('');
   const [usuario, setUsuario]       = useState('');
   const [url, setUrl]               = useState('');
@@ -95,6 +99,7 @@ function AddModal({ visible, onClose, onAdd }) {
 }
 
 export default function RedesScreen() {
+  const styles = useStyles(makeStyles);
   const [redes, setRedes]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd]       = useState(false);
@@ -138,7 +143,7 @@ export default function RedesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:       { padding: spacing.lg, gap: spacing.sm, paddingBottom: 90 },
   card:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
   cardLeft:   { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },

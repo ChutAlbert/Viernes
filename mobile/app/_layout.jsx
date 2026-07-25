@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { store } from '../store';
 import { restoreAuthThunk } from '../store/slices/authSlice';
-import { colors } from '../lib/theme';
+import { ThemeProvider, useTheme } from '../lib/theme';
 import {
   registerLocationTask,
   unregisterLocationTask,
@@ -52,9 +52,10 @@ function AuthGate() {
 }
 
 function RootLayout() {
+  const { colors, isLight } = useTheme();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
-      <StatusBar style="light" backgroundColor={colors.bg} />
+      <StatusBar style={isLight ? 'dark' : 'light'} backgroundColor={colors.bg} />
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
@@ -67,7 +68,9 @@ function RootLayout() {
 export default function Layout() {
   return (
     <Provider store={store}>
-      <RootLayout />
+      <ThemeProvider>
+        <RootLayout />
+      </ThemeProvider>
     </Provider>
   );
 }

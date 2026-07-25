@@ -7,13 +7,13 @@ import {
 import { useSelector } from 'react-redux';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
-const ROLE_COLOR = {
+const makeRoleColor = (colors) => ({
   super_admin: { text: colors.accentText, bg: colors.accentBg },
   admin:       { text: colors.cyan,       bg: colors.cyanBg },
   user:        { text: colors.text3,      bg: colors.hover },
-};
+});
 
 const PERM_LABELS = {
   overview:   'Panel principal',
@@ -43,6 +43,9 @@ const DEFAULT_PERMS = Object.fromEntries(Object.keys(PERM_LABELS).map((k) => [k,
 
 // ── UserCard ─────────────────────────────────────────────────────────────────
 function UserCard({ user, onDelete, onToggle, onEdit }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const ROLE_COLOR = makeRoleColor(colors);
   const r = ROLE_COLOR[user.role] || ROLE_COLOR.user;
   const initials = (user.name || user.email || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -79,6 +82,8 @@ function UserCard({ user, onDelete, onToggle, onEdit }) {
 
 // ── AddModal ──────────────────────────────────────────────────────────────────
 function AddModal({ visible, onClose, onAdd }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [email, setEmail]   = useState('');
   const [name, setName]     = useState('');
   const [pass, setPass]     = useState('');
@@ -146,6 +151,8 @@ function AddModal({ visible, onClose, onAdd }) {
 
 // ── EditModal (permisos + rol) ─────────────────────────────────────────────
 function EditModal({ user, onClose, onSave }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [role, setRole] = useState(user.role);
   const [perms, setPerms] = useState({ ...DEFAULT_PERMS, ...(user.permissions || {}) });
 
@@ -224,6 +231,7 @@ function EditModal({ user, onClose, onSave }) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function UsuariosScreen() {
+  const styles = useStyles(makeStyles);
   const currentUser = useSelector((s) => s.auth.user);
   const [users, setUsers]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -298,7 +306,7 @@ export default function UsuariosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:           { padding: spacing.lg, gap: spacing.sm, paddingBottom: 90 },
   card:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
   cardLeft:       { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },

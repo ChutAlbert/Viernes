@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function SessionItem({ session, active, onPress }) {
+  const styles = useStyles(makeStyles);
   return (
     <TouchableOpacity
       style={[styles.sessionItem, active && styles.sessionItemActive]}
@@ -22,6 +23,7 @@ function SessionItem({ session, active, onPress }) {
 }
 
 function Message({ msg }) {
+  const styles = useStyles(makeStyles);
   const isUser = msg.role === 'user';
   return (
     <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
@@ -33,6 +35,8 @@ function Message({ msg }) {
 }
 
 export default function ChatScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [sessions, setSessions]       = useState([]);
   const [sessionId, setSessionId]     = useState(null);
   const [messages, setMessages]       = useState([]);
@@ -178,7 +182,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   sessionBar:       { borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.shell },
   sessionItem:      { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.hover, maxWidth: 140 },
   sessionItemActive:{ backgroundColor: colors.accentBg, borderWidth: 1, borderColor: colors.accent },

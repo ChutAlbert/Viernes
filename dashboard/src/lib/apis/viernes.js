@@ -129,6 +129,13 @@ export const viernesApi = {
   deleteTask: (id) => apiRequestDelete(`/tasks/${id}`),
   uploadTaskAudio: (id, formData) => apiRequestDocs("post", `/tasks/${id}/audio`, formData),
 
+  // spotify
+  spotifyStatus:    ()                              => apiRequest("get", "/spotify/status"),
+  spotifyAuth:      ()                              => apiRequest("get", "/spotify/auth"),
+  spotifyNowPlaying:()                              => apiRequest("get", "/spotify/now-playing"),
+  spotifyRecent:    (limit = 10)                    => apiRequest("get", "/spotify/recent", { limit }),
+  spotifyTopTracks: (limit = 20, time_range = "short_term") => apiRequest("get", "/spotify/top-tracks", { limit, time_range }),
+
   // gallery / visitas (super_admin only, E2E encrypted)
   galleryConfig: () => apiRequest("get", "/gallery/config"),
   gallerySetup: (payload) => apiRequest("post", "/gallery/setup", payload),

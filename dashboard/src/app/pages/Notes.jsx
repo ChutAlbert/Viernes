@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { viernesApi } from "@/lib/apis/viernes";
+import { API_BASE_URL } from "@apis/client";
 import { ConfirmModal } from "@viernes/ui/react";
 
 const COLORS = [
@@ -51,12 +52,17 @@ const ICON_SEARCH = (
     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
   </svg>
 );
+const ICON_BACK = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+);
 
 const EMPTY_NOTE = { title: "", content: "", color: "default", pinned: false, tags: [] };
 
 export default function Notes() {
   const [notes, setNotes] = useState([]);
-  const [selected, setSelected] = useState(null); // note object being edited
+  const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState(EMPTY_NOTE);
   const [isNew, setIsNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -64,8 +70,10 @@ export default function Notes() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const [confirmNote, setConfirmNote] = useState(null);    // id to delete
-  const [confirmAtt, setConfirmAtt] = useState(null);      // filename to delete
+  const [confirmNote, setConfirmNote] = useState(null);
+  const [confirmAtt, setConfirmAtt] = useState(null);
+  // Mobile: show editor panel instead of note list
+  const [showEditor, setShowEditor] = useState(false);
   const fileRef = useRef();
   const saveTimer = useRef(null);
 
@@ -81,6 +89,7 @@ export default function Notes() {
     setDraft({ title: note.title, content: note.content, color: note.color, pinned: note.pinned, tags: [...note.tags] });
     setIsNew(false);
     setError("");
+    setShowEditor(true);
   }
 
   function newNote() {
@@ -88,9 +97,9 @@ export default function Notes() {
     setDraft({ ...EMPTY_NOTE });
     setIsNew(true);
     setError("");
+    setShowEditor(true);
   }
 
-  // Autosave after 800ms of inactivity
   const scheduleSave = useCallback((nextDraft, noteId) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveNote(nextDraft, noteId), 800);
@@ -126,7 +135,7 @@ export default function Notes() {
   async function deleteNote(id) {
     try {
       await viernesApi.deleteNote(id);
-      if (selected?.id === id) { setSelected(null); setIsNew(false); }
+      if (selected?.id === id) { setSelected(null); setIsNew(false); setShowEditor(false); }
       await load();
     } catch (e) { setError(e.message); }
     finally { setConfirmNote(null); }
@@ -144,7 +153,6 @@ export default function Notes() {
   async function uploadFile(e) {
     const file = e.target.files[0];
     if (!file || (!selected && !isNew)) return;
-    // must save first if new
     let noteId = selected?.id;
     if (isNew) {
       await saveNote();
@@ -208,8 +216,12 @@ export default function Notes() {
 
   return (
     <div className="flex h-full" style={{ height: "calc(100vh - 57px)" }}>
-      {/* Sidebar: notes list */}
-      <div className="flex flex-col w-72 flex-shrink-0 h-full" style={{ borderRight: "1px solid var(--c-border-med)", background: "var(--c-shell)" }}>
+
+      {/* ── Sidebar: nota list ─────────────────────────────────────────────── */}
+      <div
+        className={`flex-col h-full md:w-72 md:flex-shrink-0 ${showEditor ? "hidden md:flex" : "flex w-full"}`}
+        style={{ borderRight: "1px solid var(--c-border-med)", background: "var(--c-shell)" }}
+      >
         {/* Header */}
         <div className="px-4 pt-4 pb-3 space-y-3" style={{ borderBottom: "1px solid var(--c-border)" }}>
           <div className="flex items-center justify-between">
@@ -246,40 +258,39 @@ export default function Notes() {
                   ? { background: "var(--c-hover-2)", border: "1px solid var(--c-accent)" }
                   : { background: "var(--c-hover)", border: "1px solid var(--c-border-med)" }
                 }>
-                {/* color accent bar */}
                 <div className="w-1 flex-shrink-0 rounded-l-xl" style={{ background: accentBar }} />
                 <div className="flex-1 px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium truncate flex-1" style={{ color: "var(--c-text)" }}>
-                    {note.title || <span style={{ color: "var(--c-text-4)", fontStyle: "italic" }}>Sin título</span>}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium truncate flex-1" style={{ color: "var(--c-text)" }}>
+                      {note.title || <span style={{ color: "var(--c-text-4)", fontStyle: "italic" }}>Sin título</span>}
+                    </p>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {note.pinned && <span style={{ color: "var(--c-accent)" }}>{ICON_PIN}</span>}
+                      <button onClick={(e) => togglePin(note, e)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: note.pinned ? "var(--c-accent)" : "var(--c-text-4)" }}
+                        title={note.pinned ? "Desfijar" : "Fijar"}>
+                        {ICON_PIN}
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setConfirmNote(note.id); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: "#f87171" }}>
+                        {ICON_TRASH}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--c-text-4)" }}>
+                    {note.content || "Vacía"}
                   </p>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {note.pinned && <span style={{ color: "var(--c-accent)" }}>{ICON_PIN}</span>}
-                    <button onClick={(e) => togglePin(note, e)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: note.pinned ? "var(--c-accent)" : "var(--c-text-4)" }}
-                      title={note.pinned ? "Desfijar" : "Fijar"}>
-                      {ICON_PIN}
-                    </button>
-                    <button onClick={e => { e.stopPropagation(); setConfirmNote(note.id); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: "#f87171" }}>
-                      {ICON_TRASH}
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--c-text-4)" }}>
-                  {note.content || "Vacía"}
-                </p>
-                <p className="text-[10px] mt-1.5" style={{ color: "var(--c-text-4)" }}>{fmt(note.updated_at)}</p>
-                {note.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {note.tags.slice(0, 3).map(t => (
-                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full"
-                        style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>#{t}</span>
-                    ))}
-                  </div>
-                )}
+                  <p className="text-[10px] mt-1.5" style={{ color: "var(--c-text-4)" }}>{fmt(note.updated_at)}</p>
+                  {note.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {note.tags.slice(0, 3).map(t => (
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full"
+                          style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>#{t}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -287,12 +298,23 @@ export default function Notes() {
         </div>
       </div>
 
-      {/* Editor panel */}
+      {/* ── Editor panel ───────────────────────────────────────────────────── */}
       {isEditing ? (
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <div className={`flex-col h-full overflow-hidden ${showEditor ? "flex flex-1" : "hidden md:flex md:flex-1"}`}>
           {/* Toolbar */}
-          <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--c-border-med)" }}>
-            {/* Color picker — color de fondo de la tarjeta */}
+          <div className="flex items-center flex-wrap gap-2 px-4 py-3 flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--c-border-med)" }}>
+
+            {/* Back button — mobile only */}
+            <button
+              onClick={() => setShowEditor(false)}
+              className="md:hidden flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg"
+              style={{ color: "var(--c-text-3)", background: "var(--c-hover)" }}
+            >
+              {ICON_BACK} Notas
+            </button>
+
+            {/* Color picker */}
             <div className="flex items-center gap-1.5">
               <span className="text-xs mr-1" style={{ color: "var(--c-text-4)" }}>Color:</span>
               {COLORS.map(c => (
@@ -308,7 +330,7 @@ export default function Notes() {
               ))}
             </div>
 
-            <div className="h-4" style={{ width: "1px", background: "var(--c-border-med)" }} />
+            <div className="h-4 hidden md:block" style={{ width: "1px", background: "var(--c-border-med)" }} />
 
             {/* Pin */}
             <button
@@ -337,7 +359,7 @@ export default function Notes() {
               {saving ? "Guardando…" : isNew ? "" : "Autosave activo"}
             </span>
 
-            {/* Save button (for new notes or manual) */}
+            {/* Save button */}
             <button onClick={() => saveNote()}
               disabled={saving}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
@@ -389,7 +411,7 @@ export default function Notes() {
                       <div key={att.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
                         style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
                         <span className="text-sm flex-1 truncate" style={{ color: "var(--c-text-2)" }}>{att.name}</span>
-                        <a href={`http://localhost:8000${att.url}`} target="_blank" rel="noreferrer"
+                        <a href={`${API_BASE_URL}${att.url}`} target="_blank" rel="noreferrer"
                           className="text-xs px-2 py-1 rounded-lg"
                           style={{ background: "var(--c-hover-2)", color: "var(--c-text-3)" }}>
                           Ver
@@ -403,7 +425,7 @@ export default function Notes() {
               )}
             </div>
 
-            {/* Tags — compact footer bar */}
+            {/* Tags footer */}
             <div className="flex-shrink-0 flex items-center gap-2 px-6 py-2.5 flex-wrap"
               style={{ borderTop: "1px solid var(--c-border)", minHeight: "42px" }}>
               <span className="text-xs font-medium mr-0.5 flex-shrink-0" style={{ color: "var(--c-text-4)" }}>
@@ -428,7 +450,7 @@ export default function Notes() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center">
+        <div className={`flex-1 items-center justify-center ${showEditor ? "flex" : "hidden md:flex"}`}>
           <div className="text-center space-y-3">
             <p className="text-4xl">📝</p>
             <p className="text-sm font-medium" style={{ color: "var(--c-text-3)" }}>Selecciona una nota o crea una nueva</p>

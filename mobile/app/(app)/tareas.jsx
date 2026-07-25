@@ -12,16 +12,18 @@ import {
   scheduleTaskNotifications,
   cancelTaskNotifications,
 } from '../../lib/notifications';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
-const PRIORITY = {
+const makePriority = (colors) => ({
   high:   { label: 'Alta',  color: colors.red,    bg: colors.redBg },
   medium: { label: 'Media', color: colors.yellow,  bg: colors.yellowBg },
   low:    { label: 'Baja',  color: colors.green,   bg: colors.greenBg },
-};
+});
 
 // ── Reminder row ──────────────────────────────────────────────────────────────
 function ReminderRow({ label, value, onToggle }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.remRow}>
       <Text style={styles.remLabel}>{label}</Text>
@@ -38,6 +40,9 @@ function ReminderRow({ label, value, onToggle }) {
 
 // ── Task card ─────────────────────────────────────────────────────────────────
 function TaskCard({ task, onComplete, onDelete, onEdit }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const PRIORITY = makePriority(colors);
   const p = PRIORITY[task.priority] || PRIORITY.medium;
   return (
     <TouchableOpacity
@@ -78,6 +83,9 @@ function TaskCard({ task, onComplete, onDelete, onEdit }) {
 
 // ── Add / Edit Modal ──────────────────────────────────────────────────────────
 function TaskModal({ visible, task, onClose, onSave }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const PRIORITY = makePriority(colors);
   const isEdit = !!task;
 
   const [title,    setTitle]    = useState(task?.title       || '');
@@ -273,6 +281,8 @@ function TaskModal({ visible, task, onClose, onSave }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function TareasScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [tasks,      setTasks]      = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading,    setLoading]    = useState(true);
@@ -432,7 +442,7 @@ export default function TareasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:             { padding: spacing.lg, gap: spacing.sm, paddingBottom: 90 },
   sectionLabel:     { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm },
   card:             { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border },

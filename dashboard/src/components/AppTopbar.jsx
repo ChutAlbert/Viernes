@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "@/store/theme.jsx";
 
@@ -22,20 +23,96 @@ function IconBtn({ onClick, title, children }) {
   );
 }
 
+function Swatch({ colors, size = 18 }) {
+  const [bg, accent] = colors;
+  return (
+    <span
+      className="rounded-md flex-shrink-0 overflow-hidden"
+      style={{ width: size, height: size, background: bg, border: "1px solid var(--c-border-med)", position: "relative" }}
+    >
+      <span style={{ position: "absolute", right: 0, bottom: 0, width: "55%", height: "55%", background: accent, borderTopLeftRadius: 4 }} />
+    </span>
+  );
+}
+
+function ThemePicker() {
+  const { theme, setTheme, themes } = useTheme();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  const current = themes.find((t) => t.key === theme) || themes[0];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Cambiar tema"
+        className="h-9 px-2.5 gap-2 rounded-xl flex items-center transition-colors hover:bg-[var(--c-hover-2)]"
+        style={{ border: "1px solid var(--c-border)", color: "var(--c-text-3)" }}
+      >
+        <Swatch colors={current.swatch} />
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-2 w-52 rounded-2xl p-2 z-50 shadow-xl"
+          style={{ background: "var(--c-surface)", border: "1px solid var(--c-border-med)" }}
+          role="listbox"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-widest px-2.5 pt-1 pb-1.5" style={{ color: "var(--c-text-4)" }}>
+            Tema
+          </p>
+          {themes.map((t) => {
+            const active = t.key === theme;
+            return (
+              <button
+                key={t.key}
+                onClick={() => { setTheme(t.key); setOpen(false); }}
+                role="option"
+                aria-selected={active}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{ background: active ? "var(--c-hover-2)" : "transparent", color: active ? "var(--c-text)" : "var(--c-text-2)" }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--c-hover)"; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+              >
+                <Swatch colors={t.swatch} />
+                <span className="flex-1 text-left">{t.label}</span>
+                {active && (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c-accent-text)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AppTopbar({ onOpenSidebar }) {
   const location = useLocation();
   const label = ROUTE_LABELS[location.pathname] ?? "Dashboard";
-  const { theme, toggle } = useTheme();
 
   return (
     <header
       className="h-16 px-4 md:px-6 flex items-center gap-4 flex-shrink-0 backdrop-blur-md"
-      style={{
-        background: "var(--c-shell)",
-        borderBottom: "1px solid var(--c-border-med)",
-      }}
+      style={{ background: "var(--c-shell)", borderBottom: "1px solid var(--c-border-med)" }}
     >
-      {/* Mobile menu — solo en mobile */}
+      {/* Mobile menu */}
       <div className="md:hidden">
         <IconBtn onClick={onOpenSidebar} title="Menú">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -66,22 +143,8 @@ export default function AppTopbar({ onOpenSidebar }) {
         />
       </div>
 
-      {/* Theme toggle */}
-      <IconBtn onClick={toggle} title={theme === "dark" ? "Modo claro" : "Modo oscuro"}>
-        {theme === "dark" ? (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-        ) : (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        )}
-      </IconBtn>
+      {/* Theme picker */}
+      <ThemePicker />
 
       {/* Notifications */}
       <div className="relative">

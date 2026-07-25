@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function GradientCard({ label, value, accent }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={[styles.gradCard, { backgroundColor: accent }]}>
       <Text style={styles.gradLabel}>{label}</Text>
@@ -15,6 +16,7 @@ function GradientCard({ label, value, accent }) {
 }
 
 function StatCard({ label, value }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.statCard}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -24,6 +26,8 @@ function StatCard({ label, value }) {
 }
 
 function TaskItem({ task, onComplete }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const colors_ = {
     high:   { text: colors.red,    bg: colors.redBg },
     medium: { text: colors.yellow, bg: colors.yellowBg },
@@ -49,6 +53,7 @@ function TaskItem({ task, onComplete }) {
 }
 
 export default function OverviewScreen() {
+  const styles = useStyles(makeStyles);
   const [visits, setVisits]   = useState(null);
   const [tasks, setTasks]     = useState([]);
   const [alertas, setAlertas] = useState([]);
@@ -135,7 +140,7 @@ export default function OverviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   sectionTitle:    { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.md },
   grid2:           { flexDirection: 'row', gap: spacing.sm },
   gradCard:        { flex: 1, borderRadius: radius.lg, padding: spacing.lg },

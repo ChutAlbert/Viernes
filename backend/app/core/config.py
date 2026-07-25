@@ -65,6 +65,15 @@ KOKORO_MODEL_FILE = os.getenv("KOKORO_MODEL_FILE", "kokoro-v1.0.fp16.onnx")
 # Voz por defecto. Voces ES: ef_dora (femenina) | em_alex | em_santa (masculinas)
 KOKORO_VOICE      = os.getenv("KOKORO_VOICE", "ef_dora")
 
+# ─── Spotify ─────────────────────────────────────────────────────────────────
+# En .env:
+#   SPOTIFY_CLIENT_ID=...
+#   SPOTIFY_CLIENT_SECRET=...
+#   SPOTIFY_REDIRECT_URI=http://localhost:8000/spotify/callback
+#   FRONTEND_URL=http://localhost:5173
+SPOTIFY_CLIENT_ID     = os.getenv("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+
 # ─── Visitas ──────────────────────────────────────────────────────────────────
 # En .env: EXCLUDED_IPS=127.0.0.1,192.168.1.10,::1
 _raw_excluded = os.getenv("EXCLUDED_IPS", "127.0.0.1,::1")

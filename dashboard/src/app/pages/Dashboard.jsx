@@ -158,6 +158,70 @@ function AlertasInventario() {
   );
 }
 
+const WMO = {
+  0: ["Despejado", "☀️"], 1: ["Principalmente despejado", "🌤️"], 2: ["Parcialmente nublado", "⛅"], 3: ["Nublado", "☁️"],
+  45: ["Niebla", "🌫️"], 48: ["Niebla", "🌫️"], 51: ["Llovizna", "🌦️"], 53: ["Llovizna", "🌦️"], 55: ["Llovizna", "🌦️"],
+  61: ["Lluvia ligera", "🌧️"], 63: ["Lluvia", "🌧️"], 65: ["Lluvia intensa", "🌧️"],
+  71: ["Nevada", "❄️"], 73: ["Nevada", "❄️"], 75: ["Nevada intensa", "❄️"],
+  80: ["Chubascos", "🌦️"], 81: ["Chubascos", "🌦️"], 82: ["Chubascos fuertes", "⛈️"],
+  95: ["Tormenta", "⛈️"], 96: ["Tormenta con granizo", "⛈️"], 99: ["Tormenta", "⛈️"],
+};
+
+function WeatherWidget() {
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [geoError, setGeoError] = useState(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) { setGeoError("Sin geolocalización"); setLoading(false); return; }
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const r = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}&longitude=${coords.longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m&timezone=auto`
+          );
+          const d = await r.json();
+          setWeather(d.current);
+        } catch { setGeoError("Error al obtener clima"); }
+        finally { setLoading(false); }
+      },
+      () => { setGeoError("Permiso de ubicación denegado"); setLoading(false); }
+    );
+  }, []);
+
+  const [label, emoji] = weather ? (WMO[weather.weather_code] ?? ["Desconocido", "🌡️"]) : ["—", "🌡️"];
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>Clima</p>
+        <span className="text-xl">{loading ? "🌡️" : emoji}</span>
+      </div>
+      {loading ? (
+        <div className="h-10 flex items-center gap-2">
+          <div className="w-4 h-4 border-2 rounded-full animate-spin"
+            style={{ borderColor: "var(--c-border-med)", borderTopColor: "var(--c-text-3)" }} />
+          <span className="text-xs" style={{ color: "var(--c-text-4)" }}>Obteniendo ubicación…</span>
+        </div>
+      ) : geoError ? (
+        <p className="text-xs" style={{ color: "var(--c-text-4)" }}>{geoError}</p>
+      ) : (
+        <>
+          <p className="text-3xl font-bold" style={{ color: "var(--c-text)" }}>
+            {Math.round(weather.temperature_2m)}°C
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--c-text-3)" }}>{label}</p>
+          <div className="flex gap-3 mt-2 text-xs" style={{ color: "var(--c-text-4)" }}>
+            <span>💧 {weather.relative_humidity_2m}%</span>
+            <span>💨 {Math.round(weather.wind_speed_10m)} km/h</span>
+            <span>ST {Math.round(weather.apparent_temperature)}°</span>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 function SystemStatusWidget() {
   const [backendOk, setBackendOk] = useState(null);
 
@@ -253,7 +317,10 @@ export default function Dashboard() {
         <div className="md:col-span-2">
           <PendingTasksWidget />
         </div>
-        <SystemStatusWidget />
+        <div className="space-y-4">
+          <WeatherWidget />
+          <SystemStatusWidget />
+        </div>
       </div>
 
       <ConfirmModal

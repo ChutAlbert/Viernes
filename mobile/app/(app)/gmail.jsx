@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function EmailRow({ email, onPress }) {
+  const styles = useStyles(makeStyles);
   const date = email.date
     ? new Date(email.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
     : '';
@@ -30,6 +31,8 @@ function EmailRow({ email, onPress }) {
 }
 
 function EmailModal({ email, visible, onClose }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -53,6 +56,8 @@ function EmailModal({ email, visible, onClose }) {
 }
 
 export default function GmailScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [emails, setEmails]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,7 +151,7 @@ export default function GmailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   searchRow:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   searchInput:   { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderMed, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.text, fontSize: typography.sm },
   clearSearch:   { color: colors.text4, fontSize: typography.base, padding: 4 },

@@ -1,8 +1,11 @@
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing } from '../lib/theme';
+import { useTheme, useStyles, spacing } from '../lib/theme';
 
 export function Screen({ children, style, scroll = false, onRefresh, refreshing = false, padded = true }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+
   const content = (
     <View style={[styles.inner, padded && styles.padded, style]}>
       {children}
@@ -40,7 +43,7 @@ export function Screen({ children, style, scroll = false, onRefresh, refreshing 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   root:         { flex: 1, backgroundColor: colors.bg },
   inner:        { flex: 1 },
   padded:       { padding: spacing.lg },

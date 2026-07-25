@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Surface } from "@viernes/ui/react";
 import { viernesApi } from "@apis/viernes";
+import { API_BASE_URL } from "@apis/client";
 
 // ─── Micro SVG icons ──────────────────────────────────────────────────────────
 const Ic = ({ d, size = 16, className = "" }) => (
@@ -481,18 +482,27 @@ Si necesitas mas info antes de redactar, responde en texto normal.`
 
 // ─── Pagina principal Gmail ───────────────────────────────────────────────────
 export default function Gmail() {
-  const [emails, setEmails]       = useState([]);
-  const [selected, setSelected]   = useState(null);
-  const [filter, setFilter]       = useState("all");
-  const [search, setSearch]       = useState("");
-  const [composing, setComposing] = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
+  const [emails, setEmails]         = useState([]);
+  const [selected, setSelected]     = useState(null);
+  const [filter, setFilter]         = useState("all");
+  const [search, setSearch]         = useState("");
+  const [composing, setComposing]   = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+  const [authStatus, setAuthStatus] = useState(null); // null=checking, true=ok, false=not-auth
 
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Check auth first so the error is actionable
+      const status = await viernesApi.gmailStatus();
+      if (!status.authenticated) {
+        setAuthStatus(false);
+        setLoading(false);
+        return;
+      }
+      setAuthStatus(true);
       const data = await viernesApi.gmailInbox(20);
       setEmails(data.emails || []);
     } catch (err) {
@@ -568,8 +578,44 @@ export default function Gmail() {
         </div>
       )}
 
+      {/* Panel de conexión cuando no hay auth */}
+      {authStatus === false && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-5">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ background: "var(--c-hover)", border: "1px solid var(--c-border-med)" }}>
+            <Ic d={ICONS.inbox} size={28} />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold text-sm mb-1" style={{ color: "var(--c-text)" }}>Gmail no conectado</p>
+            <p className="text-xs max-w-sm" style={{ color: "var(--c-text-3)" }}>
+              Necesitas autorizar el acceso a tu cuenta de Gmail. Haz click en conectar para abrir el flujo de autenticación de Google.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.open(`${API_BASE_URL}/gmail/auth`, "_blank")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+              style={{ background: "var(--c-accent)", color: "#fff" }}
+            >
+              <Ic d={ICONS.compose} size={13} />
+              Conectar Gmail
+            </button>
+            <button
+              onClick={fetchEmails}
+              className="px-4 py-2.5 rounded-xl text-sm transition-colors"
+              style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)", color: "var(--c-text-3)" }}
+            >
+              Ya conecté →
+            </button>
+          </div>
+          <p className="text-[11px] max-w-sm text-center" style={{ color: "var(--c-text-4)" }}>
+            Asegúrate de que <code className="px-1 rounded" style={{ background: "var(--c-hover)" }}>backend/data/gmail_credentials.json</code> exista. Descárgalo desde Google Cloud Console.
+          </p>
+        </div>
+      )}
+
       {/* Dos paneles */}
-      <div className="flex-1 min-h-0 flex gap-4">
+      {authStatus !== false && <div className="flex-1 min-h-0 flex gap-4">
 
         {/* Lista */}
         <Surface className="w-[340px] shrink-0 flex flex-col overflow-hidden !p-0">
@@ -634,7 +680,7 @@ export default function Gmail() {
         <Surface className="flex-1 flex flex-col overflow-hidden min-h-0 !p-0">
           <EmailDetail email={selected} onClose={() => setSelected(null)} />
         </Surface>
-      </div>
+      </div>}
 
       {composing && <ComposeModal onClose={() => setComposing(false)} />}
     </div>

@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function ServiceCard({ service }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -28,6 +29,8 @@ function ServiceCard({ service }) {
 }
 
 export default function WebsiteScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [services, setServices] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,7 +67,7 @@ export default function WebsiteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:           { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
   center:         { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hint:           { color: colors.text4, fontSize: typography.xs, marginBottom: spacing.md },

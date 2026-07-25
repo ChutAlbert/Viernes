@@ -5,9 +5,11 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function PiezaCard({ pieza, onDelete }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
@@ -45,6 +47,8 @@ function PiezaCard({ pieza, onDelete }) {
 }
 
 export default function PiezasScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [piezas, setPiezas]       = useState([]);
   const [filtered, setFiltered]   = useState([]);
   const [search, setSearch]       = useState('');
@@ -105,7 +109,7 @@ export default function PiezasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   searchRow:   { padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   searchInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderMed, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.text, fontSize: typography.sm },
   list:        { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },

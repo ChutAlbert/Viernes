@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 const EXT_COLOR = {
   pdf:  '#ef4444', docx: '#3b82f6', doc: '#3b82f6',
@@ -13,6 +13,8 @@ const EXT_COLOR = {
 };
 
 function DocRow({ doc, onDelete }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const ext  = doc.filename?.split('.').pop()?.toLowerCase() || '?';
   const color = EXT_COLOR[ext] || colors.text4;
   const date = doc.uploaded_at
@@ -37,6 +39,8 @@ function DocRow({ doc, onDelete }) {
 }
 
 export default function DocsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [docs, setDocs]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -79,7 +83,7 @@ export default function DocsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:     { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
   center:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hint:     { color: colors.text4, fontSize: typography.xs, marginBottom: spacing.md, lineHeight: 18 },

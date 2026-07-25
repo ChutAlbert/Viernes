@@ -2,60 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Dark theme (default) ──────────────────────────────────────────────────── */
-:root {
-  --c-bg:           #080e1a;
-  --c-shell:        #0b1120;
-  --c-card:         #0f1929;
-  --c-surface:      #0f1a2e;
-  --c-surface-2:    #162238;
+/* ── Themes ─────────────────────────────────────────────────────────────────
+   Each theme is a full set of the same tokens, selected via data-theme on
+   <html>. Default (:root, no attribute) = Noche. See store/theme.jsx.        */
 
-  --c-border:       rgba(255,255,255,0.06);
-  --c-border-med:   rgba(255,255,255,0.10);
-  --c-border-hi:    rgba(255,255,255,0.18);
-
-  --c-text:         #f1f5f9;
-  --c-text-2:       rgba(241,245,249,0.60);
-  --c-text-3:       rgba(241,245,249,0.35);
-  --c-text-4:       rgba(241,245,249,0.20);
-
-  --c-accent:       #7c3aed;
-  --c-accent-bg:    rgba(124,58,237,0.15);
-  --c-accent-text:  #a78bfa;
-  --c-cyan:         #22d3ee;
-  --c-cyan-bg:      rgba(34,211,238,0.12);
-
-  --c-hover:        rgba(255,255,255,0.05);
-  --c-hover-2:      rgba(255,255,255,0.08);
-  --c-input-bg:     rgba(255,255,255,0.05);
+/* Noche — oscuro (default) */
+:root,
+:root[data-theme="noche"] {
+  --c-bg:#080e1a; --c-shell:#0b1120; --c-card:#0f1929; --c-surface:#0f1a2e; --c-surface-2:#162238;
+  --c-border:rgba(255,255,255,.06); --c-border-med:rgba(255,255,255,.10); --c-border-hi:rgba(255,255,255,.18);
+  --c-text:#f1f5f9; --c-text-2:rgba(241,245,249,.60); --c-text-3:rgba(241,245,249,.35); --c-text-4:rgba(241,245,249,.20);
+  --c-accent:#7c3aed; --c-accent-bg:rgba(124,58,237,.15); --c-accent-text:#a78bfa;
+  --c-cyan:#22d3ee; --c-cyan-bg:rgba(34,211,238,.12);
+  --c-hover:rgba(255,255,255,.05); --c-hover-2:rgba(255,255,255,.08); --c-input-bg:rgba(255,255,255,.05);
 }
 
-/* ── Light theme ───────────────────────────────────────────────────────────── */
-:root.light {
-  --c-bg:           #f0f4f8;
-  --c-shell:        #ffffff;
-  --c-card:         #f8fafc;
-  --c-surface:      #ffffff;
-  --c-surface-2:    #f1f5f9;
+/* Día — claro */
+:root[data-theme="dia"] {
+  --c-bg:#f0f4f8; --c-shell:#ffffff; --c-card:#f8fafc; --c-surface:#ffffff; --c-surface-2:#f1f5f9;
+  --c-border:rgba(0,0,0,.07); --c-border-med:rgba(0,0,0,.12); --c-border-hi:rgba(0,0,0,.20);
+  --c-text:#0f172a; --c-text-2:rgba(15,23,42,.65); --c-text-3:rgba(15,23,42,.40); --c-text-4:rgba(15,23,42,.20);
+  --c-accent:#7c3aed; --c-accent-bg:rgba(124,58,237,.10); --c-accent-text:#6d28d9;
+  --c-cyan:#0891b2; --c-cyan-bg:rgba(8,145,178,.10);
+  --c-hover:rgba(0,0,0,.04); --c-hover-2:rgba(0,0,0,.07); --c-input-bg:rgba(0,0,0,.04);
+}
 
-  --c-border:       rgba(0,0,0,0.07);
-  --c-border-med:   rgba(0,0,0,0.12);
-  --c-border-hi:    rgba(0,0,0,0.20);
+/* Medianoche — negro OLED */
+:root[data-theme="medianoche"] {
+  --c-bg:#000000; --c-shell:#060608; --c-card:#0b0b0e; --c-surface:#0c0c10; --c-surface-2:#141418;
+  --c-border:rgba(255,255,255,.07); --c-border-med:rgba(255,255,255,.12); --c-border-hi:rgba(255,255,255,.20);
+  --c-text:#f4f5f7; --c-text-2:rgba(244,245,247,.60); --c-text-3:rgba(244,245,247,.35); --c-text-4:rgba(244,245,247,.20);
+  --c-accent:#8b5cf6; --c-accent-bg:rgba(139,92,246,.16); --c-accent-text:#c4b5fd;
+  --c-cyan:#22d3ee; --c-cyan-bg:rgba(34,211,238,.12);
+  --c-hover:rgba(255,255,255,.06); --c-hover-2:rgba(255,255,255,.10); --c-input-bg:rgba(255,255,255,.06);
+}
 
-  --c-text:         #0f172a;
-  --c-text-2:       rgba(15,23,42,0.65);
-  --c-text-3:       rgba(15,23,42,0.40);
-  --c-text-4:       rgba(15,23,42,0.20);
+/* Océano — azul profundo, acento cian */
+:root[data-theme="oceano"] {
+  --c-bg:#061620; --c-shell:#08202e; --c-card:#0a2836; --c-surface:#0a2a3a; --c-surface-2:#103648;
+  --c-border:rgba(190,235,255,.08); --c-border-med:rgba(190,235,255,.14); --c-border-hi:rgba(190,235,255,.24);
+  --c-text:#e6f6fb; --c-text-2:rgba(230,246,251,.62); --c-text-3:rgba(230,246,251,.38); --c-text-4:rgba(230,246,251,.22);
+  --c-accent:#22d3ee; --c-accent-bg:rgba(34,211,238,.16); --c-accent-text:#67e8f9;
+  --c-cyan:#38bdf8; --c-cyan-bg:rgba(56,189,248,.14);
+  --c-hover:rgba(190,235,255,.06); --c-hover-2:rgba(190,235,255,.10); --c-input-bg:rgba(190,235,255,.06);
+}
 
-  --c-accent:       #7c3aed;
-  --c-accent-bg:    rgba(124,58,237,0.10);
-  --c-accent-text:  #6d28d9;
-  --c-cyan:         #0891b2;
-  --c-cyan-bg:      rgba(8,145,178,0.10);
+/* Ámbar — oscuro cálido */
+:root[data-theme="ambar"] {
+  --c-bg:#1a1410; --c-shell:#211a13; --c-card:#2a2118; --c-surface:#2a2017; --c-surface-2:#352a1e;
+  --c-border:rgba(255,240,220,.08); --c-border-med:rgba(255,240,220,.14); --c-border-hi:rgba(255,240,220,.24);
+  --c-text:#f5ecd9; --c-text-2:rgba(245,236,217,.62); --c-text-3:rgba(245,236,217,.38); --c-text-4:rgba(245,236,217,.22);
+  --c-accent:#f59e0b; --c-accent-bg:rgba(245,158,11,.16); --c-accent-text:#fcd34d;
+  --c-cyan:#fbbf24; --c-cyan-bg:rgba(251,191,36,.14);
+  --c-hover:rgba(255,240,220,.05); --c-hover-2:rgba(255,240,220,.09); --c-input-bg:rgba(255,240,220,.05);
+}
 
-  --c-hover:        rgba(0,0,0,0.04);
-  --c-hover-2:      rgba(0,0,0,0.07);
-  --c-input-bg:     rgba(0,0,0,0.04);
+/* Pergamino — claro cálido tipo sepia */
+:root[data-theme="pergamino"] {
+  --c-bg:#f2e9d8; --c-shell:#faf4e8; --c-card:#fbf6ec; --c-surface:#fdf8ee; --c-surface-2:#f0e6d2;
+  --c-border:rgba(90,70,40,.12); --c-border-med:rgba(90,70,40,.20); --c-border-hi:rgba(90,70,40,.32);
+  --c-text:#3a2f1e; --c-text-2:rgba(58,47,30,.66); --c-text-3:rgba(58,47,30,.42); --c-text-4:rgba(58,47,30,.24);
+  --c-accent:#b45309; --c-accent-bg:rgba(180,83,9,.12); --c-accent-text:#9a3412;
+  --c-cyan:#0e7490; --c-cyan-bg:rgba(14,116,144,.10);
+  --c-hover:rgba(90,70,40,.05); --c-hover-2:rgba(90,70,40,.09); --c-input-bg:rgba(90,70,40,.05);
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */

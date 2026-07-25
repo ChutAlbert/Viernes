@@ -1,25 +1,25 @@
 import { Drawer } from 'expo-router/drawer';
 import DrawerContent from '../../components/DrawerContent';
-import { colors } from '../../lib/theme';
-
-const headerStyle = {
-  backgroundColor: colors.shell,
-  shadowColor: 'transparent',
-  elevation: 0,
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-};
-
-const screenOptions = {
-  headerStyle,
-  headerTintColor: colors.text,
-  headerTitleStyle: { color: colors.text, fontWeight: '600', fontSize: 16 },
-  drawerStyle:      { backgroundColor: colors.shell, width: 280 },
-  drawerType:       'slide',
-  overlayColor:     'rgba(0,0,0,0.6)',
-};
+import { useTheme } from '../../lib/theme';
 
 export default function AppLayout() {
+  const { colors } = useTheme();
+
+  const screenOptions = {
+    headerStyle: {
+      backgroundColor: colors.shell,
+      shadowColor: 'transparent',
+      elevation: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTintColor: colors.text,
+    headerTitleStyle: { color: colors.text, fontWeight: '600', fontSize: 16 },
+    drawerStyle: { backgroundColor: colors.shell, width: 280 },
+    drawerType: 'slide',
+    overlayColor: 'rgba(0,0,0,0.6)',
+  };
+
   return (
     <Drawer
       drawerContent={(props) => <DrawerContent {...props} />}

@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
 function NoteCard({ note, onPress, onDelete }) {
+  const styles = useStyles(makeStyles);
   const date = note.updated_at
     ? new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
     : '';
@@ -26,6 +27,8 @@ function NoteCard({ note, onPress, onDelete }) {
 }
 
 function NoteModal({ visible, note, onClose, onSave }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [title, setTitle]   = useState('');
   const [content, setContent] = useState('');
 
@@ -76,6 +79,7 @@ function NoteModal({ visible, note, onClose, onSave }) {
 }
 
 export default function NotasScreen() {
+  const styles = useStyles(makeStyles);
   const [notes, setNotes]         = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -138,7 +142,7 @@ export default function NotasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   list:           { padding: spacing.md, paddingBottom: 90 },
   row:            { gap: spacing.sm, marginBottom: spacing.sm },
   card:           { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.border, minHeight: 100 },
