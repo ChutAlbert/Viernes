@@ -31,9 +31,20 @@ function SettingsTab() {
     hero_description: "",
     company_name: "",
     company_tagline: "",
+    maintenance_mode: "false",
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+
+  async function toggleMaintenance() {
+    const next = form.maintenance_mode === "true" ? "false" : "true";
+    const newForm = { ...form, maintenance_mode: next };
+    setForm(newForm);
+    try {
+      await apiFetch("/website/admin/settings/bulk", { method: "POST", body: JSON.stringify({ settings: newForm }) });
+      setMsg(next === "true" ? "Modo mantenimiento ACTIVADO." : "Modo mantenimiento desactivado.");
+    } catch { setMsg("Error al guardar."); }
+  }
 
   useEffect(() => {
     apiFetch("/website/admin/settings")
@@ -64,6 +75,25 @@ function SettingsTab() {
   return (
     <Surface className="p-6 space-y-5">
       <h2 className="font-semibold text-lg" style={{ color: "var(--c-text)" }}>Configuración del sitio</h2>
+
+      {/* Modo mantenimiento — aplica al instante */}
+      <div className="flex items-center justify-between p-4 rounded-xl"
+        style={{ background: form.maintenance_mode === "true" ? "rgba(245,158,11,0.12)" : "var(--c-hover)", border: form.maintenance_mode === "true" ? "1px solid rgba(245,158,11,0.4)" : "1px solid var(--c-border)" }}>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>Modo mantenimiento</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--c-text-3)" }}>
+            {form.maintenance_mode === "true"
+              ? "El sitio muestra pantalla de mantenimiento a los visitantes (tú lo ves normal)."
+              : "El sitio está en línea normalmente."}
+          </p>
+        </div>
+        <button type="button" onClick={toggleMaintenance} role="switch" aria-checked={form.maintenance_mode === "true"}
+          style={{ width: 46, height: 26, borderRadius: 999, position: "relative", cursor: "pointer", flexShrink: 0,
+                   border: "1px solid var(--c-border-med)", background: form.maintenance_mode === "true" ? "#f59e0b" : "var(--c-input-bg)" }}>
+          <span style={{ position: "absolute", top: 2, left: form.maintenance_mode === "true" ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s" }} />
+        </button>
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="company_name">Nombre de la empresa</Label>
         <Input id="company_name" variant="dark" value={form.company_name} onChange={(v) => setForm((f) => ({ ...f, company_name: v }))} />

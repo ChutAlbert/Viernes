@@ -27,6 +27,10 @@ import QRGenerator from "./pages/QRGenerator";
 import Ubicaciones from "./pages/Ubicaciones";
 import Spotify from "./pages/Spotify";
 import Precios from "./pages/Precios";
+import PiezaEditor from "./pages/PiezaEditor";
+import Filamentos from "./pages/Filamentos";
+import Config from "./pages/Config";
+import { useFeatures } from "@/lib/features";
 
 import { fetchMeThunk } from "@/store/slices/authSlice";
 
@@ -42,6 +46,12 @@ function RequireAuth({ children }) {
   }, [token, user, dispatch]);
 
   if (!token) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireFeature({ name, children }) {
+  const features = useFeatures();
+  if (!features[name]) return <Navigate to="/app/config" replace />;
   return children;
 }
 
@@ -77,12 +87,14 @@ export function AppRoutes() {
         <Route path="website" element={<Website />} />
         <Route path="website/services/:slug" element={<ServiceDetail />} />
         <Route path="piezas" element={<Piezas />} />
-        <Route path="piezas/:id" element={<PiezaDetail />} />
+        <Route path="piezas/:id" element={<PiezaEditor />} />
+        <Route path="filamentos" element={<Filamentos />} />
         <Route path="catalogo" element={<Catalogo />} />
         <Route path="catalogo/:id" element={<CatalogoProductoDetail />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="redes" element={<RedesSociales />} />
-        <Route path="precios" element={<Precios />} />
+        <Route path="precios" element={<RequireFeature name="precios"><Precios /></RequireFeature>} />
+        <Route path="config" element={<RequireAdmin><Config /></RequireAdmin>} />
         <Route path="notas" element={<Notes />} />
         <Route path="passwords" element={<Passwords />} />
         <Route path="usuarios" element={<RequireAdmin><Users /></RequireAdmin>} />

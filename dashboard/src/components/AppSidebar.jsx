@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "@/store/slices/authSlice";
+import { useFeatures } from "@/lib/features";
 
 // ── Item icons ───────────────────────────────────────────────────────────────
 const ICON_OVERVIEW = (
@@ -50,6 +51,11 @@ const ICON_CATALOGO = (
 const ICON_PIEZAS = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+  </svg>
+);
+const ICON_FILAMENTO = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21"/>
   </svg>
 );
 const ICON_INVENTARIO = (
@@ -109,6 +115,13 @@ const ICON_MAP = (
   </svg>
 );
 
+const ICON_CONFIG = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+
 // ── Workspace (rail) icons ───────────────────────────────────────────────────
 const WICON_PERSONAL = (
   <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
@@ -165,11 +178,11 @@ const WORKSPACES = [
     sub: "El negocio: catálogo, producción y web.",
     items: [
       { to: "/app/website",    label: "Website",        icon: ICON_WEBSITE,    key: "website" },
-      { to: "/app/catalogo",   label: "Catálogo",       icon: ICON_CATALOGO,   key: "catalogo" },
-      { to: "/app/piezas",     label: "Piezas 3D",      icon: ICON_PIEZAS,     key: "piezas" },
+      { to: "/app/piezas",     label: "Piezas",         icon: ICON_PIEZAS,     key: "piezas" },
+      { to: "/app/filamentos", label: "Filamentos",     icon: ICON_FILAMENTO,  key: "filamentos" },
       { to: "/app/inventario", label: "Inventario",     icon: ICON_INVENTARIO, key: "inventario" },
       { to: "/app/redes",      label: "Redes Sociales", icon: ICON_REDES,      key: "redes" },
-      { to: "/app/precios",    label: "Precios",        icon: ICON_PRECIOS,    key: "precios" },
+      { to: "/app/precios",    label: "Precios",        icon: ICON_PRECIOS,    key: "precios", feature: "precios" },
     ],
   },
   {
@@ -179,6 +192,7 @@ const WORKSPACES = [
       { to: "/app/usuarios",    label: "Usuarios",    icon: ICON_USERS,   key: "usuarios",    roles: ["admin", "super_admin"] },
       { to: "/app/galeria",     label: "Visitas",     icon: ICON_GALLERY, key: "galeria",     roles: ["super_admin"] },
       { to: "/app/ubicaciones", label: "Ubicaciones", icon: ICON_MAP,     key: "ubicaciones", roles: ["admin", "super_admin"] },
+      { to: "/app/config",      label: "Configuración", icon: ICON_CONFIG, key: "config",      roles: ["admin", "super_admin"] },
     ],
   },
 ];
@@ -198,9 +212,14 @@ function isAdminUser(user) {
 }
 
 function visibleItems(ws, user) {
+  // Los items con feature apagado se SIGUEN mostrando (deshabilitados), no se ocultan.
   return ws.items.filter((it) =>
     it.group || ((!it.roles || it.roles.includes(user?.role)) && canAccess(it.key, user))
   );
+}
+
+function isDisabled(it, features) {
+  return !!(it.feature && features[it.feature] === false);
 }
 
 function visibleWorkspaces(user) {
@@ -228,7 +247,22 @@ function getInitials(name, email) {
 }
 
 // ── NavItem ──────────────────────────────────────────────────────────────────
-function NavItem({ to, label, icon, end = false, color }) {
+function NavItem({ to, label, icon, end = false, color, disabled = false }) {
+  if (disabled) {
+    return (
+      <div
+        title="Desactivado — actívalo en Admin → Configuración"
+        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium select-none"
+        style={{ color: "var(--c-text-4)", cursor: "not-allowed", borderLeft: "2px solid transparent", paddingLeft: "10px" }}
+      >
+        <span style={{ color: "var(--c-text-4)" }}>{icon}</span>
+        <span className="flex-1">{label}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+    );
+  }
   return (
     <NavLink
       to={to}
@@ -294,6 +328,7 @@ export default function AppSidebar({ onNavigate }) {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((s) => s.auth.user);
+  const features = useFeatures();
 
   const spaces = visibleWorkspaces(user);
   const [activeKey, setActiveKey] = useState(() => findWorkspaceKey(location.pathname));
@@ -306,10 +341,10 @@ export default function AppSidebar({ onNavigate }) {
   const activeWs = spaces.find((w) => w.key === activeKey) || spaces[0];
   const items = visibleItems(activeWs, user);
 
-  // Clicking a rail icon jumps to that workspace's first item.
+  // Clicking a rail icon jumps to that workspace's first enabled item.
   const switchWorkspace = (ws) => {
     setActiveKey(ws.key);
-    const first = visibleItems(ws, user).find((it) => it.to);
+    const first = visibleItems(ws, user).find((it) => it.to && !isDisabled(it, features));
     if (first) navigate(first.to);
   };
 
@@ -353,7 +388,7 @@ export default function AppSidebar({ onNavigate }) {
               <p key={`g-${i}`} className="text-[10px] font-semibold uppercase tracking-widest px-3 pt-3 pb-1"
                 style={{ color: "var(--c-text-4)" }}>{it.group}</p>
             ) : (
-              <NavItem key={it.to} to={it.to} label={it.label} icon={it.icon} end={it.end} color={activeWs.color} />
+              <NavItem key={it.to} to={it.to} label={it.label} icon={it.icon} end={it.end} color={activeWs.color} disabled={isDisabled(it, features)} />
             )
           )}
         </nav>

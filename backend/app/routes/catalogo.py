@@ -216,7 +216,7 @@ def list_productos_publico(db: Session = Depends(get_db)):
             if pf.filamento.activo and pf.filamento.en_stock
         ]
         precio_desde = None
-        if tarifas and p.tamano_base_mm > 0:
+        if tarifas and p.tamano_base_mm and p.tamano_base_mm > 0 and p.tamano_minimo_mm and p.tiempo_impresion_minutos:
             factor = p.tamano_minimo_mm / p.tamano_base_mm
             precio_desde = round(p.tiempo_impresion_minutos * factor * min(tarifas), 2)
         result.append({

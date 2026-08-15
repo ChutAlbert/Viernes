@@ -8,10 +8,6 @@ const { productos, loading, error } = useProductos()
 function goProducto(p: { id: number; slug: string | null }) {
   router.push(`/catalogo/${p.slug ?? p.id}`)
 }
-
-function formatDesde(n: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
-}
 </script>
 
 <template>
@@ -22,7 +18,7 @@ function formatDesde(n: number) {
         <div class="hero-badge">Catálogo 3D</div>
         <h1 class="hero-title">Piezas <span class="highlight">personalizables</span></h1>
         <p class="hero-subtitle">
-          Elige tu diseño, material, color y tamaño. Calculamos el precio al instante.
+          Elige tu diseño, material y color.
         </p>
       </div>
     </section>
@@ -94,19 +90,7 @@ function formatDesde(n: number) {
             <!-- Info -->
             <div class="card-body">
               <h3 class="card-title">{{ producto.nombre }}</h3>
-              <div class="card-meta">
-                <span class="meta-item">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-                    <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-                  </svg>
-                  {{ (producto.tamano_minimo_mm / 10).toFixed(0) }}–{{ (producto.tamano_maximo_mm / 10).toFixed(0) }} cm
-                </span>
-              </div>
               <div class="card-footer">
-                <span v-if="producto.precio_desde" class="card-precio">
-                  Desde {{ formatDesde(producto.precio_desde) }}
-                </span>
                 <span class="card-cta">Personalizar →</span>
               </div>
             </div>

@@ -67,7 +67,7 @@ function ThemePicker() {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-52 rounded-2xl p-2 z-50 shadow-xl"
+          className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-1.5rem)] rounded-2xl p-2 z-50 shadow-xl"
           style={{ background: "var(--c-surface)", border: "1px solid var(--c-border-med)" }}
           role="listbox"
         >
@@ -109,7 +109,7 @@ export default function AppTopbar({ onOpenSidebar }) {
 
   return (
     <header
-      className="h-16 px-4 md:px-6 flex items-center gap-4 flex-shrink-0 backdrop-blur-md"
+      className="relative z-40 h-16 px-4 md:px-6 flex items-center gap-4 flex-shrink-0 backdrop-blur-md"
       style={{ background: "var(--c-shell)", borderBottom: "1px solid var(--c-border-med)" }}
     >
       {/* Mobile menu */}

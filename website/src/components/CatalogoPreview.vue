@@ -4,10 +4,6 @@ import { useProductos, imagenUrl } from '@/composables/useCatalogo'
 
 const router = useRouter()
 const { productos, loading } = useProductos()
-
-function formatDesde(n: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
-}
 </script>
 
 <template>
@@ -21,7 +17,7 @@ function formatDesde(n: number) {
         </h2>
         <div class="section-divider"></div>
         <p class="section-subtitle">
-          Elige tu diseño, material, color y tamaño. Calculamos el precio al instante.
+          Elige tu diseño, material y color.
         </p>
       </div>
 
@@ -57,12 +53,6 @@ function formatDesde(n: number) {
           <div class="card-body">
             <h3 class="card-title">{{ producto.nombre }}</h3>
             <div class="card-meta">
-              <span class="meta-size">
-                {{ producto.tamano_minimo_mm }}–{{ producto.tamano_maximo_mm }} mm
-              </span>
-              <span v-if="producto.precio_desde" class="meta-precio">
-                Desde {{ formatDesde(producto.precio_desde) }}
-              </span>
             </div>
             <span class="card-cta">Personalizar →</span>
           </div>

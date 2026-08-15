@@ -8,10 +8,11 @@ import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps<{
   fileUrl: string | null       // URL pública del STL/3MF
-  color: string                // hex color del filamento
+  color: string                // hex color del filamento (modo un color)
   tipoMaterial: string         // "PLA" | "PLA+" | "PETG" (para aspecto visual)
   tamano: number               // mm elegido
   tamanoBase: number           // mm base del producto
+  multicolor?: boolean         // si true, respeta los colores del 3mf
 }>()
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
@@ -153,7 +154,8 @@ async function loadModel(url: string) {
     } else if (group) {
       group.traverse(child => {
         if ((child as THREE.Mesh).isMesh) {
-          (child as THREE.Mesh).material = mat
+          // Multicolor: respetar los materiales/colores del 3mf. Un color: pintar todo igual.
+          if (!props.multicolor) (child as THREE.Mesh).material = mat
           child.castShadow = true
         }
       })
@@ -196,13 +198,14 @@ function fitCamera(box: THREE.Box3) {
 }
 
 // ─── Watchers reactivos ───────────────────────────────────────────────────────
-watch(() => props.fileUrl, (url) => {
-  if (url) loadModel(url)
+// Recargar al cambiar archivo o modo color (para respetar/limpiar los colores del 3mf)
+watch(() => [props.fileUrl, props.multicolor], () => {
+  if (props.fileUrl) loadModel(props.fileUrl)
   else if (mesh && scene) { scene.remove(mesh); mesh = null }
 })
 
 watch(() => [props.color, props.tipoMaterial], () => {
-  if (!mesh) return
+  if (!mesh || props.multicolor) return  // en multicolor se respetan los colores del 3mf
   const mat = buildMaterial()
   mesh.traverse(child => {
     if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = mat

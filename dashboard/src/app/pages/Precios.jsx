@@ -1,17 +1,30 @@
 import { useState, useEffect } from "react";
 import Select from "@components/Select";
+import PartsCalculator from "@components/PartsCalculator";
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
+  // Tipos de filamento
   materials: [
     { id: "pla",  label: "PLA / PLA+", minRate: 0.60, gRate: 0.50 },
     { id: "petg", label: "PETG",       minRate: 0.80, gRate: 0.70 },
     { id: "tpu",  label: "TPU",        minRate: 1.00, gRate: 0.90 },
   ],
+  // Paleta de colores disponible
+  colors: [
+    { name: "Negro",   hex: "#1a1a1a" },
+    { name: "Blanco",  hex: "#f5f5f5" },
+    { name: "Gris",    hex: "#8a8a8a" },
+    { name: "Rojo",    hex: "#e11d48" },
+    { name: "Naranja", hex: "#f59e0b" },
+    { name: "Amarillo",hex: "#eab308" },
+    { name: "Verde",   hex: "#22c55e" },
+    { name: "Azul",    hex: "#3b82f6" },
+    { name: "Morado",  hex: "#8b5cf6" },
+  ],
   machine_hr: 6.85,   // multicolor $/hr máquina
   filament_g: 0.315,  // multicolor $/g filamento
-  paint_hr: 100,      // pintado $/hr mano de obra
-  paint_mat: 80,      // pintado materiales base $
+  paint_hr: 100,      // pintado $/hr
   margins: [
     { label: "+40%",  mult: 1.4 },
     { label: "+60%",  mult: 1.6, highlight: true },
@@ -20,10 +33,9 @@ const DEFAULT_CONFIG = {
 };
 
 const TABS = [
-  { id: "monocolor",  label: "Monocolor" },
-  { id: "multicolor", label: "Multicolor" },
-  { id: "pintado",    label: "Pintado" },
-  { id: "config",     label: "Configuración" },
+  { id: "piezas",     label: "Piezas" },
+  { id: "filamentos", label: "Filamentos" },
+  { id: "ajustes",    label: "Ajustes" },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,20 +44,34 @@ const num = (v) => parseFloat(v) || 0;
 const int = (v) => Math.max(0, parseInt(v) || 0);
 const mins = (h, m) => int(h) * 60 + int(m);
 
-// ── Shared bits ──────────────────────────────────────────────────────────────
-function Section({ title, children }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <h3 style={S.sectionTitle}>{title}</h3>
-      <div style={S.card}>{children}</div>
-    </div>
-  );
+function partCost(p, config) {
+  const mat = config.materials.find((m) => m.id === p.filamentId) || config.materials[0];
+  const minutes = mins(p.h, p.m);
+  if (p.multi) {
+    // Multicolor: material por gramo + máquina por hora
+    return num(p.g) * config.filament_g + (minutes / 60) * config.machine_hr;
+  }
+  // Monocolor: tiempo por minuto (+ gramos si es grande)
+  const t = minutes * (mat ? mat.minRate : 0);
+  const g = p.size === "grande" ? num(p.g) * (mat ? mat.gRate : 0) : 0;
+  return t + g;
 }
 
-function FormulaBox({ children }) {
-  return <pre style={S.formulaBox}>{children}</pre>;
+// ── Config persistente ───────────────────────────────────────────────────────
+function useConfig() {
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sodigic_pricing_config");
+      return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
+    } catch { return DEFAULT_CONFIG; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("sodigic_pricing_config", JSON.stringify(config)); } catch {}
+  }, [config]);
+  return [config, setConfig];
 }
 
+// ── UI bits ──────────────────────────────────────────────────────────────────
 function CalcRow({ label, value, strong }) {
   return (
     <div style={S.calcRow}>
@@ -60,7 +86,7 @@ function MarginCards({ base, margins }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 8 }}>
       {margins.map(({ label, mult, highlight }, i) => (
         <div key={i} style={{ ...S.marginCard, ...(highlight ? S.marginCardHi : {}) }}>
-          <div style={{ fontSize: 12, color: "var(--c-text-3)", marginBottom: 4 }}>{label} margen</div>
+          <div style={{ fontSize: 12, color: "var(--c-text-3)", marginBottom: 4 }}>{label}</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: highlight ? "var(--c-accent-text)" : "var(--c-text)" }}>
             {mxn(base * mult)}
           </div>
@@ -70,95 +96,152 @@ function MarginCards({ base, margins }) {
   );
 }
 
-function ConfigField({ label, hint, value, onChange, step = 0.05 }) {
+function ColorPicker({ palette, selected, multi, onChange }) {
+  const toggle = (hex) => {
+    if (multi) {
+      onChange(selected.includes(hex) ? selected.filter((h) => h !== hex) : [...selected, hex]);
+    } else {
+      onChange([hex]);
+    }
+  };
   return (
-    <div style={S.field}>
-      <label style={S.label}>{label}</label>
-      <input type="number" value={value} step={step} onChange={(e) => onChange(num(e.target.value))} style={S.input} />
-      {hint && <span style={S.hint}>{hint}</span>}
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {palette.map((c) => {
+        const on = selected.includes(c.hex);
+        return (
+          <button
+            key={c.hex}
+            type="button"
+            title={c.name}
+            onClick={() => toggle(c.hex)}
+            style={{
+              width: 26, height: 26, borderRadius: 8, background: c.hex, cursor: "pointer",
+              border: on ? "2px solid var(--c-accent-text)" : "1px solid var(--c-border-med)",
+              outline: on ? "2px solid var(--c-accent-bg)" : "none",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-// ── Monocolor: multi-pieza ───────────────────────────────────────────────────
-function newPiece(matId) {
-  return { key: Date.now() + Math.random(), material: matId, size: "grande", h: 0, m: 60, g: 30 };
+// ── Tab: Piezas ──────────────────────────────────────────────────────────────
+function newPart(config) {
+  return {
+    key: Date.now() + Math.random(), name: "", filamentId: config.materials[0]?.id,
+    multi: false, colors: [config.colors[0]?.hex].filter(Boolean), size: "grande", h: 0, m: 60, g: 30,
+  };
 }
 
-function pieceBase(p, materials) {
-  const mat = materials.find((m) => m.id === p.material) || materials[0];
-  if (!mat) return { tCost: 0, mCost: 0, base: 0 };
-  const tCost = mins(p.h, p.m) * mat.minRate;
-  const mCost = p.size === "grande" ? num(p.g) * mat.gRate : 0;
-  return { tCost, mCost, base: tCost + mCost };
-}
+function TabPiezas({ config }) {
+  const [parts, setParts] = useState(() => [newPart(config)]);
+  const [paintOn, setPaintOn] = useState(false);
+  const [paintH, setPaintH] = useState(2);
+  const [paintMat, setPaintMat] = useState(80);
 
-function TabMonocolor({ config }) {
-  const [pieces, setPieces] = useState(() => [newPiece(config.materials[0]?.id)]);
+  const setPart = (key, patch) => setParts((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  const addPart = () => setParts((ps) => [...ps, newPart(config)]);
+  const removePart = (key) => setParts((ps) => (ps.length > 1 ? ps.filter((p) => p.key !== key) : ps));
 
-  const setPiece = (key, patch) =>
-    setPieces((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
-  const addPiece = () => setPieces((ps) => [...ps, newPiece(config.materials[0]?.id)]);
-  const removePiece = (key) => setPieces((ps) => (ps.length > 1 ? ps.filter((p) => p.key !== key) : ps));
-
-  const rows = pieces.map((p) => ({ p, ...pieceBase(p, config.materials) }));
-  const total = rows.reduce((s, r) => s + r.base, 0);
+  const rows = parts.map((p) => ({ p, cost: partCost(p, config) }));
+  const partsTotal = rows.reduce((s, r) => s + r.cost, 0);
+  const paintCost = paintOn ? int(paintH) * config.paint_hr + num(paintMat) : 0;
+  const total = partsTotal + paintCost;
 
   return (
     <div>
-      <FormulaBox>
-        Por pieza: (horas·60 + min) × $/min  +  (grande ? g × $/g : 0){"\n"}
-        Total del trabajo = suma de todas las piezas
-      </FormulaBox>
-
-      {rows.map(({ p, base }, i) => {
+      {rows.map(({ p, cost }, i) => {
         const grande = p.size === "grande";
         return (
           <div key={p.key} style={S.pieceCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Pieza {i + 1}</span>
-              {pieces.length > 1 && <button onClick={() => removePiece(p.key)} style={S.removeBtn}>Quitar</button>}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8 }}>
+              <input
+                value={p.name}
+                onChange={(e) => setPart(p.key, { name: e.target.value })}
+                placeholder={`Parte ${i + 1} (opcional)`}
+                style={{ ...S.input, fontWeight: 600, flex: 1 }}
+              />
+              {parts.length > 1 && <button onClick={() => removePart(p.key)} style={S.removeBtn}>Quitar</button>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div style={S.field}>
-                <span style={S.fieldLbl}>Material</span>
-                <Select value={p.material} onChange={(v) => setPiece(p.key, { material: v })}
+                <span style={S.fieldLbl}>Filamento</span>
+                <Select value={p.filamentId} onChange={(v) => setPart(p.key, { filamentId: v })}
                   options={config.materials.map((m) => ({ value: m.id, label: m.label }))} />
               </div>
               <div style={S.field}>
-                <span style={S.fieldLbl}>Tamaño</span>
-                <Select value={p.size} onChange={(v) => setPiece(p.key, { size: v })}
-                  options={[{ value: "grande", label: "Grande (min + g)" }, { value: "chica", label: "Chica (solo min)" }]} />
+                <span style={S.fieldLbl}>Modo de color</span>
+                <Select value={p.multi ? "multi" : "single"}
+                  onChange={(v) => setPart(p.key, { multi: v === "multi", colors: v === "multi" ? p.colors : p.colors.slice(0, 1) })}
+                  options={[{ value: "single", label: "Un color" }, { value: "multi", label: "Multicolor" }]} />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 mt-2.5">
+            <div style={{ ...S.field, marginTop: 10 }}>
+              <span style={S.fieldLbl}>{p.multi ? "Colores" : "Color"}</span>
+              <ColorPicker palette={config.colors} selected={p.colors} multi={p.multi}
+                onChange={(cols) => setPart(p.key, { colors: cols })} />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-2.5">
+              {!p.multi && (
+                <div style={S.field}>
+                  <span style={S.fieldLbl}>Tamaño</span>
+                  <Select value={p.size} onChange={(v) => setPart(p.key, { size: v })}
+                    options={[{ value: "grande", label: "Grande" }, { value: "chica", label: "Chica" }]} />
+                </div>
+              )}
               <div style={S.field}>
                 <span style={S.fieldLbl}>Horas</span>
-                <input type="number" min={0} value={p.h} onChange={(e) => setPiece(p.key, { h: int(e.target.value) })} style={S.input} />
+                <input type="number" min={0} value={p.h} onChange={(e) => setPart(p.key, { h: int(e.target.value) })} style={S.input} />
               </div>
               <div style={S.field}>
                 <span style={S.fieldLbl}>Minutos</span>
-                <input type="number" min={0} value={p.m} onChange={(e) => setPiece(p.key, { m: int(e.target.value) })} style={S.input} />
+                <input type="number" min={0} value={p.m} onChange={(e) => setPart(p.key, { m: int(e.target.value) })} style={S.input} />
               </div>
               <div style={S.field}>
                 <span style={S.fieldLbl}>Gramos</span>
-                <input type="number" min={0} value={p.g} disabled={!grande} onChange={(e) => setPiece(p.key, { g: num(e.target.value) })} style={{ ...S.input, opacity: grande ? 1 : 0.4 }} />
+                <input type="number" min={0} value={p.g} disabled={!p.multi && !grande}
+                  onChange={(e) => setPart(p.key, { g: num(e.target.value) })}
+                  style={{ ...S.input, opacity: (!p.multi && !grande) ? 0.4 : 1 }} />
               </div>
             </div>
 
             <div style={{ marginTop: 12, textAlign: "right", fontSize: 13, color: "var(--c-text-3)" }}>
-              Subtotal: <b style={{ color: "var(--c-text)" }}>{mxn(base)}</b>
+              Subtotal: <b style={{ color: "var(--c-text)" }}>{mxn(cost)}</b>
             </div>
           </div>
         );
       })}
 
-      <button onClick={addPiece} style={{ ...S.addBtn, width: "100%", marginBottom: 12 }}>+ Agregar pieza</button>
+      <button onClick={addPart} style={{ ...S.addBtn, width: "100%", marginBottom: 12 }}>+ Agregar pieza / parte</button>
 
+      {/* Pintado opcional */}
       <div style={S.card}>
-        <CalcRow label={`Piezas en el trabajo`} value={String(pieces.length)} />
+        <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+          <input type="checkbox" checked={paintOn} onChange={(e) => setPaintOn(e.target.checked)} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)" }}>Incluir pintado / acabado</span>
+        </label>
+        {paintOn && (
+          <div className="grid grid-cols-2 gap-2.5" style={{ marginTop: 12 }}>
+            <div style={S.field}>
+              <span style={S.fieldLbl}>Horas de pintado</span>
+              <input type="number" min={0} value={paintH} onChange={(e) => setPaintH(int(e.target.value))} style={S.input} />
+            </div>
+            <div style={S.field}>
+              <span style={S.fieldLbl}>Materiales pintura ($)</span>
+              <input type="number" min={0} value={paintMat} onChange={(e) => setPaintMat(num(e.target.value))} style={S.input} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Resumen */}
+      <div style={S.card}>
+        <CalcRow label={`Piezas / partes (${parts.length})`} value={mxn(partsTotal)} />
+        {paintOn && <CalcRow label={`Pintado (${int(paintH)} hrs)`} value={mxn(paintCost)} />}
         <CalcRow label="Costo base total" value={mxn(total)} strong />
         <div style={S.divider} />
         <MarginCards base={total} margins={config.margins} />
@@ -167,213 +250,124 @@ function TabMonocolor({ config }) {
   );
 }
 
-// ── Multicolor (lote) ────────────────────────────────────────────────────────
-function TabMulticolor({ config }) {
-  const [gTotal, setGTotal] = useState(300);
-  const [h, setH] = useState(10);
-  const [m, setM] = useState(0);
-  const [n, setN] = useState(1);
+// ── Tab: Filamentos (tipos + colores) ────────────────────────────────────────
+function TabFilamentos({ config, setConfig }) {
+  const setMat = (i, patch) => setConfig((c) => ({ ...c, materials: c.materials.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
+  const addMat = () => setConfig((c) => ({ ...c, materials: [...c.materials, { id: `mat_${Date.now()}`, label: "Nuevo", minRate: 0.6, gRate: 0.5 }] }));
+  const rmMat = (i) => setConfig((c) => ({ ...c, materials: c.materials.length > 1 ? c.materials.filter((_, j) => j !== i) : c.materials }));
 
-  const hrs = int(h) + int(m) / 60;
-  const matCost = (num(gTotal) / Math.max(1, n)) * config.filament_g;
-  const maqCost = (hrs / Math.max(1, n)) * config.machine_hr;
-  const base = matCost + maqCost;
-  const base1 = num(gTotal) * config.filament_g + hrs * config.machine_hr;
-  const savings = n > 1 && base1 > 0 ? ((base1 - base) / base1) * 100 : 0;
+  const setColor = (i, patch) => setConfig((c) => ({ ...c, colors: c.colors.map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
+  const addColor = () => setConfig((c) => ({ ...c, colors: [...c.colors, { name: "Nuevo", hex: "#888888" }] }));
+  const rmColor = (i) => setConfig((c) => ({ ...c, colors: c.colors.length > 1 ? c.colors.filter((_, j) => j !== i) : c.colors }));
 
   return (
     <div>
-      <FormulaBox>
-        precio/figura = (g_total / n) × $/g + (hrs_total / n) × $/hr{"\n"}
-        g_total incluye pieza + purge del slicer
-      </FormulaBox>
-
+      <h3 style={S.sectionTitle}>Tipos de filamento</h3>
       <div style={S.card}>
-        <div style={S.grid2}>
-          <div style={S.field}>
-            <label style={S.label}>Gramos totales del slicer (pieza + purge)</label>
-            <input type="number" min={0} value={gTotal} onChange={(e) => setGTotal(num(e.target.value))} style={S.input} />
-          </div>
-          <div style={S.field}>
-            <label style={S.label}>Tiempo total del slicer</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="number" min={0} value={h} onChange={(e) => setH(int(e.target.value))} style={S.input} placeholder="hrs" />
-              <input type="number" min={0} value={m} onChange={(e) => setM(int(e.target.value))} style={S.input} placeholder="min" />
-            </div>
-            <span style={S.hint}>Horas y minutos</span>
-          </div>
-        </div>
-        <div style={{ ...S.field, marginTop: 12, maxWidth: 160 }}>
-          <label style={S.label}>Figuras en el lote</label>
-          <input type="number" min={1} value={n} onChange={(e) => setN(Math.max(1, parseInt(e.target.value) || 1))} style={S.input} />
-        </div>
-      </div>
-
-      <div style={S.card}>
-        <CalcRow label="Costo material / figura" value={mxn(matCost)} />
-        <CalcRow label="Costo máquina / figura" value={mxn(maqCost)} />
-        <CalcRow label="Costo base / figura" value={mxn(base)} strong />
-        <div style={S.divider} />
-        <MarginCards base={base} margins={config.margins} />
-        {n > 1 && <div style={{ ...S.notice, marginTop: 12 }}>Lote de {n}: ahorro de {savings.toFixed(0)}% vs pieza individual.</div>}
-      </div>
-    </div>
-  );
-}
-
-// ── Pintado ──────────────────────────────────────────────────────────────────
-function TabPintado({ config }) {
-  const [baseImp, setBaseImp] = useState(350);
-  const [h, setH] = useState(4);
-  const [m, setM] = useState(0);
-  const [matPaint, setMatPaint] = useState(config.paint_mat);
-
-  useEffect(() => { setMatPaint(config.paint_mat); }, [config.paint_mat]);
-
-  const hrs = int(h) + int(m) / 60;
-  const labor = hrs * config.paint_hr;
-  const total = num(baseImp) + labor + num(matPaint);
-
-  return (
-    <div>
-      <FormulaBox>precio = base_impresión + (hrs_trabajo × $/hr) + materiales_pintura</FormulaBox>
-
-      <div style={S.card}>
-        <div style={S.grid2}>
-          <div style={S.field}>
-            <label style={S.label}>Costo base de impresión ($)</label>
-            <input type="number" min={0} value={baseImp} onChange={(e) => setBaseImp(num(e.target.value))} style={S.input} />
-            <span style={S.hint}>Usa las pestañas Monocolor/Multicolor</span>
-          </div>
-          <div style={S.field}>
-            <label style={S.label}>Tiempo de pintado</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="number" min={0} value={h} onChange={(e) => setH(int(e.target.value))} style={S.input} placeholder="hrs" />
-              <input type="number" min={0} value={m} onChange={(e) => setM(int(e.target.value))} style={S.input} placeholder="min" />
-            </div>
-          </div>
-        </div>
-        <div style={{ ...S.field, marginTop: 12, maxWidth: 200 }}>
-          <label style={S.label}>Materiales pintura ($)</label>
-          <input type="number" min={0} value={matPaint} onChange={(e) => setMatPaint(num(e.target.value))} style={S.input} />
-        </div>
-        <div style={S.notice}>Guía: pequeña 1–2 hrs · mediana 2–4 hrs · grande 4–8 hrs · detallada 6–12 hrs</div>
-      </div>
-
-      <div style={S.card}>
-        <CalcRow label="Costo impresión base" value={mxn(num(baseImp))} />
-        <CalcRow label={`Mano de obra (${(hrs).toFixed(2)} hrs × $${config.paint_hr}/hr)`} value={mxn(labor)} />
-        <CalcRow label="Materiales pintura" value={mxn(num(matPaint))} />
-        <CalcRow label="Subtotal antes de margen" value={mxn(total)} strong />
-        <div style={S.divider} />
-        <MarginCards base={total} margins={config.margins} />
-      </div>
-    </div>
-  );
-}
-
-// ── Config ───────────────────────────────────────────────────────────────────
-function TabConfig({ config, setConfig }) {
-  const set = (key) => (val) => setConfig((c) => ({ ...c, [key]: val }));
-
-  const setMaterial = (i, patch) =>
-    setConfig((c) => ({ ...c, materials: c.materials.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
-  const addMaterial = () =>
-    setConfig((c) => ({ ...c, materials: [...c.materials, { id: `mat_${Date.now()}`, label: "Nuevo", minRate: 0.6, gRate: 0.5 }] }));
-  const removeMaterial = (i) =>
-    setConfig((c) => ({ ...c, materials: c.materials.length > 1 ? c.materials.filter((_, j) => j !== i) : c.materials }));
-
-  const setMargin = (i, patch) =>
-    setConfig((c) => ({ ...c, margins: c.margins.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
-  const addMargin = () =>
-    setConfig((c) => ({ ...c, margins: [...c.margins, { label: "+0%", mult: 1 }] }));
-  const removeMargin = (i) =>
-    setConfig((c) => ({ ...c, margins: c.margins.length > 1 ? c.margins.filter((_, j) => j !== i) : c.margins }));
-
-  return (
-    <div>
-      <Section title="Tipos de material (monocolor)">
-        <div style={{ ...S.pieceRow, ...S.pieceHead }}>
+        <div style={{ ...S.rowFlex, ...S.head }}>
           <span style={{ flex: 2 }}>Nombre</span>
           <span style={{ flex: 1, textAlign: "center" }}>$/min</span>
-          <span style={{ flex: 1, textAlign: "center" }}>$/g (grande)</span>
+          <span style={{ flex: 1, textAlign: "center" }}>$/g</span>
           <span style={{ width: 26 }} />
         </div>
         {config.materials.map((m, i) => (
-          <div key={m.id} style={S.pieceRow}>
-            <input value={m.label} onChange={(e) => setMaterial(i, { label: e.target.value })} style={{ ...S.input, flex: 2 }} />
-            <input type="number" step={0.05} value={m.minRate} onChange={(e) => setMaterial(i, { minRate: num(e.target.value) })} style={{ ...S.input, flex: 1, textAlign: "center" }} />
-            <input type="number" step={0.05} value={m.gRate} onChange={(e) => setMaterial(i, { gRate: num(e.target.value) })} style={{ ...S.input, flex: 1, textAlign: "center" }} />
-            <button onClick={() => removeMaterial(i)} title="Quitar" style={S.rowDel}>✕</button>
+          <div key={m.id} style={S.rowFlex}>
+            <input value={m.label} onChange={(e) => setMat(i, { label: e.target.value })} style={{ ...S.input, flex: 2 }} />
+            <input type="number" step={0.05} value={m.minRate} onChange={(e) => setMat(i, { minRate: num(e.target.value) })} style={{ ...S.input, flex: 1, textAlign: "center" }} />
+            <input type="number" step={0.05} value={m.gRate} onChange={(e) => setMat(i, { gRate: num(e.target.value) })} style={{ ...S.input, flex: 1, textAlign: "center" }} />
+            <button onClick={() => rmMat(i)} style={S.rowDel}>✕</button>
           </div>
         ))}
-        <button onClick={addMaterial} style={S.addBtn}>+ Agregar material</button>
-        <div style={S.notice}>Piezas chicas solo cobran $/min. Grandes suman $/g.</div>
-      </Section>
+        <button onClick={addMat} style={S.addBtn}>+ Agregar tipo</button>
+      </div>
 
-      <Section title="Multicolor (máquina + filamento)">
-        <div style={S.grid2}>
-          <ConfigField label="Tarifa máquina ($/hr)" hint="Depreciación + luz + consumibles" value={config.machine_hr} onChange={set("machine_hr")} step={0.25} />
-          <ConfigField label="Costo filamento ($/g)" hint="PLA+ ~$315/kg" value={config.filament_g} onChange={set("filament_g")} step={0.005} />
+      <h3 style={S.sectionTitle}>Paleta de colores</h3>
+      <div style={S.card}>
+        {config.colors.map((c, i) => (
+          <div key={i} style={S.rowFlex}>
+            <input type="color" value={c.hex} onChange={(e) => setColor(i, { hex: e.target.value })}
+              style={{ width: 34, height: 34, border: "1px solid var(--c-border-med)", borderRadius: 8, background: "transparent", cursor: "pointer", padding: 0 }} />
+            <input value={c.name} onChange={(e) => setColor(i, { name: e.target.value })} style={{ ...S.input, flex: 1 }} />
+            <button onClick={() => rmColor(i)} style={S.rowDel}>✕</button>
+          </div>
+        ))}
+        <button onClick={addColor} style={S.addBtn}>+ Agregar color</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: Ajustes ─────────────────────────────────────────────────────────────
+function TabAjustes({ config, setConfig }) {
+  const set = (key) => (val) => setConfig((c) => ({ ...c, [key]: val }));
+  const setMargin = (i, patch) => setConfig((c) => ({ ...c, margins: c.margins.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
+  const addMargin = () => setConfig((c) => ({ ...c, margins: [...c.margins, { label: "+0%", mult: 1 }] }));
+  const rmMargin = (i) => setConfig((c) => ({ ...c, margins: c.margins.length > 1 ? c.margins.filter((_, j) => j !== i) : c.margins }));
+
+  const Field = ({ label, hint, value, onChange, step = 0.05 }) => (
+    <div style={S.field}>
+      <span style={S.fieldLbl}>{label}</span>
+      <input type="number" value={value} step={step} onChange={(e) => onChange(num(e.target.value))} style={S.input} />
+      {hint && <span style={S.hint}>{hint}</span>}
+    </div>
+  );
+
+  return (
+    <div>
+      <h3 style={S.sectionTitle}>Multicolor</h3>
+      <div style={S.card}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <Field label="Tarifa máquina ($/hr)" hint="Depreciación + luz + consumibles" value={config.machine_hr} onChange={set("machine_hr")} step={0.25} />
+          <Field label="Costo filamento ($/g)" hint="PLA+ ~$315/kg" value={config.filament_g} onChange={set("filament_g")} step={0.005} />
         </div>
-      </Section>
+      </div>
 
-      <Section title="Pintado y acabado">
-        <div style={S.grid2}>
-          <ConfigField label="Mano de obra ($/hr)" value={config.paint_hr} onChange={set("paint_hr")} step={10} />
-          <ConfigField label="Materiales base ($)" value={config.paint_mat} onChange={set("paint_mat")} step={10} />
+      <h3 style={S.sectionTitle}>Pintado</h3>
+      <div style={S.card}>
+        <div style={{ maxWidth: 220 }}>
+          <Field label="Mano de obra ($/hr)" value={config.paint_hr} onChange={set("paint_hr")} step={10} />
         </div>
-      </Section>
+      </div>
 
-      <Section title="Multiplicadores de margen">
-        <div style={{ ...S.pieceRow, ...S.pieceHead }}>
+      <h3 style={S.sectionTitle}>Multiplicadores de margen</h3>
+      <div style={S.card}>
+        <div style={{ ...S.rowFlex, ...S.head }}>
           <span style={{ flex: 1.5 }}>Etiqueta</span>
           <span style={{ flex: 1, textAlign: "center" }}>Multiplicador</span>
-          <span style={{ width: 90, textAlign: "center" }}>Destacar</span>
+          <span style={{ width: 70, textAlign: "center" }}>Destacar</span>
           <span style={{ width: 26 }} />
         </div>
         {config.margins.map((mg, i) => (
-          <div key={i} style={S.pieceRow}>
+          <div key={i} style={S.rowFlex}>
             <input value={mg.label} onChange={(e) => setMargin(i, { label: e.target.value })} style={{ ...S.input, flex: 1.5 }} />
             <input type="number" step={0.05} value={mg.mult} onChange={(e) => setMargin(i, { mult: num(e.target.value) })} style={{ ...S.input, flex: 1, textAlign: "center" }} />
-            <label style={{ width: 90, textAlign: "center", display: "flex", justifyContent: "center" }}>
+            <label style={{ width: 70, display: "flex", justifyContent: "center" }}>
               <input type="checkbox" checked={!!mg.highlight} onChange={(e) => setMargin(i, { highlight: e.target.checked })} />
             </label>
-            <button onClick={() => removeMargin(i)} title="Quitar" style={S.rowDel}>✕</button>
+            <button onClick={() => rmMargin(i)} style={S.rowDel}>✕</button>
           </div>
         ))}
         <button onClick={addMargin} style={S.addBtn}>+ Agregar multiplicador</button>
-      </Section>
+      </div>
     </div>
   );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function Precios() {
-  const [tab, setTab] = useState("monocolor");
-  const [config, setConfig] = useState(() => {
-    try {
-      const saved = localStorage.getItem("sodigic_pricing_config");
-      return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
-    } catch { return DEFAULT_CONFIG; }
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem("sodigic_pricing_config", JSON.stringify(config)); } catch {}
-  }, [config]);
-
-  const reset = () => {
-    if (window.confirm("¿Restaurar toda la configuración a los valores por defecto?")) setConfig(DEFAULT_CONFIG);
-  };
+  const [config, setConfig] = useConfig();
+  const [tab, setTab] = useState("piezas");
+  const [nombre, setNombre] = useState("");
 
   return (
-    <div style={{ maxWidth: 760, color: "var(--c-text)" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Calculadora de precios</h1>
-          <p style={{ fontSize: 13, color: "var(--c-text-3)", margin: "4px 0 0" }}>Sodigic · Impresión 3D</p>
-        </div>
-        {tab === "config" && <button onClick={reset} style={S.resetBtn}>Restaurar defaults</button>}
+    <div style={{ maxWidth: 780, color: "var(--c-text)" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Calculadora de precios</h1>
+      <p style={{ fontSize: 13, color: "var(--c-text-3)", margin: "0 0 16px" }}>Sodigic · Impresión 3D</p>
+
+      {/* Nombre del trabajo — siempre arriba */}
+      <div style={{ ...S.field, marginBottom: 18 }}>
+        <span style={S.fieldLbl}>Nombre del trabajo</span>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Figura Goku multicolor" style={{ ...S.input, maxWidth: 420 }} />
       </div>
 
       <div style={S.tabs}>
@@ -385,40 +379,33 @@ export default function Precios() {
       </div>
 
       <div style={{ paddingBottom: 40 }}>
-        {tab === "monocolor"  && <TabMonocolor  config={config} />}
-        {tab === "multicolor" && <TabMulticolor config={config} />}
-        {tab === "pintado"    && <TabPintado    config={config} />}
-        {tab === "config"     && <TabConfig     config={config} setConfig={setConfig} />}
+        {tab === "piezas"     && <PartsCalculator config={config} />}
+        {tab === "filamentos" && <TabFilamentos config={config} setConfig={setConfig} />}
+        {tab === "ajustes"    && <TabAjustes config={config} setConfig={setConfig} />}
       </div>
     </div>
   );
 }
 
-// ── Styles (tokens del dashboard) ────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
 const S = {
-  sectionTitle: { fontSize: 12, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 },
+  sectionTitle: { fontSize: 12, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.06em", margin: "18px 0 8px" },
   card: { background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 12, padding: "16px 18px", marginBottom: 12 },
+  pieceCard: { background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 12, padding: 14, marginBottom: 10 },
   field: { display: "flex", flexDirection: "column", gap: 4 },
-  label: { fontSize: 13, color: "var(--c-text-2)", fontWeight: 500 },
+  fieldLbl: { fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.04em" },
   hint: { fontSize: 12, color: "var(--c-text-4)" },
   input: { padding: "7px 10px", border: "1px solid var(--c-border-med)", borderRadius: 8, fontSize: 14, color: "var(--c-text)", background: "var(--c-input-bg)", width: "100%", outline: "none" },
-  select: { padding: "7px 10px", border: "1px solid var(--c-border-med)", borderRadius: 8, fontSize: 13, color: "var(--c-text)", background: "var(--c-input-bg)", width: "100%", outline: "none" },
-  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   tabs: { display: "flex", gap: 4, borderBottom: "1px solid var(--c-border-med)", marginBottom: 20, flexWrap: "wrap" },
   tab: { padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottom: "2px solid transparent", cursor: "pointer", marginBottom: -1, whiteSpace: "nowrap" },
   tabActive: { color: "var(--c-accent-text)", borderBottomColor: "var(--c-accent)" },
-  pieceCard: { background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 12, padding: 14, marginBottom: 10 },
-  fieldLbl: { fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.04em" },
-  removeBtn: { fontSize: 12, color: "var(--c-text-3)", background: "transparent", border: "1px solid var(--c-border)", borderRadius: 8, padding: "5px 12px", cursor: "pointer" },
-  pieceRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  pieceHead: { fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.04em" },
+  rowFlex: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  head: { fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.04em" },
   rowDel: { width: 26, height: 30, borderRadius: 6, border: "1px solid var(--c-border)", background: "transparent", color: "var(--c-text-4)", cursor: "pointer", flexShrink: 0 },
+  removeBtn: { fontSize: 12, color: "var(--c-text-3)", background: "transparent", border: "1px solid var(--c-border)", borderRadius: 8, padding: "5px 12px", cursor: "pointer" },
   addBtn: { marginTop: 4, fontSize: 13, fontWeight: 500, color: "var(--c-accent-text)", background: "var(--c-accent-bg)", border: "1px solid var(--c-border-med)", borderRadius: 8, padding: "7px 12px", cursor: "pointer" },
-  notice: { fontSize: 12, color: "var(--c-text-3)", background: "var(--c-hover)", borderRadius: 8, padding: "8px 12px", marginTop: 8, lineHeight: 1.5 },
-  formulaBox: { fontSize: 12, fontFamily: "ui-monospace, monospace", color: "var(--c-text-3)", background: "var(--c-hover)", borderLeft: "3px solid var(--c-accent)", borderRadius: "0 6px 6px 0", padding: "10px 14px", marginBottom: 16, lineHeight: 1.7, whiteSpace: "pre-wrap" },
   calcRow: { display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, padding: "6px 0", borderBottom: "1px solid var(--c-border)" },
   divider: { borderTop: "1px solid var(--c-border)", margin: "12px 0" },
   marginCard: { background: "var(--c-hover)", border: "1px solid var(--c-border)", borderRadius: 8, padding: "10px 12px", textAlign: "center" },
   marginCardHi: { background: "var(--c-accent-bg)", border: "1px solid var(--c-border-med)" },
-  resetBtn: { fontSize: 13, color: "var(--c-text-3)", background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 8, padding: "6px 12px", cursor: "pointer" },
 };

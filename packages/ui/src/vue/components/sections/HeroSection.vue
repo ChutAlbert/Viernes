@@ -119,21 +119,6 @@ function scrollToContact() {
     <div class="container hero-layout">
       <!-- Left column: content -->
       <div class="hero-content">
-        <div class="hero-pills reveal delay-0">
-          <span class="pill pill-software">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M3 5L1 6.5 3 8M10 5l2 1.5L10 8M7.5 2.5l-2 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            </svg>
-            Software
-          </span>
-          <span class="pill pill-3d">
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1l6 3.5v5L7 13 1 9.5v-5L7 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-            </svg>
-            Impresión 3D
-          </span>
-        </div>
-
         <h1 class="hero-title">
           <span class="hero-title-line reveal delay-1">{{ settings.hero_title.split(' ').slice(0, 2).join(' ') }}</span>
           <span class="hero-title-line highlight reveal delay-2">
@@ -155,22 +140,6 @@ function scrollToContact() {
           </a>
         </div>
 
-        <div class="hero-stats reveal delay-4">
-          <div class="stat">
-            <span class="stat-value">100%</span>
-            <span class="stat-label">A medida</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat">
-            <span class="stat-value">3D</span>
-            <span class="stat-label">Impresión propia</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat">
-            <span class="stat-value">∞</span>
-            <span class="stat-label">Posibilidades</span>
-          </div>
-        </div>
       </div>
 
       <!-- Right column: floating service cards -->

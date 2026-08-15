@@ -47,19 +47,34 @@ class CatalogoProducto(Base):
     archivo_3d_url: Mapped[str] = mapped_column(String(500), nullable=True)
     foto_preview_url: Mapped[str] = mapped_column(String(500), nullable=True)
     es_personalizable: Mapped[bool] = mapped_column(Boolean, default=False)
-    tiempo_impresion_minutos: Mapped[float] = mapped_column(Float)
+    # Campos de cálculo/tamaño: opcionales para permitir crear como borrador (solo nombre)
+    tiempo_impresion_minutos: Mapped[float] = mapped_column(Float, nullable=True)
     tiempo_minimo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
     tiempo_maximo_minutos: Mapped[float] = mapped_column(Float, nullable=True)
-    tamano_base_mm: Mapped[float] = mapped_column(Float)
+    tamano_base_mm: Mapped[float] = mapped_column(Float, nullable=True)
     tamano_y_mm: Mapped[float] = mapped_column(Float, nullable=True)
     tamano_z_mm: Mapped[float] = mapped_column(Float, nullable=True)
-    tamano_minimo_mm: Mapped[float] = mapped_column(Float)
-    tamano_maximo_mm: Mapped[float] = mapped_column(Float)
-    # Multicolor deshabilitado globalmente hasta tener la impresora
-    permite_multicolor: Mapped[bool] = mapped_column(Boolean, default=False)
-    max_colores: Mapped[int] = mapped_column(Integer, default=1)
+    tamano_minimo_mm: Mapped[float] = mapped_column(Float, nullable=True)
+    tamano_maximo_mm: Mapped[float] = mapped_column(Float, nullable=True)
+    permite_multicolor: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_colores: Mapped[int] = mapped_column(Integer, default=4)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
-    publicado: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── Estado unificado (borrador / catálogo / vendida) ──────────────────────
+    publicado: Mapped[bool] = mapped_column(Boolean, default=False)   # visible en el catálogo público
+    es_vendida: Mapped[bool] = mapped_column(Boolean, default=False)  # registrada como pieza vendida
+
+    # ── Datos de venta (cuando es_vendida / encargo) ──────────────────────────
+    tipo_venta: Mapped[str] = mapped_column(String(50), default="venta_general")  # encargo | venta_general
+    persona: Mapped[str] = mapped_column(String(255), nullable=True)              # a quién se vendió
+    precios_venta: Mapped[str] = mapped_column(Text, nullable=True)               # JSON array de floats
+    monto_pagado: Mapped[float] = mapped_column(Float, nullable=True)
+    pagos: Mapped[str] = mapped_column(Text, nullable=True)                       # JSON array {monto, fecha, nota?}
+    fecha_encargo: Mapped[str] = mapped_column(String(20), nullable=True)
+    fecha_entrega: Mapped[str] = mapped_column(String(20), nullable=True)
+    fecha_pago: Mapped[str] = mapped_column(String(20), nullable=True)
+    notas_venta: Mapped[str] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     filamentos: Mapped[list["CatalogoProductoFilamento"]] = relationship(

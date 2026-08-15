@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import Viewer3D from '@/components/Viewer3D.vue'
 import {
   useProducto,
-  calcularPrecio,
   archivoUrl,
   imagenUrl,
 } from '@/composables/useCatalogo'
@@ -18,54 +17,15 @@ const galeriaActiva = ref<string | null>(null)
 
 // ─── Selección del usuario ─────────────────────────────────────────────────
 const selFilamentoId = ref<number | null>(null)
-const tamano         = ref(100)
+const multicolorOn   = ref(false)
+const numColores     = ref(2)
 
-// ─── Precio ───────────────────────────────────────────────────────────────────
-const precio      = ref<number | null>(null)
-const calcLoading = ref(false)
-const calcError   = ref('')
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-
-// Inicializar cuando carga el producto
+// Inicializar cuando carga el producto: primer filamento en stock
 watch(producto, (p) => {
   if (!p) return
-  tamano.value = p.tamano_base_mm
-  // Seleccionar primer filamento en stock, si no el primero
   const primero = p.filamentos.find(f => f.filamento.en_stock) ?? p.filamentos[0]
   if (primero) selFilamentoId.value = primero.filamento_id
 }, { immediate: true })
-
-// Recalcular precio al cambiar selección
-watch([selFilamentoId, tamano], () => {
-  if (!producto.value || selFilamentoId.value === null) return
-  if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(runCalculo, 400)
-})
-
-watch(producto, () => {
-  if (!producto.value || selFilamentoId.value === null) return
-  runCalculo()
-})
-
-async function runCalculo() {
-  if (!producto.value || selFilamentoId.value === null) return
-  calcLoading.value = true
-  calcError.value = ''
-  try {
-    const res = await calcularPrecio({
-      producto_id: producto.value!.id,
-      filamento_id: selFilamentoId.value,
-      tamano_mm: tamano.value,
-      multicolor: false,
-      num_colores: 1,
-    })
-    precio.value = res.precio_final
-  } catch (e: unknown) {
-    calcError.value = e instanceof Error ? e.message : 'Error al calcular'
-  } finally {
-    calcLoading.value = false
-  }
-}
 
 // ─── Filamento seleccionado ───────────────────────────────────────────────────
 const filamentoSel = computed(() => {
@@ -110,10 +70,6 @@ const filamentosAgrupados = computed(() => {
   return ordered
 })
 
-function formatPrecio(n: number) {
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n)
-}
-
 const MATERIAL_DESC: Record<string, string> = {
   'PLA':   'El plástico clásico para el hogar. Fácil de imprimir, colores vibrantes y acabado limpio. Perfecto para figuras decorativas, organizadores y piezas del día a día.',
   'PLA+':  'PLA de nueva generación: más resistente, menos frágil y mejor acabado que el PLA estándar. Ideal para piezas que necesitan aguantar más sin sacrificar calidad visual.',
@@ -128,63 +84,10 @@ function materialDesc(tipo: string): string {
   return MATERIAL_DESC[tipo] ?? `Material ${tipo}: resistente y versátil para una amplia variedad de aplicaciones.`
 }
 
-function formatTamano(mm: number): string {
-  const cm = mm / 10
-  return `${cm % 1 === 0 ? cm.toFixed(0) : cm.toFixed(1)} cm`
-}
-
-// Dimensiones escaladas con etiquetas
-const scale = computed(() =>
-  producto.value && producto.value.tamano_base_mm > 0
-    ? tamano.value / producto.value.tamano_base_mm
-    : 1
-)
-
-function fmtCm(mm: number) {
-  const v = mm / 10
-  return parseFloat((v % 1 < 0.05 || v % 1 > 0.95 ? v.toFixed(1) : v.toFixed(1)))
-}
-
-// Input ANCHO
-const anchoCm = computed({
-  get: () => fmtCm(tamano.value),
-  set: (v: number) => {
-    if (!producto.value) return
-    const mm = Math.round(v * 10)
-    tamano.value = Math.min(Math.max(mm, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
-  },
-})
-
-// Input LARGO (Y) — back-calculates slider from Y dimension
-const largoCm = computed({
-  get: () => producto.value?.tamano_y_mm
-    ? fmtCm(producto.value.tamano_y_mm * scale.value)
-    : null,
-  set: (v: number) => {
-    if (!producto.value?.tamano_y_mm) return
-    const targetSlider = Math.round((v * 10 / producto.value.tamano_y_mm) * producto.value.tamano_base_mm)
-    tamano.value = Math.min(Math.max(targetSlider, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
-  },
-})
-
-// Input ALTO (Z) — back-calculates slider from Z dimension (Z = height in 3D printing)
-const altoCm = computed({
-  get: () => producto.value?.tamano_z_mm
-    ? fmtCm(producto.value.tamano_z_mm * scale.value)
-    : null,
-  set: (v: number) => {
-    if (!producto.value?.tamano_z_mm) return
-    const targetSlider = Math.round((v * 10 / producto.value.tamano_z_mm) * producto.value.tamano_base_mm)
-    tamano.value = Math.min(Math.max(targetSlider, producto.value.tamano_minimo_mm), producto.value.tamano_maximo_mm)
-  },
-})
-
 const ctaUrl = computed(() => {
   const params = new URLSearchParams()
   if (producto.value) params.set('pieza', producto.value.nombre)
-  params.set('tamano', formatTamano(tamano.value))
   if (filamentoSel.value) params.set('filamento', filamentoSel.value.filamento.nombre)
-  if (precio.value !== null) params.set('precio', formatPrecio(precio.value))
   return `/contacto?${params.toString()}`
 })
 </script>
@@ -221,8 +124,9 @@ const ctaUrl = computed(() => {
             :file-url="archivo3dUrl"
             :color="colorHex"
             :tipo-material="tipoMaterial"
-            :tamano="tamano"
-            :tamano-base="producto.tamano_base_mm"
+            :tamano="1"
+            :tamano-base="1"
+            :multicolor="multicolorOn"
           />
         </div>
 
@@ -247,67 +151,6 @@ const ctaUrl = computed(() => {
         <div class="config-header">
           <h1 class="product-name">{{ producto.nombre }}</h1>
           <p v-if="producto.descripcion" class="product-desc">{{ producto.descripcion }}</p>
-        </div>
-
-        <!-- Tamaño -->
-        <div class="config-block">
-          <span class="block-label">Tamaño</span>
-          <div class="dimensiones-inputs">
-            <!-- ANCHO siempre visible -->
-            <div class="dim-input-wrap">
-              <span class="dim-label">Ancho</span>
-              <div class="dim-field">
-                <input
-                  type="number"
-                  class="dim-input"
-                  :min="producto.tamano_minimo_mm / 10"
-                  :max="producto.tamano_maximo_mm / 10"
-                  step="0.1"
-                  :value="anchoCm"
-                  @change="anchoCm = parseFloat(($event.target as HTMLInputElement).value) || anchoCm"
-                />
-                <span class="dim-unit">cm</span>
-              </div>
-            </div>
-            <!-- LARGO (Y) -->
-            <div v-if="largoCm !== null" class="dim-input-wrap">
-              <span class="dim-label">Largo</span>
-              <div class="dim-field">
-                <input
-                  type="number"
-                  class="dim-input"
-                  :min="(producto.tamano_minimo_mm / producto.tamano_base_mm * producto.tamano_y_mm!) / 10"
-                  :max="(producto.tamano_maximo_mm / producto.tamano_base_mm * producto.tamano_y_mm!) / 10"
-                  step="0.1"
-                  :value="largoCm"
-                  @change="largoCm = parseFloat(($event.target as HTMLInputElement).value) || largoCm"
-                />
-                <span class="dim-unit">cm</span>
-              </div>
-            </div>
-            <!-- ALTO (Z) — Z es la altura en impresión 3D -->
-            <div v-if="altoCm !== null" class="dim-input-wrap">
-              <span class="dim-label">Alto</span>
-              <div class="dim-field">
-                <input
-                  type="number"
-                  class="dim-input"
-                  :min="(producto.tamano_minimo_mm / producto.tamano_base_mm * producto.tamano_z_mm!) / 10"
-                  :max="(producto.tamano_maximo_mm / producto.tamano_base_mm * producto.tamano_z_mm!) / 10"
-                  step="0.1"
-                  :value="altoCm"
-                  @change="altoCm = parseFloat(($event.target as HTMLInputElement).value) || altoCm"
-                />
-                <span class="dim-unit">cm</span>
-              </div>
-            </div>
-          </div>
-          <input type="range" :min="producto.tamano_minimo_mm" :max="producto.tamano_maximo_mm" :step="1"
-            v-model.number="tamano" class="size-slider" />
-          <div class="slider-limits">
-            <span>{{ formatTamano(producto.tamano_minimo_mm) }}</span>
-            <span>{{ formatTamano(producto.tamano_maximo_mm) }}</span>
-          </div>
         </div>
 
         <!-- Filamentos agrupados por tipo -->
@@ -348,30 +191,26 @@ const ctaUrl = computed(() => {
           </div>
         </div>
 
-        <!-- Multicolor deshabilitado -->
-        <div class="config-block disabled-block">
-          <div class="disabled-header">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
+        <!-- Multicolor -->
+        <div v-if="producto.permite_multicolor && producto.max_colores >= 2" class="config-block">
+          <div class="block-header">
             <span class="block-label">Multicolor</span>
-            <span class="disabled-badge">Próximamente</span>
+            <label class="mc-switch">
+              <input type="checkbox" v-model="multicolorOn" />
+              <span class="mc-switch-track"><span class="mc-switch-thumb" /></span>
+            </label>
+          </div>
+          <div v-if="multicolorOn" class="mc-body">
+            <span class="dim-label">Número de colores</span>
+            <div class="mc-stepper">
+              <button type="button" @click="numColores = Math.max(2, numColores - 1)" :disabled="numColores <= 2">−</button>
+              <span class="mc-count-val">{{ numColores }}</span>
+              <button type="button" @click="numColores = Math.min(producto.max_colores, numColores + 1)" :disabled="numColores >= producto.max_colores">+</button>
+            </div>
+            <p class="mc-note">Máx {{ producto.max_colores }} colores. El color base se elige arriba.</p>
           </div>
         </div>
 
-        <!-- Precio -->
-        <div class="precio-card">
-          <div v-if="calcLoading" class="precio-loading">
-            <div class="precio-spinner" /><span>Calculando…</span>
-          </div>
-          <div v-else-if="calcError" class="precio-error">{{ calcError }}</div>
-          <div v-else-if="precio !== null" class="precio-display">
-            <span class="precio-label">Precio estimado</span>
-            <span class="precio-monto">{{ formatPrecio(precio) }}</span>
-          </div>
-
-          <p class="precio-nota">* Precio estimado. El costo final puede variar según complejidad de impresión.</p>
-        </div>
 
         <div v-if="filamentoAgotado" class="agotado-aviso">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -415,6 +254,20 @@ const ctaUrl = computed(() => {
 .block-header { display: flex; align-items: baseline; justify-content: space-between; }
 .block-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-soft); }
 .block-value { font-size: 0.95rem; font-weight: 700; color: var(--cyan); }
+
+/* Multicolor */
+.mc-switch { display: inline-flex; align-items: center; cursor: pointer; }
+.mc-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.mc-switch-track { width: 40px; height: 22px; border-radius: 999px; background: var(--border-soft); position: relative; transition: background 0.15s; display: inline-block; }
+.mc-switch input:checked + .mc-switch-track { background: var(--cyan); }
+.mc-switch-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+.mc-switch input:checked + .mc-switch-track .mc-switch-thumb { left: 20px; }
+.mc-body { display: flex; flex-direction: column; gap: 0.5rem; }
+.mc-stepper { display: inline-flex; align-items: center; gap: 0.75rem; }
+.mc-stepper button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border-soft); background: var(--bg-card); color: var(--text); font-size: 1.1rem; cursor: pointer; }
+.mc-stepper button:disabled { opacity: 0.4; cursor: not-allowed; }
+.mc-count-val { font-size: 1rem; font-weight: 700; color: var(--text); min-width: 20px; text-align: center; }
+.mc-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; }
 .dimensiones-inputs { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .dim-input-wrap { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 90px; }
 .dim-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }

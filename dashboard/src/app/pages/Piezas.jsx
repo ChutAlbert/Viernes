@@ -1,200 +1,122 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { viernesApi } from "@/lib/apis/viernes";
-import { ConfirmModal } from "@viernes/ui/react";
+import { viernesApi } from "../../lib/apis/viernes";
+import { API_BASE_URL } from "../../lib/apis/client";
 
-const TIPO_LABEL = {
-  encargo: "Encargo",
-  venta_general: "Venta general",
-};
+const FILTERS = [
+  { id: "todas",      label: "Todas" },
+  { id: "borradores", label: "Borradores" },
+  { id: "catalogo",   label: "En catálogo" },
+  { id: "vendidas",   label: "Vendidas" },
+];
 
-function formatMonto(monto) {
-  if (monto == null) return "—";
-  return `$${Number(monto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+function estadoDe(p) {
+  if (p.es_vendida) return "vendida";
+  if (p.publicado) return "catalogo";
+  return "borrador";
 }
+
+const CHIP = {
+  borrador: { label: "Borrador", color: "var(--c-text-3)", bg: "var(--c-hover)" },
+  catalogo: { label: "En catálogo", color: "#22d3ee", bg: "rgba(34,211,238,0.14)" },
+  vendida:  { label: "Vendida", color: "#22c55e", bg: "rgba(34,197,94,0.14)" },
+};
 
 export default function Piezas() {
   const navigate = useNavigate();
-  const [piezas, setPiezas] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [deleting, setDeleting] = useState(null);
-  const [confirmId, setConfirmId] = useState(null);
+  const [filter, setFilter] = useState("todas");
+  const [creating, setCreating] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [showNew, setShowNew] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
+  const load = () => {
     setLoading(true);
-    setError("");
-    try {
-      const data = await viernesApi.listPiezas();
-      setPiezas(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+    viernesApi.listProductosCatalogo().then(setItems).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
 
-  async function handleDelete(id) {
-    setDeleting(id);
+  const crear = async () => {
+    const nombre = nuevoNombre.trim();
+    if (!nombre) return;
+    setCreating(true);
     try {
-      await viernesApi.deletePieza(id);
-      setPiezas((prev) => prev.filter((p) => p.id !== id));
-    } catch (e) {
-      alert("Error al eliminar: " + e.message);
-    } finally {
-      setDeleting(null);
-      setConfirmId(null);
-    }
-  }
+      const p = await viernesApi.createProductoCatalogo({ nombre });
+      setShowNew(false); setNuevoNombre("");
+      navigate(`/app/piezas/${p.id}`);
+    } catch {/* silencioso */} finally { setCreating(false); }
+  };
+
+  const visibles = items.filter((p) => {
+    const e = estadoDe(p);
+    if (filter === "borradores") return e === "borrador";
+    if (filter === "catalogo") return e === "catalogo";
+    if (filter === "vendidas") return e === "vendida";
+    return true;
+  });
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div style={{ maxWidth: 1100 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: "var(--c-text)" }}>
-            Piezas impresas
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--c-text-4)" }}>
-            Registro de piezas vendidas o encargadas
-          </p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--c-text)" }}>Piezas</h1>
+          <p style={{ fontSize: 13, color: "var(--c-text-3)", margin: "4px 0 0" }}>Borrador · catálogo · vendida — todo en un solo lugar.</p>
         </div>
-        <button
-          onClick={() => navigate("/app/piezas/nueva")}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150"
-          style={{ background: "var(--c-accent)", color: "#fff" }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Nueva pieza
-        </button>
+        <button onClick={() => setShowNew(true)} style={S.primary}>+ Nueva pieza</button>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="text-sm py-8 text-center" style={{ color: "var(--c-text-4)" }}>Cargando…</div>
-      ) : error ? (
-        <div className="text-sm py-8 text-center" style={{ color: "#f87171" }}>{error}</div>
-      ) : piezas.length === 0 ? (
-        <div
-          className="rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-16 gap-3"
-          style={{ borderColor: "var(--c-border-med)", color: "var(--c-text-4)" }}
-        >
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-          </svg>
-          <p className="text-sm font-medium">Aún no hay piezas registradas</p>
-          <button
-            onClick={() => navigate("/app/piezas/nueva")}
-            className="text-sm px-4 py-2 rounded-xl font-medium transition-all"
-            style={{ background: "var(--c-hover-2)", color: "var(--c-text-2)" }}
-          >
-            Registrar primera pieza
-          </button>
-        </div>
-      ) : (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ border: "1px solid var(--c-border-med)", background: "var(--c-shell)" }}
-        >
-          {/* Table header */}
-          <div
-            className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-widest"
-            style={{ borderBottom: "1px solid var(--c-border)", color: "var(--c-text-4)", background: "var(--c-hover)" }}
-          >
-            <span>Pieza</span>
-            <span className="text-right w-28">Costo</span>
-            <span className="w-32">Tipo</span>
-            <span className="w-32">Sincronizado</span>
-            <span className="w-8"></span>
-          </div>
-
-          {/* Rows */}
-          {piezas.map((p, i) => (
-            <div
-              key={p.id}
-              onClick={() => navigate(`/app/piezas/${p.id}`)}
-              className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-4 cursor-pointer transition-colors duration-100"
-              style={{
-                borderBottom: i < piezas.length - 1 ? "1px solid var(--c-border)" : "none",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--c-hover)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
-            >
-              {/* Nombre + persona */}
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: "var(--c-text)" }}>{p.nombre}</p>
-                {p.persona && (
-                  <p className="text-xs truncate mt-0.5" style={{ color: "var(--c-text-4)" }}>{p.persona}</p>
-                )}
-              </div>
-
-              {/* Monto */}
-              <div className="text-sm font-medium text-right w-28 self-center" style={{ color: "var(--c-text-2)" }}>
-                {formatMonto(p.monto_pagado)}
-              </div>
-
-              {/* Tipo */}
-              <div className="w-32 self-center">
-                <span
-                  className="text-xs px-2 py-0.5 rounded-full font-medium"
-                  style={{
-                    background: p.tipo === "encargo" ? "rgba(139,92,246,0.15)" : "rgba(20,184,166,0.15)",
-                    color: p.tipo === "encargo" ? "#a78bfa" : "#2dd4bf",
-                  }}
-                >
-                  {TIPO_LABEL[p.tipo] ?? p.tipo}
-                </span>
-              </div>
-
-              {/* Sincronizado */}
-              <div className="w-32 self-center">
-                {p.sincronizado_sodigic ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80" }}>
-                    Sodigic ✓
-                  </span>
-                ) : (
-                  <span className="text-xs" style={{ color: "var(--c-text-4)" }}>—</span>
-                )}
-              </div>
-
-              {/* Delete */}
-              <div className="w-8 self-center flex justify-end">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setConfirmId(p.id); }}
-                  disabled={deleting === p.id}
-                  className="p-1.5 rounded-lg transition-all"
-                  style={{ color: "var(--c-text-4)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "#f87171"; e.currentTarget.style.background = "rgba(248,113,113,0.1)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--c-text-4)"; e.currentTarget.style.background = ""; }}
-                  title="Eliminar"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
+      {showNew && (
+        <div style={{ ...S.card, display: "flex", gap: 8, alignItems: "center" }}>
+          <input autoFocus value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && crear()}
+            placeholder="Nombre de la pieza (borrador)" style={{ ...S.input, flex: 1 }} />
+          <button onClick={crear} disabled={creating || !nuevoNombre.trim()} style={S.primary}>{creating ? "Creando…" : "Crear"}</button>
+          <button onClick={() => { setShowNew(false); setNuevoNombre(""); }} style={S.ghost}>Cancelar</button>
         </div>
       )}
 
-      <ConfirmModal
-        open={confirmId !== null}
-        title="Eliminar pieza"
-        description="¿Eliminar esta pieza? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        variant="danger"
-        onConfirm={() => handleDelete(confirmId)}
-        onCancel={() => setConfirmId(null)}
-      />
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--c-border-med)", margin: "6px 0 18px", flexWrap: "wrap" }}>
+        {FILTERS.map((f) => (
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{ ...S.tab, ...(filter === f.id ? S.tabOn : {}) }}>{f.label}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p style={{ color: "var(--c-text-3)", fontSize: 14 }}>Cargando…</p>
+      ) : visibles.length === 0 ? (
+        <p style={{ color: "var(--c-text-4)", fontSize: 14 }}>Nada aquí. Crea una pieza con "+ Nueva pieza".</p>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+          {visibles.map((p) => {
+            const chip = CHIP[estadoDe(p)];
+            const img = p.foto_preview_url ? `${API_BASE_URL}${p.foto_preview_url}` : null;
+            return (
+              <button key={p.id} onClick={() => navigate(`/app/piezas/${p.id}`)} style={S.item}>
+                <div style={{ height: 120, borderRadius: 10, overflow: "hidden", background: "var(--c-hover)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {img ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                       : <span style={{ color: "var(--c-text-4)", fontSize: 28 }}>◈</span>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</span>
+                </div>
+                <span style={{ display: "inline-block", marginTop: 6, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, color: chip.color, background: chip.bg }}>{chip.label}</span>
+                {p.precio_desde != null && <span style={{ display: "block", marginTop: 6, fontSize: 12, color: "var(--c-text-3)" }}>Desde ${p.precio_desde}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
+const S = {
+  card: { background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 12, padding: 14, marginBottom: 14 },
+  input: { padding: "8px 11px", border: "1px solid var(--c-border-med)", borderRadius: 8, fontSize: 14, color: "var(--c-text)", background: "var(--c-input-bg)", outline: "none" },
+  primary: { fontSize: 13, fontWeight: 600, color: "#fff", background: "var(--c-accent)", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer" },
+  ghost: { fontSize: 13, color: "var(--c-text-3)", background: "transparent", border: "1px solid var(--c-border)", borderRadius: 8, padding: "8px 12px", cursor: "pointer" },
+  tab: { padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottom: "2px solid transparent", cursor: "pointer", marginBottom: -1 },
+  tabOn: { color: "var(--c-accent-text)", borderBottomColor: "var(--c-accent)" },
+  item: { textAlign: "left", background: "var(--c-surface)", border: "1px solid var(--c-border)", borderRadius: 12, padding: 12, cursor: "pointer" },
+};

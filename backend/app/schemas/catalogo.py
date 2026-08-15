@@ -52,18 +52,31 @@ class ProductoBase(BaseModel):
     archivo_3d_url: Optional[str] = None
     foto_preview_url: Optional[str] = None
     es_personalizable: bool = False
-    tiempo_impresion_minutos: float = Field(gt=0)
+    # Cálculo/tamaño: opcionales para permitir borradores (solo nombre)
+    tiempo_impresion_minutos: Optional[float] = None
     tiempo_minimo_minutos: Optional[float] = None
     tiempo_maximo_minutos: Optional[float] = None
-    tamano_base_mm: float = Field(gt=0)
+    tamano_base_mm: Optional[float] = None
     tamano_y_mm: Optional[float] = None
     tamano_z_mm: Optional[float] = None
-    tamano_minimo_mm: float = Field(gt=0)
-    tamano_maximo_mm: float = Field(gt=0)
-    permite_multicolor: bool = False
-    max_colores: int = Field(default=1, ge=1)
+    tamano_minimo_mm: Optional[float] = None
+    tamano_maximo_mm: Optional[float] = None
+    permite_multicolor: bool = True
+    max_colores: int = Field(default=4, ge=1)
     activo: bool = True
+    # Estado unificado
     publicado: bool = False
+    es_vendida: bool = False
+    # Datos de venta (JSON como string; la UI hace parse)
+    tipo_venta: str = "venta_general"
+    persona: Optional[str] = None
+    precios_venta: Optional[str] = None
+    monto_pagado: Optional[float] = None
+    pagos: Optional[str] = None
+    fecha_encargo: Optional[str] = None
+    fecha_entrega: Optional[str] = None
+    fecha_pago: Optional[str] = None
+    notas_venta: Optional[str] = None
 
 
 class ProductoCreate(ProductoBase):
@@ -97,11 +110,14 @@ class ProductoListItem(BaseModel):
     nombre: str
     foto_preview_url: Optional[str] = None
     es_personalizable: bool = False
-    tiempo_impresion_minutos: float
-    tamano_minimo_mm: float
-    tamano_maximo_mm: float
-    permite_multicolor: bool
-    publicado: bool
+    tiempo_impresion_minutos: Optional[float] = None
+    tamano_minimo_mm: Optional[float] = None
+    tamano_maximo_mm: Optional[float] = None
+    permite_multicolor: bool = False
+    publicado: bool = False
+    es_vendida: bool = False
+    tipo_venta: str = "venta_general"
+    persona: Optional[str] = None
     created_at: datetime
     precio_desde: Optional[float] = None
 
