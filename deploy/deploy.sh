@@ -53,7 +53,18 @@ if [ -n "$NUEVAS" ]; then
   done
 fi
 
+# Bash lee el script por pedazos: si el pull lo reemplaza a media ejecucion,
+# sigue leyendo el archivo nuevo desde el offset viejo y hace cualquier cosa.
+# Por eso nos reejecutamos cuando el propio script cambio.
+HASH_ANTES=$(sha1sum "$0" | cut -d" " -f1)
+
 git merge --ff-only "origin/$RAMA"
+
+if [ "$(sha1sum "$0" | cut -d" " -f1)" != "$HASH_ANTES" ] && [ "${REEJECUTADO:-0}" != "1" ]; then
+  echo "El script cambio con este pull. Reejecutando la version nueva..."
+  export REEJECUTADO=1 FORZAR=1
+  exec "$0" "$@"
+fi
 
 # ── build ────────────────────────────────────────────────────────────────────
 npm install
@@ -65,6 +76,11 @@ npm run build --workspace website
 PENDIENTES=$(cd backend && "$PY" -m alembic heads | awk '{print $1}')
 ACTUAL=$(cd backend && "$PY" -m alembic current 2>/dev/null | tail -1 | awk '{print $1}')
 if [ "$PENDIENTES" != "$ACTUAL" ]; then
+  if [ -z "${DATABASE_URL:-}" ]; then
+    echo "ABORTADO: DATABASE_URL no esta definida y no se pudo leer de $REPO/backend/.env"
+    echo "Sin ella no hay respaldo, y sin respaldo no se migra."
+    exit 1
+  fi
   mkdir -p "$RESPALDOS"
   DUMP="$RESPALDOS/viernes-$(date +%Y%m%d-%H%M%S).sql"
   echo "Respaldando en $DUMP"
