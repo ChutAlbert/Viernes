@@ -18,7 +18,14 @@ sudo systemctl enable --now viernes-deploy.timer
 ```bash
 systemctl list-timers viernes-deploy.timer     # cuándo corre la próxima
 journalctl -u viernes-deploy.service -f        # log en vivo
-systemctl start viernes-deploy.service         # forzar un deploy ya
+systemctl start viernes-deploy.service         # correr el ciclo ya
+```
+
+Si no hay commits nuevos el script sale sin hacer nada. Para desplegar de
+todas formas — instalación inicial, cambio en un `.env`, build a medias:
+
+```bash
+sudo FORZAR=1 /var/www/viernes/deploy/deploy.sh
 ```
 
 ## Migraciones

@@ -15,7 +15,11 @@ cd "$REPO"
 git fetch --quiet origin "$RAMA"
 LOCAL=$(git rev-parse HEAD)
 REMOTO=$(git rev-parse "origin/$RAMA")
-[ "$LOCAL" = "$REMOTO" ] && exit 0
+# FORZAR=1 despliega aunque no haya commits nuevos: instalacion inicial,
+# cambios en .env, o rehacer un build que quedo a medias.
+if [ "$LOCAL" = "$REMOTO" ] && [ "${FORZAR:-0}" != "1" ]; then
+  exit 0
+fi
 
 echo "=== Deploy $(date -Is): $LOCAL -> $REMOTO ==="
 
