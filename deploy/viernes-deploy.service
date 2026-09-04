@@ -8,6 +8,4 @@ Type=oneshot
 User=jesus
 Group=jesus
 WorkingDirectory=/var/www/viernes
-# DATABASE_URL lo necesita pg_dump; se lee del .env del backend
-EnvironmentFile=/var/www/viernes/backend/.env
 ExecStart=/var/www/viernes/deploy/deploy.sh
