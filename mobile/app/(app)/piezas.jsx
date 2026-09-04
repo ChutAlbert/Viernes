@@ -7,40 +7,56 @@ import { Screen } from '../../components/Screen';
 import { viernesApi } from '../../lib/api/viernes';
 import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
+// Desde la fusion, una "pieza" es un catalogo_producto: puede estar publicada
+// en el sitio, marcada como vendida, o ninguna de las dos (borrador).
 function PiezaCard({ pieza, onDelete }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
+  const precio = pieza.precio_desde;
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.name}>{pieza.nombre}</Text>
-          {pieza.descripcion && (
-            <Text style={styles.desc} numberOfLines={2}>{pieza.descripcion}</Text>
-          )}
+          {pieza.persona ? (
+            <Text style={styles.desc} numberOfLines={1}>Para: {pieza.persona}</Text>
+          ) : null}
         </View>
         <TouchableOpacity onPress={() => onDelete(pieza.id)} activeOpacity={0.7}>
-          <Text style={styles.del}>✕</Text>
+          <Text style={styles.del}>Eliminar</Text>
         </TouchableOpacity>
       </View>
+
       <View style={styles.tags}>
-        {pieza.material && (
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>{pieza.material}</Text>
+        {pieza.publicado ? (
+          <View style={[styles.tag, { backgroundColor: colors.greenBg }]}>
+            <Text style={[styles.tagText, { color: colors.green }]}>Publicada</Text>
+          </View>
+        ) : (
+          <View style={[styles.tag, { backgroundColor: colors.yellowBg }]}>
+            <Text style={[styles.tagText, { color: colors.yellow }]}>Borrador</Text>
           </View>
         )}
-        {pieza.estado && (
-          <View style={[styles.tag, { backgroundColor: pieza.estado === 'activo' ? colors.greenBg : colors.yellowBg }]}>
-            <Text style={[styles.tagText, { color: pieza.estado === 'activo' ? colors.green : colors.yellow }]}>
-              {pieza.estado}
+
+        {pieza.es_vendida ? (
+          <View style={[styles.tag, { backgroundColor: colors.accentBg }]}>
+            <Text style={[styles.tagText, { color: colors.accentText }]}>
+              {pieza.tipo_venta === 'encargo' ? 'Encargo' : 'Vendida'}
             </Text>
           </View>
-        )}
-        {pieza.precio != null && (
+        ) : null}
+
+        {pieza.permite_multicolor ? (
           <View style={styles.tag}>
-            <Text style={[styles.tagText, { color: colors.accentText }]}>${pieza.precio}</Text>
+            <Text style={styles.tagText}>Multicolor</Text>
           </View>
-        )}
+        ) : null}
+
+        {precio != null ? (
+          <View style={[styles.tag, { backgroundColor: colors.accentBg }]}>
+            <Text style={[styles.tagText, { color: colors.accentText }]}>${precio}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );

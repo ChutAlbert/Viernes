@@ -52,7 +52,7 @@ function FileUpload({ label, value, accept, image, uploader, onDone }) {
       const fd = new FormData();
       fd.append("file", file);
       const res = await uploader(fd);
-      onDone(res?.url || null);
+      onDone(res?.url || null, res);
     } catch {/* silencioso */} finally {
       setBusy(false);
       if (ref.current) ref.current.value = "";
@@ -76,12 +76,86 @@ function FileUpload({ label, value, accept, image, uploader, onDone }) {
   );
 }
 
+
+// Galería de fotos de la pieza. La marcada como principal es la que sale en el catálogo.
+function Galeria({ productoId, imagenes, principal, onPrincipal, onCambio }) {
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+
+  const subir = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setBusy(true);
+    try {
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const up = await viernesApi.uploadImagen(fd);
+        if (up?.url) await viernesApi.addImagenProducto(productoId, { url: up.url, orden: 0 });
+      }
+      await onCambio();
+    } catch {/* silencioso */} finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  const borrar = async (imgId) => {
+    try {
+      await viernesApi.deleteImagenProducto(productoId, imgId);
+      await onCambio();
+    } catch {/* silencioso */}
+  };
+
+  const src = (u) => (u?.startsWith("http") ? u : `${API_BASE_URL}${u}`);
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={S.lbl}>Fotos de la pieza</span>
+        <input ref={ref} type="file" accept="image/*" multiple onChange={subir} style={{ display: "none" }} />
+        <button type="button" onClick={() => ref.current?.click()} disabled={busy} style={S.ghost}>
+          {busy ? "Subiendo…" : "+ Agregar fotos"}
+        </button>
+      </div>
+
+      {imagenes.length === 0 ? (
+        <p style={{ fontSize: 12, color: "var(--c-text-4)", marginTop: 8 }}>
+          Sin fotos. La principal es la que se ve en el catálogo del sitio.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" style={{ marginTop: 10 }}>
+          {imagenes.map((img) => {
+            const esPrincipal = principal === img.url;
+            return (
+              <div key={img.id} style={{ border: esPrincipal ? "2px solid var(--c-accent)" : "1px solid var(--c-border)",
+                                         borderRadius: 10, overflow: "hidden", background: "var(--c-hover)" }}>
+                <img src={src(img.url)} alt="" style={{ width: "100%", height: 96, objectFit: "cover", display: "block" }} />
+                <div style={{ display: "flex", gap: 4, padding: 6 }}>
+                  <button type="button" onClick={() => onPrincipal(img.url)} disabled={esPrincipal}
+                    style={{ flex: 1, fontSize: 11, fontWeight: 600, padding: "5px 6px", borderRadius: 6, cursor: esPrincipal ? "default" : "pointer",
+                             border: "1px solid " + (esPrincipal ? "var(--c-accent)" : "var(--c-border)"),
+                             background: esPrincipal ? "var(--c-accent-bg)" : "transparent",
+                             color: esPrincipal ? "var(--c-accent-text)" : "var(--c-text-3)" }}>
+                    {esPrincipal ? "Principal ✓" : "Hacer principal"}
+                  </button>
+                  <button type="button" onClick={() => borrar(img.id)} title="Eliminar"
+                    style={{ fontSize: 12, padding: "5px 8px", borderRadius: 6, cursor: "pointer",
+                             border: "1px solid var(--c-border)", background: "transparent", color: "#f87171" }}>✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PiezaEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [p, setP] = useState(null);
-  const [filamentos, setFilamentos] = useState([]);
-  const [selFilamentos, setSelFilamentos] = useState([]);
   const [tab, setTab] = useState("calculo");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -89,22 +163,16 @@ export default function PiezaEditor() {
   const dirty = useRef(false);
 
   useEffect(() => {
-    viernesApi.getProductoCatalogo(id).then((data) => {
-      setP(data);
-      setSelFilamentos((data.filamentos || []).map((f) => f.filamento_id));
-    }).catch(() => {});
-    viernesApi.listFilamentos().then(setFilamentos).catch(() => {});
+    viernesApi.getProductoCatalogo(id).then(setP).catch(() => {});
   }, [id]);
 
   const save = async () => {
     if (!p) return;
     setSaving(true);
     try {
-      const payload = { ...p, filamentos: selFilamentos.map((fid) => ({ filamento_id: fid })) };
+      const payload = { ...p, filamentos: [] };   // colores globales, no por pieza
       delete payload.imagenes;
-      const updated = await viernesApi.updateProductoCatalogo(id, payload);
-      setP(updated);
-      setSelFilamentos((updated.filamentos || []).map((f) => f.filamento_id));
+      setP(await viernesApi.updateProductoCatalogo(id, payload));
       setSaved(true);
     } catch {/* silencioso */} finally { setSaving(false); }
   };
@@ -114,13 +182,13 @@ export default function PiezaEditor() {
     if (!p || !dirty.current) return;
     const t = setTimeout(() => { dirty.current = false; save(); }, 700);
     return () => clearTimeout(t);
-  }, [p, selFilamentos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k) => (v) => { dirty.current = true; setSaved(false); setP((cur) => ({ ...cur, [k]: v })); };
 
-  const toggleFil = (fid) => {
-    dirty.current = true; setSaved(false);
-    setSelFilamentos((cur) => cur.includes(fid) ? cur.filter((x) => x !== fid) : [...cur, fid]);
+  // Recarga la pieza (para refrescar la galería tras subir/borrar)
+  const recargar = async () => {
+    try { setP(await viernesApi.getProductoCatalogo(id)); } catch {/* silencioso */}
   };
 
   if (!p) return <p style={{ color: "var(--c-text-3)" }}>Cargando…</p>;
@@ -161,15 +229,25 @@ export default function PiezaEditor() {
               <textarea value={p.descripcion || ""} onChange={(e) => set("descripcion")(e.target.value)} rows={4} style={{ ...S.input, resize: "vertical" }} />
             </Field>
             <div style={{ marginTop: 14 }}>
-              <FileUpload label="Foto preview" image accept="image/*" value={p.foto_preview_url}
-                uploader={viernesApi.uploadImagen} onDone={set("foto_preview_url")} />
+              <Galeria
+                productoId={id}
+                imagenes={p.imagenes || []}
+                principal={p.foto_preview_url}
+                onPrincipal={set("foto_preview_url")}
+                onCambio={recargar}
+              />
             </div>
             <div style={{ marginTop: 14 }}>
               <Field label="Slug (URL pública)"><input value={p.slug || ""} onChange={(e) => set("slug")(e.target.value)} style={S.input} placeholder="se genera solo del nombre" /></Field>
             </div>
             <div style={{ marginTop: 14 }}>
-              <FileUpload label="Archivo 3D (3mf)" accept=".3mf,.stl" value={p.archivo_3d_url}
-                uploader={viernesApi.uploadArchivo3D} onDone={set("archivo_3d_url")} />
+              <FileUpload label="Archivo 3D (3mf · stl · obj)" accept=".3mf,.stl,.obj" value={p.archivo_3d_url}
+                uploader={viernesApi.uploadArchivo3D}
+                onDone={(url, res) => {
+                  set("archivo_3d_url")(url);
+                  // El 3mf del slicer trae un render a color: úsalo como foto si aún no hay
+                  if (res?.preview_url && !p.foto_preview_url) set("foto_preview_url")(res.preview_url);
+                }} />
             </div>
           </div>
 
@@ -184,24 +262,9 @@ export default function PiezaEditor() {
               <Field label="Máx. colores"><input type="number" min={1} value={p.max_colores ?? 4} onChange={(e) => set("max_colores")(parseInt(e.target.value) || 1)} style={S.input} /></Field>
             </div>
 
-            <div style={{ marginTop: 14 }}>
-              <span style={S.lbl}>Colores disponibles (se muestran en el sitio)</span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                {filamentos.length === 0 && <span style={{ fontSize: 12, color: "var(--c-text-4)" }}>Sin filamentos. Créalos en Filamentos.</span>}
-                {filamentos.map((f) => {
-                  const on = selFilamentos.includes(f.id);
-                  return (
-                    <button key={f.id} type="button" onClick={() => toggleFil(f.id)}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "5px 10px", borderRadius: 999, cursor: "pointer",
-                               border: on ? "1px solid var(--c-accent)" : "1px solid var(--c-border-med)",
-                               background: on ? "var(--c-accent-bg)" : "transparent", color: on ? "var(--c-accent-text)" : "var(--c-text-3)" }}>
-                      <span style={{ width: 12, height: 12, borderRadius: 3, background: f.hex_codigo || "#888" }} />
-                      {f.nombre}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <p style={{ fontSize: 12, color: "var(--c-text-3)", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--c-border)" }}>
+              Los colores son <b style={{ color: "var(--c-text-2)" }}>globales</b>: se activan en Filamentos y aplican a todas las piezas.
+            </p>
           </div>
         </div>
       )}
@@ -235,6 +298,6 @@ const S = {
   input: { padding: "8px 11px", border: "1px solid var(--c-border-med)", borderRadius: 8, fontSize: 14, color: "var(--c-text)", background: "var(--c-input-bg)", width: "100%", outline: "none" },
   ghost: { fontSize: 13, color: "var(--c-text-3)", background: "transparent", border: "1px solid var(--c-border)", borderRadius: 8, padding: "8px 12px", cursor: "pointer" },
   primary: { fontSize: 13, fontWeight: 600, color: "#fff", background: "var(--c-accent)", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer" },
-  tab: { padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottom: "2px solid transparent", cursor: "pointer", marginBottom: -1 },
-  tabOn: { color: "var(--c-accent-text)", borderBottomColor: "var(--c-accent)" },
+  tab: { position: "relative", zIndex: 1, padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottomWidth: 2, borderBottomStyle: "solid", borderBottomColor: "transparent", cursor: "pointer", marginBottom: -2 },
+  tabOn: { color: "var(--c-accent-text)", borderBottomColor: "var(--c-accent)", fontWeight: 600 },
 };

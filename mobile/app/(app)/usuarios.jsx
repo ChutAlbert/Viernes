@@ -15,28 +15,29 @@ const makeRoleColor = (colors) => ({
   user:        { text: colors.text3,      bg: colors.hover },
 });
 
+// Debe reflejar las claves NO restringidas por rol de AppSidebar.jsx.
+// Una clave que falte aqui no se puede desactivar: canAccess() la deja pasar.
 const PERM_LABELS = {
-  overview:   'Panel principal',
+  overview:   'Overview',
   chat:       'Chat IA',
   gmail:      'Gmail',
   docs:       'Documentos',
   tareas:     'Tareas',
   notas:      'Notas',
-  website:    'Website',
-  catalogo:   'Catálogo',
-  piezas:     'Piezas 3D',
-  inventario: 'Inventario',
-  redes:      'Redes Sociales',
   qr:         'Generador QR',
   passwords:  'Contraseñas',
+  spotify:    'Spotify',
+  website:    'Website',
+  piezas:     'Piezas',
+  filamentos: 'Filamentos',
+  inventario: 'Inventario',
+  precios:    'Precios',
 };
 
 const PERM_GROUPS = [
-  { label: 'General',   keys: ['overview'] },
-  { label: 'Viernes',   keys: ['chat', 'gmail', 'docs'] },
-  { label: 'Agenda',    keys: ['tareas', 'notas'] },
-  { label: 'Sodigic',   keys: ['website', 'catalogo', 'piezas', 'inventario', 'redes'] },
-  { label: 'Funciones', keys: ['qr', 'passwords'] },
+  { label: 'Viernes',  keys: ['overview', 'chat', 'gmail', 'docs'] },
+  { label: 'Personal', keys: ['tareas', 'notas', 'qr', 'passwords', 'spotify'] },
+  { label: 'Sodigic',  keys: ['website', 'piezas', 'filamentos', 'inventario', 'precios'] },
 ];
 
 const DEFAULT_PERMS = Object.fromEntries(Object.keys(PERM_LABELS).map((k) => [k, true]));

@@ -3,12 +3,10 @@ import { viernesApi } from "@/lib/apis/viernes";
 import { SearchSelect, ConfirmModal } from "@viernes/ui/react";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
+// Los filamentos NO viven aquí — tienen su propio módulo (Filamentos).
 const CATEGORIAS = [
-  { value: "filamento",    label: "Filamento",    color: "#a78bfa" },
-  { value: "boquilla",     label: "Boquilla",     color: "#60a5fa" },
-  { value: "herramienta",  label: "Herramienta",  color: "#f59e0b" },
-  { value: "quimico",      label: "Químico",      color: "#34d399" },
-  { value: "otro",         label: "Otro",         color: "#94a3b8" },
+  { value: "refaccion",  label: "Refacción",  color: "#60a5fa" },
+  { value: "accesorio",  label: "Accesorio",  color: "#34d399" },
 ];
 const TIPOS = [
   { value: "consumible",     label: "Consumible"     },
@@ -22,7 +20,7 @@ const fmt$ = (n) =>
   (n ?? 0).toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 2 });
 const fmtN = (n, u) => `${(n ?? 0).toLocaleString("es-MX", { maximumFractionDigits: 2 })} ${u ?? ""}`;
 
-const EMPTY_ITEM = { nombre: "", categoria: "filamento", tipo: "consumible", unidad: "kg", cantidad_actual: "", cantidad_minima: "", precio_referencia: "", notas: "", activo: true };
+const EMPTY_ITEM = { nombre: "", categoria: "refaccion", tipo: "consumible", unidad: "piezas", cantidad_actual: "", cantidad_minima: "", precio_referencia: "", notas: "", activo: true };
 const EMPTY_COMPRA = { item_id: "", cantidad: "", precio_total: "", fecha: new Date().toISOString().slice(0, 10), proveedor: "", notas: "" };
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
@@ -501,7 +499,7 @@ export default function Inventario() {
   useEffect(() => { loadItems(); }, []);
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold" style={{ color: "var(--c-text)" }}>Inventario</h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--c-text-4)" }}>

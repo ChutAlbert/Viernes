@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { viernesApi } from "@/lib/apis/viernes";
-import { SearchSelect, ConfirmModal } from "@viernes/ui/react";
+import { SearchSelect, ConfirmModal, Modal } from "@viernes/ui/react";
 
 const ICONOS = [
   { value: "instagram", label: "Instagram" },
@@ -39,6 +39,7 @@ export default function RedesSociales() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmId, setConfirmId] = useState(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -46,12 +47,15 @@ export default function RedesSociales() {
     try { setRedes(await viernesApi.listRedes()); } catch (e) { setError(e.message); }
   }
 
+  function startNew() { setEditId(null); setForm(EMPTY); setError(""); setOpen(true); }
+
   function startEdit(red) {
     setEditId(red.id);
+    setOpen(true);
     setForm({ nombre: red.nombre, url: red.url, icono: red.icono, orden: red.orden, activo: red.activo });
   }
 
-  function cancelEdit() { setEditId(null); setForm(EMPTY); setError(""); }
+  function cancelEdit() { setOpen(false); setEditId(null); setForm(EMPTY); setError(""); }
 
   async function save() {
     if (!form.nombre.trim() || !form.url.trim()) { setError("Nombre y URL son requeridos."); return; }
@@ -77,62 +81,19 @@ export default function RedesSociales() {
   const inputStyle = { background: "var(--c-hover)", border: "1px solid var(--c-border-med)", color: "var(--c-text)" };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold" style={{ color: "var(--c-text)" }}>Redes Sociales</h1>
-        <p className="text-sm mt-1" style={{ color: "var(--c-text-4)" }}>Se muestran en el website (contacto y footer).</p>
+    <div className="max-w-[1400px] mx-auto space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: "var(--c-text)" }}>Redes Sociales</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--c-text-4)" }}>Se muestran en el website (contacto y footer).</p>
+        </div>
+        <button onClick={startNew} className="px-4 py-2 rounded-xl text-sm font-semibold"
+          style={{ background: "var(--c-accent)", color: "#fff" }}>
+          Nueva red social
+        </button>
       </div>
 
-      {error && <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>{error}</div>}
-
-      {/* Formulario */}
-      <div className="rounded-2xl p-5 space-y-4" style={{ background: "var(--c-shell)", border: "1px solid var(--c-border-med)" }}>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>
-          {editId ? "Editar red social" : "Nueva red social"}
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Red / Nombre</label>
-            <input className={inputCls} style={inputStyle} value={form.nombre}
-              onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Instagram" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Ícono</label>
-            <SearchSelect
-              variant="dark"
-              options={ICONOS_OPTS}
-              value={form.icono}
-              onChange={v => setForm(p => ({ ...p, icono: v }))}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 col-span-2">
-            <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>URL</label>
-            <input className={inputCls} style={inputStyle} value={form.url}
-              onChange={e => setForm(p => ({ ...p, url: e.target.value }))} placeholder="https://instagram.com/sodigic" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Orden</label>
-            <input type="number" className={inputCls} style={inputStyle} value={form.orden}
-              onChange={e => setForm(p => ({ ...p, orden: e.target.value }))} />
-          </div>
-          <div className="flex items-end pb-1">
-            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "var(--c-text-2)" }}>
-              <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} />
-              Activo (visible en website)
-            </label>
-          </div>
-        </div>
-
-        <div className="flex gap-2 pt-1">
-          <button onClick={save} disabled={saving}
-            className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-            style={{ background: "var(--c-accent)", color: "#fff" }}>
-            {saving ? "Guardando…" : editId ? "Guardar cambios" : "Agregar"}
-          </button>
-          {editId && <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-sm" style={{ color: "var(--c-text-3)" }}>Cancelar</button>}
-        </div>
-      </div>
+      {error && !open && <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>{error}</div>}
 
       {/* Lista */}
       <div className="space-y-2">
@@ -155,6 +116,58 @@ export default function RedesSociales() {
           </div>
         ))}
       </div>
+
+      <Modal open={open} onClose={cancelEdit} size="xl">
+        <div className="p-6 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--c-text-4)" }}>
+            {editId ? "Editar red social" : "Nueva red social"}
+          </p>
+
+          {error && <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>{error}</div>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Red / Nombre</label>
+              <input className={inputCls} style={inputStyle} value={form.nombre}
+                onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Instagram" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Ícono</label>
+              <SearchSelect
+                variant="dark"
+                options={ICONOS_OPTS}
+                value={form.icono}
+                onChange={v => setForm(p => ({ ...p, icono: v }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>URL</label>
+              <input className={inputCls} style={inputStyle} value={form.url}
+                onChange={e => setForm(p => ({ ...p, url: e.target.value }))} placeholder="https://instagram.com/sodigic" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium" style={{ color: "var(--c-text-4)" }}>Orden</label>
+              <input type="number" className={inputCls} style={inputStyle} value={form.orden}
+                onChange={e => setForm(p => ({ ...p, orden: e.target.value }))} />
+            </div>
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: "var(--c-text-2)" }}>
+                <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} />
+                Activo (visible en website)
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button onClick={save} disabled={saving}
+              className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+              style={{ background: "var(--c-accent)", color: "#fff" }}>
+              {saving ? "Guardando…" : editId ? "Guardar cambios" : "Agregar"}
+            </button>
+            <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-sm" style={{ color: "var(--c-text-3)" }}>Cancelar</button>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmModal
         open={confirmId !== null}

@@ -57,28 +57,27 @@ export const viernesApi = {
   createInventarioCompra:(p)    => apiRequest('post', '/inventario/compras', p),
   deleteInventarioCompra:(id)   => apiRequestDelete(`/inventario/compras/${id}`),
 
-  // catálogo
-  listProductosCatalogo:   ()       => apiRequest('get', '/catalogo/productos'),
-  getProductoCatalogo:     (id)     => apiRequest('get', `/catalogo/productos/${id}`),
-  createProductoCatalogo:  (p)      => apiRequest('post', '/catalogo/productos', p),
-  updateProductoCatalogo:  (id, p)  => apiRequest('put', `/catalogo/productos/${id}`, p),
-  deleteProductoCatalogo:  (id)     => apiRequestDelete(`/catalogo/productos/${id}`),
+  // piezas — desde la fusion viven en catalogo_productos, no en /piezas
+  listPiezas:  ()               => apiRequest('get', '/catalogo/productos'),
+  getPieza:    (id)             => apiRequest('get', `/catalogo/productos/${id}`),
+  createPieza: (p)              => apiRequest('post', '/catalogo/productos', p),
+  updatePieza: (id, p)          => apiRequest('put', `/catalogo/productos/${id}`, p),
+  deletePieza: (id)             => apiRequestDelete(`/catalogo/productos/${id}`),
 
-  // piezas
-  listPiezas:  ()               => apiRequest('get', '/piezas'),
-  getPieza:    (id)             => apiRequest('get', `/piezas/${id}`),
-  createPieza: (p)              => apiRequest('post', '/piezas', p),
-  updatePieza: (id, p)          => apiRequest('put', `/piezas/${id}`, p),
-  deletePieza: (id)             => apiRequestDelete(`/piezas/${id}`),
+  // filamentos (material + color unificados)
+  listFilamentos:  ()           => apiRequest('get', '/catalogo/filamentos'),
+  createFilamento: (p)          => apiRequest('post', '/catalogo/filamentos', p),
+  updateFilamento: (id, p)      => apiRequest('put', `/catalogo/filamentos/${id}`, p),
+  deleteFilamento: (id)         => apiRequestDelete(`/catalogo/filamentos/${id}`),
 
   // website (servicios)
   listServicios: ()             => apiRequest('get', '/website/services'),
 
-  // redes sociales
-  listRedes:   ()               => apiRequest('get', '/redes'),
-  createRed:   (p)              => apiRequest('post', '/redes', p),
-  updateRed:   (id, p)          => apiRequest('put', `/redes/${id}`, p),
-  deleteRed:   (id)             => apiRequestDelete(`/redes/${id}`),
+  // contactos y redes: una sola tabla, marcada con es_contacto / es_red
+  listContactos:   ()           => apiRequest('get', '/website/admin/contacts'),
+  createContacto:  (p)          => apiRequest('post', '/website/admin/contacts', p),
+  updateContacto:  (id, p)      => apiRequest('put', `/website/admin/contacts/${id}`, p),
+  deleteContacto:  (id)         => apiRequestDelete(`/website/admin/contacts/${id}`),
 
   // vault
   vaultConfig:      ()          => apiRequest('get', '/vault/config'),

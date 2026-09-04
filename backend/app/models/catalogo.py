@@ -29,6 +29,11 @@ class CatalogoFilamento(Base):
     hex_codigo: Mapped[str] = mapped_column(String(7))        # "#000000"
     tarifa_por_minuto: Mapped[float] = mapped_column(Float)   # precio directo por minuto
     en_stock: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Inventario del filamento (vive aquí, no en inventario_items)
+    cantidad_actual: Mapped[float] = mapped_column(Float, default=0.0)
+    cantidad_minima: Mapped[float] = mapped_column(Float, default=0.0)
+    unidad: Mapped[str] = mapped_column(String(20), default="kg")
+    precio_referencia: Mapped[float] = mapped_column(Float, nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

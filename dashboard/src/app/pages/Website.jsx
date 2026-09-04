@@ -31,18 +31,22 @@ function SettingsTab() {
     hero_description: "",
     company_name: "",
     company_tagline: "",
+    catalogo_nota_colores: "",
+    solicitud_piezas_activa: "false",
+    ver_3d_activo: "true",
     maintenance_mode: "false",
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  async function toggleMaintenance() {
-    const next = form.maintenance_mode === "true" ? "false" : "true";
-    const newForm = { ...form, maintenance_mode: next };
+  // Toggles de ajuste: guardan al instante (no esperan al botón Guardar)
+  async function toggleAjuste(clave, mensaje) {
+    const next = form[clave] === "true" ? "false" : "true";
+    const newForm = { ...form, [clave]: next };
     setForm(newForm);
     try {
       await apiFetch("/website/admin/settings/bulk", { method: "POST", body: JSON.stringify({ settings: newForm }) });
-      setMsg(next === "true" ? "Modo mantenimiento ACTIVADO." : "Modo mantenimiento desactivado.");
+      setMsg(mensaje ? mensaje(next === "true") : "Guardado.");
     } catch { setMsg("Error al guardar."); }
   }
 
@@ -87,10 +91,48 @@ function SettingsTab() {
               : "El sitio está en línea normalmente."}
           </p>
         </div>
-        <button type="button" onClick={toggleMaintenance} role="switch" aria-checked={form.maintenance_mode === "true"}
+        <button type="button" onClick={() => toggleAjuste("maintenance_mode", (on) => on ? "Modo mantenimiento ACTIVADO." : "Modo mantenimiento desactivado.")} role="switch" aria-checked={form.maintenance_mode === "true"}
           style={{ width: 46, height: 26, borderRadius: 999, position: "relative", cursor: "pointer", flexShrink: 0,
                    border: "1px solid var(--c-border-med)", background: form.maintenance_mode === "true" ? "#f59e0b" : "var(--c-input-bg)" }}>
           <span style={{ position: "absolute", top: 2, left: form.maintenance_mode === "true" ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s" }} />
+        </button>
+      </div>
+
+      {/* Vista 3D en el catálogo */}
+      <div className="flex items-center justify-between p-4 rounded-xl"
+        style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>Ver modelo 3D en el sitio</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--c-text-3)" }}>
+            {form.ver_3d_activo !== "false"
+              ? "Las piezas con archivo 3D muestran el botón para verlo en 3D."
+              : "Solo se muestran las fotos; el visor 3D queda oculto."}
+          </p>
+        </div>
+        <button type="button" onClick={() => toggleAjuste("ver_3d_activo")} role="switch"
+          aria-checked={form.ver_3d_activo !== "false"}
+          style={{ width: 46, height: 26, borderRadius: 999, position: "relative", cursor: "pointer", flexShrink: 0,
+                   border: "1px solid var(--c-border-med)", background: form.ver_3d_activo !== "false" ? "var(--c-accent)" : "var(--c-input-bg)" }}>
+          <span style={{ position: "absolute", top: 2, left: form.ver_3d_activo !== "false" ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s" }} />
+        </button>
+      </div>
+
+      {/* Solicitud de piezas — aplica al instante */}
+      <div className="flex items-center justify-between p-4 rounded-xl"
+        style={{ background: "var(--c-hover)", border: "1px solid var(--c-border)" }}>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>Solicitud de piezas</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--c-text-3)" }}>
+            {form.solicitud_piezas_activa === "true"
+              ? 'El botón dice "Solicitar esta pieza" y lleva los datos al contacto.'
+              : 'El botón dice "Ponte en contacto" y solo lleva a la página de contacto.'}
+          </p>
+        </div>
+        <button type="button" onClick={() => toggleAjuste("solicitud_piezas_activa")} role="switch"
+          aria-checked={form.solicitud_piezas_activa === "true"}
+          style={{ width: 46, height: 26, borderRadius: 999, position: "relative", cursor: "pointer", flexShrink: 0,
+                   border: "1px solid var(--c-border-med)", background: form.solicitud_piezas_activa === "true" ? "var(--c-accent)" : "var(--c-input-bg)" }}>
+          <span style={{ position: "absolute", top: 2, left: form.solicitud_piezas_activa === "true" ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s" }} />
         </button>
       </div>
 
@@ -109,6 +151,15 @@ function SettingsTab() {
       <div className="space-y-1.5">
         <Label htmlFor="hero_subtitle">Subtítulo del Hero</Label>
         <Input id="hero_subtitle" variant="dark" value={form.hero_subtitle} onChange={(v) => setForm((f) => ({ ...f, hero_subtitle: v }))} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="catalogo_nota_colores">Nota de colores (catálogo)</Label>
+        <Textarea id="catalogo_nota_colores" variant="dark" rows={2}
+          value={form.catalogo_nota_colores}
+          onChange={(v) => setForm((f) => ({ ...f, catalogo_nota_colores: v }))} />
+        <p className="text-xs" style={{ color: "var(--c-text-4)" }}>
+          Aparece bajo los colores en cada pieza. Ej: "¿No ves el color que buscas? Escríbenos y lo cotizamos."
+        </p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="hero_description">Descripción del Hero</Label>
@@ -327,8 +378,33 @@ function ServicesTab() {
 }
 
 // ── Contacts Tab ──────────────────────────────────────────────────────────────
-const CONTACT_TYPES = ["phone", "email", "whatsapp", "other"].map((v) => ({ value: v, label: v }));
-const EMPTY_CONTACT = { contact_type: "email", label: "", value: "", is_active: true };
+const CONTACT_TYPES = [
+  { value: "email", label: "Correo" },
+  { value: "phone", label: "Teléfono" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "x", label: "X (Twitter)" },
+  { value: "youtube", label: "YouTube" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "telegram", label: "Telegram" },
+  { value: "other", label: "Otro" },
+];
+const AREAS = [
+  { id: "software", label: "Software" },
+  { id: "impresion3d", label: "Impresión 3D" },
+];
+
+const EMPTY_CONTACT = { contact_type: "email", label: "", value: "", is_active: true, areas: "software,impresion3d", es_red: false, es_contacto: true, orden: 0 };
+
+function tieneArea(areas, id) { return (areas ?? "").split(",").includes(id); }
+
+function toggleArea(areas, id) {
+  const set = new Set((areas ?? "").split(",").filter(Boolean));
+  set.has(id) ? set.delete(id) : set.add(id);
+  return AREAS.filter((a) => set.has(a.id)).map((a) => a.id).join(",");
+}
 
 function ContactsTab() {
   const [contacts, setContacts] = useState([]);
@@ -370,7 +446,11 @@ function ContactsTab() {
     load();
   }
 
-  const typeEmoji = { phone: "📞", email: "📧", whatsapp: "💬", other: "🔗" };
+  const typeEmoji = {
+    phone: "📞", email: "📧", whatsapp: "💬", other: "🔗",
+    instagram: "📷", facebook: "👍", tiktok: "🎵", x: "✖️",
+    youtube: "▶️", linkedin: "💼", telegram: "✈️",
+  };
 
   return (
     <div className="space-y-4">
@@ -386,6 +466,22 @@ function ContactsTab() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold" style={{ color: "var(--c-text)" }}>{c.label}</div>
               <div className="text-sm" style={{ color: "var(--c-text-2)" }}>{c.value}</div>
+            </div>
+            <div className="flex gap-1">
+              {c.es_contacto !== false && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(34,211,238,0.12)", color: "var(--c-accent)" }}>Contacto</span>
+              )}
+              {c.es_red && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>Red social</span>
+              )}
+            </div>
+            <div className="flex gap-1">
+              {AREAS.filter((a) => tieneArea(c.areas, a.id)).map((a) => (
+                <span key={a.id} className="text-[10px] px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--c-hover)", color: "var(--c-text-3)" }}>{a.label}</span>
+              ))}
             </div>
             <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-green-900/50 text-green-400" : ""}`}
               style={!c.is_active ? { background: "var(--c-hover)", color: "var(--c-text-3)" } : {}}>
@@ -417,6 +513,47 @@ function ContactsTab() {
             <Label>Valor (número, email o URL)</Label>
             <Input variant="dark" value={form.value} onChange={(v) => setForm((f) => ({ ...f, value: v }))} />
           </div>
+          <div className="space-y-1.5">
+            <Label>¿Qué es?</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.es_contacto !== false}
+                  onChange={(e) => setForm((f) => ({ ...f, es_contacto: e.target.checked }))}
+                  className="w-4 h-4 accent-cyan-400" />
+                <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Dato de contacto</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={!!form.es_red}
+                  onChange={(e) => setForm((f) => ({ ...f, es_red: e.target.checked }))}
+                  className="w-4 h-4 accent-green-400" />
+                <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Red social</span>
+              </label>
+            </div>
+            <p className="text-xs" style={{ color: "var(--c-text-4)" }}>
+              WhatsApp normalmente va con las dos marcadas.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Orden</Label>
+            <Input variant="dark" type="number" value={String(form.orden ?? 0)}
+              onChange={(v) => setForm((f) => ({ ...f, orden: parseInt(v) || 0 }))} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>¿Dónde se muestra?</Label>
+            <div className="flex gap-4">
+              {AREAS.map((a) => (
+                <label key={a.id} className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={tieneArea(form.areas, a.id)}
+                    onChange={() => setForm((f) => ({ ...f, areas: toggleArea(f.areas, a.id) }))}
+                    className="w-4 h-4 accent-cyan-400" />
+                  <span className="text-sm" style={{ color: "var(--c-text-2)" }}>{a.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-cyan-400" />
             <span className="text-sm" style={{ color: "var(--c-text-2)" }}>Activo</span>

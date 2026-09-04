@@ -13,5 +13,8 @@ export { default as WorksSection } from './components/sections/WorksSection.vue'
 export { useServices, useContacts, useMembers, useSiteSettings, useServiceBySlug, usePiezasSincronizadas } from './composables/useWebsiteContent'
 export { useScrollAnimation, useActiveSection } from './composables/useScrollAnimation'
 
+// Utils
+export { textoDe, hrefDe, colorDe, COLOR_POR_TIPO } from './utils/contacto'
+
 // Types
 export type { Service, Contact, Member, SiteSettings } from './types'

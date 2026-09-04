@@ -222,7 +222,7 @@ export default function QRGenerator() {
   const hasContent = qrStr.trim().length > 0;
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="max-w-[1400px] space-y-5">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--c-text)" }}>Generador de QR</h1>

@@ -397,7 +397,7 @@ const S = {
   hint: { fontSize: 12, color: "var(--c-text-4)" },
   input: { padding: "7px 10px", border: "1px solid var(--c-border-med)", borderRadius: 8, fontSize: 14, color: "var(--c-text)", background: "var(--c-input-bg)", width: "100%", outline: "none" },
   tabs: { display: "flex", gap: 4, borderBottom: "1px solid var(--c-border-med)", marginBottom: 20, flexWrap: "wrap" },
-  tab: { padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottom: "2px solid transparent", cursor: "pointer", marginBottom: -1, whiteSpace: "nowrap" },
+  tab: { position: "relative", zIndex: 1, padding: "8px 14px", fontSize: 14, fontWeight: 500, color: "var(--c-text-3)", background: "none", border: "none", borderBottomWidth: 2, borderBottomStyle: "solid", borderBottomColor: "transparent", cursor: "pointer", marginBottom: -2, whiteSpace: "nowrap" },
   tabActive: { color: "var(--c-accent-text)", borderBottomColor: "var(--c-accent)" },
   rowFlex: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
   head: { fontSize: 11, fontWeight: 600, color: "var(--c-text-4)", textTransform: "uppercase", letterSpacing: "0.04em" },

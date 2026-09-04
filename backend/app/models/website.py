@@ -26,6 +26,14 @@ class WebsiteContact(Base):
     label: Mapped[str] = mapped_column(String(255))
     value: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # ponytail: CSV en vez de tabla puente; son 2 areas fijas, no vale un join
+    areas: Mapped[str] = mapped_column(
+        String(100), default="software,impresion3d", server_default="software,impresion3d"
+    )
+    # Un mismo registro puede ser las dos cosas (WhatsApp es el caso tipico)
+    es_red: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    es_contacto: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    orden: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class WebsiteMember(Base):

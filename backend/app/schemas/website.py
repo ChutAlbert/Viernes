@@ -63,6 +63,10 @@ class ContactBase(BaseModel):
     label: str
     value: str
     is_active: bool = True
+    areas: str = "software,impresion3d"
+    es_red: bool = False
+    es_contacto: bool = True
+    orden: int = 0
 
 
 class ContactCreate(ContactBase):

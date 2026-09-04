@@ -40,14 +40,6 @@ export const viernesApi = {
   previewDocument: (filename) => apiRequest("get", `/documents/${encodeURIComponent(filename)}/preview`),
   deleteDocument: (filename) => apiRequestDelete(`/documents/${encodeURIComponent(filename)}`),
 
-  // piezas
-  listPiezas: () => apiRequest("get", "/piezas"),
-  getPieza: (id) => apiRequest("get", `/piezas/${id}`),
-  createPieza: (payload) => apiRequest("post", "/piezas", payload),
-  updatePieza: (id, payload) => apiRequest("put", `/piezas/${id}`, payload),
-  deletePieza: (id) => apiRequestDelete(`/piezas/${id}`),
-  syncPiezaSodigic: (id) => apiRequest("post", `/piezas/${id}/sync-sodigic`),
-  unsyncPiezaSodigic: (id) => apiRequest("post", `/piezas/${id}/unsync-sodigic`),
   uploadImagen: (formData) => apiRequestDocs("post", "/images/upload", formData),
   uploadArchivo3D: (formData) => apiRequestDocs("post", "/files/upload", formData),
 

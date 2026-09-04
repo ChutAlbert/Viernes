@@ -77,10 +77,13 @@ def get_service_by_slug(slug: str, db: Session = Depends(get_db)):
 
 
 @router.get("/contacts", response_model=List[ContactOut])
-def get_contacts(db: Session = Depends(get_db)):
+def get_contacts(area: str | None = None, db: Session = Depends(get_db)):
+    q = db.query(WebsiteContact).filter(WebsiteContact.is_active == True)
+    if area:
+        q = q.filter(WebsiteContact.areas.contains(area))
     return (
-        db.query(WebsiteContact)
-        .filter(WebsiteContact.is_active == True)
+        q
+        .order_by(WebsiteContact.orden, WebsiteContact.id)
         .all()
     )
 

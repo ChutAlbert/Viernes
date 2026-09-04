@@ -11,6 +11,10 @@ class FilamentoBase(BaseModel):
     hex_codigo: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
     tarifa_por_minuto: float = Field(gt=0)
     en_stock: bool = True
+    cantidad_actual: float = 0.0
+    cantidad_minima: float = 0.0
+    unidad: str = "kg"
+    precio_referencia: Optional[float] = None
     activo: bool = True
 
 

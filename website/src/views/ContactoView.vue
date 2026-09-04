@@ -4,20 +4,22 @@ import { useRoute } from 'vue-router'
 import { ContactSection } from '@viernes/ui/vue'
 import { useScrollAnimation } from '@viernes/ui/vue'
 import { useRedes } from '@/composables/useCatalogo'
+import { textoDe, colorDe } from '@viernes/ui/vue'
+import { useSiteSettings } from '@viernes/ui/vue'
 
 useScrollAnimation()
 
 const route = useRoute()
 const { redes } = useRedes()
+const { settings } = useSiteSettings()
 
 const solicitud = computed(() => {
+  if (settings.value.solicitud_piezas_activa !== 'true') return null
   const p = route.query
   if (!p.pieza) return null
   return {
     pieza:     String(p.pieza),
-    tamano:    p.tamano    ? String(p.tamano)    : null,
     filamento: p.filamento ? String(p.filamento) : null,
-    precio:    p.precio    ? String(p.precio)    : null,
   }
 })
 
@@ -57,24 +59,17 @@ function iconoSvg(icono: string): string {
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
                 {{ solicitud.filamento }}
               </span>
-              <span v-if="solicitud.tamano" class="sol-chip">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                {{ solicitud.tamano }}
-              </span>
-              <span v-if="solicitud.precio" class="sol-chip precio">{{ solicitud.precio }}</span>
             </div>
-          </div>
-          <div class="sol-nota">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            El precio es estimado. Te confirmamos el costo exacto al recibir tu mensaje.
           </div>
         </div>
       </div>
     </div>
 
+    <ContactSection />
+
     <!-- Redes sociales -->
     <div v-if="redes.length > 0" class="redes-section">
-      <div class="redes-container">
+      <div class="container">
         <p class="redes-titulo">Encuéntranos en</p>
         <div class="redes-lista">
           <a
@@ -84,7 +79,8 @@ function iconoSvg(icono: string): string {
             target="_blank"
             rel="noopener noreferrer"
             class="red-link"
-            :title="red.nombre"
+            :style="{ '--red-color': colorDe(red.icono) }"
+            :title="textoDe({ contact_type: red.icono, value: red.url })"
           >
             <span class="red-icono" v-html="iconoSvg(red.icono)" />
             <span class="red-nombre">{{ red.nombre }}</span>
@@ -92,8 +88,6 @@ function iconoSvg(icono: string): string {
         </div>
       </div>
     </div>
-
-    <ContactSection />
   </main>
 </template>
 
@@ -171,33 +165,9 @@ function iconoSvg(icono: string): string {
   border-radius: 99px;
 }
 
-.sol-chip.precio {
-  color: var(--cyan);
-  background: rgba(34, 211, 238, 0.08);
-  border-color: rgba(34, 211, 238, 0.22);
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.sol-nota {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-  align-self: center;
-  max-width: 220px;
-}
-
 .redes-section {
   background: var(--bg);
-  padding: 1.5rem 0 0;
-}
-.redes-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
+  padding: 3.5rem 0 5rem;
 }
 .redes-titulo {
   font-size: 0.7rem;
@@ -227,15 +197,14 @@ function iconoSvg(icono: string): string {
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 .red-link:hover {
-  background: rgba(34,211,238,0.08);
-  border-color: rgba(34,211,238,0.25);
-  color: var(--cyan);
+  background: color-mix(in srgb, var(--red-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--red-color) 45%, transparent);
+  color: var(--red-color);
 }
-.red-icono { display: flex; align-items: center; }
+.red-icono { display: flex; align-items: center; color: var(--red-color); }
 .red-icono svg { display: block; }
 
 @media (max-width: 640px) {
   .solicitud-section { padding: 6rem 0 0; }
-  .sol-nota { max-width: 100%; }
 }
 </style>

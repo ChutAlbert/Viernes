@@ -13,11 +13,20 @@ export interface Service {
 
 export interface Contact {
   id: number
-  contact_type: 'phone' | 'email' | 'whatsapp' | 'other'
+  contact_type: ContactType
   label: string
   value: string
   is_active: boolean
+  areas: string
+  es_red: boolean
+  es_contacto: boolean
+  orden: number
 }
+
+export type ContactType =
+  | 'phone' | 'email' | 'whatsapp' | 'other'
+  | 'instagram' | 'facebook' | 'tiktok' | 'x'
+  | 'youtube' | 'linkedin' | 'telegram'
 
 export interface Member {
   id: number

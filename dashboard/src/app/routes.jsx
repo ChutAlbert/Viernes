@@ -13,11 +13,7 @@ import Gmail from "./pages/Gmail";
 import Website from "./pages/Website";
 import ServiceDetail from "./pages/ServiceDetail";
 import Piezas from "./pages/Piezas";
-import PiezaDetail from "./pages/PiezaDetail";
-import Catalogo from "./pages/Catalogo";
-import CatalogoProductoDetail from "./pages/CatalogoProductoDetail";
 import Inventario from "./pages/Inventario";
-import RedesSociales from "./pages/RedesSociales";
 import Notes from "./pages/Notes";
 import Passwords from "./pages/Passwords";
 import Users from "./pages/Users";
@@ -89,10 +85,7 @@ export function AppRoutes() {
         <Route path="piezas" element={<Piezas />} />
         <Route path="piezas/:id" element={<PiezaEditor />} />
         <Route path="filamentos" element={<Filamentos />} />
-        <Route path="catalogo" element={<Catalogo />} />
-        <Route path="catalogo/:id" element={<CatalogoProductoDetail />} />
         <Route path="inventario" element={<Inventario />} />
-        <Route path="redes" element={<RedesSociales />} />
         <Route path="precios" element={<RequireFeature name="precios"><Precios /></RequireFeature>} />
         <Route path="config" element={<RequireAdmin><Config /></RequireAdmin>} />
         <Route path="notas" element={<Notes />} />

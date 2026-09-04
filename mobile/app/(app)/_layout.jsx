@@ -32,10 +32,10 @@ export default function AppLayout() {
       <Drawer.Screen name="tareas"     options={{ title: 'Tareas' }} />
       <Drawer.Screen name="notas"      options={{ title: 'Notas' }} />
       <Drawer.Screen name="website"    options={{ title: 'Website' }} />
-      <Drawer.Screen name="catalogo"   options={{ title: 'Catálogo' }} />
-      <Drawer.Screen name="piezas"     options={{ title: 'Piezas 3D' }} />
+      <Drawer.Screen name="piezas"     options={{ title: 'Piezas' }} />
+      <Drawer.Screen name="filamentos" options={{ title: 'Filamentos' }} />
       <Drawer.Screen name="inventario" options={{ title: 'Inventario' }} />
-      <Drawer.Screen name="redes"      options={{ title: 'Redes Sociales' }} />
+      <Drawer.Screen name="contactos"  options={{ title: 'Contactos' }} />
       <Drawer.Screen name="qr"         options={{ title: 'Generador QR' }} />
       <Drawer.Screen name="passwords"  options={{ title: 'Contraseñas' }} />
       <Drawer.Screen name="usuarios"   options={{ title: 'Usuarios' }} />

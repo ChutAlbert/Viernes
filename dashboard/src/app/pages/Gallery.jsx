@@ -519,6 +519,7 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
   const dragStart = useRef(null);
   const [lbRetryKey, setLbRetryKey] = useState(0);
   const lbRetryForId = useRef(null);
+  const videoRef = useRef(null);
 
   function handleLbRetry() {
     lbRetryForId.current = item.id;
@@ -550,15 +551,55 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
     return () => { cancelled = true; };
   }, [item.id, aesKey, lbRetryKey]);
 
+  // Atajos de teclado. Con video se comportan como YouTube: las flechas
+  // adelantan/retroceden en vez de cambiar de archivo (para eso, Shift+flecha).
+  const esVideo = item.media_type === "video";
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") onNext();
-      if (e.key === "ArrowLeft") onPrev();
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === "Escape") { onClose(); return; }
+
+      const v = videoRef.current;
+      const navegar = !esVideo || !v || e.shiftKey;
+
+      if (navegar) {
+        if (e.key === "ArrowRight") { e.preventDefault(); onNext(); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); onPrev(); }
+        if (!esVideo || !v) return;
+      }
+
+      const salta = (seg) => { v.currentTime = Math.min(Math.max(v.currentTime + seg, 0), v.duration || 0); };
+      const vol = (d) => { v.volume = Math.min(Math.max(v.volume + d, 0), 1); v.muted = false; };
+
+      switch (e.key) {
+        case " ": case "k": case "K":
+          e.preventDefault(); v.paused ? v.play() : v.pause(); break;
+        case "ArrowRight": e.preventDefault(); salta(5); break;
+        case "ArrowLeft":  e.preventDefault(); salta(-5); break;
+        case "l": case "L": salta(10); break;
+        case "j": case "J": salta(-10); break;
+        case "ArrowUp":   e.preventDefault(); vol(0.1); break;
+        case "ArrowDown": e.preventDefault(); vol(-0.1); break;
+        case "m": case "M": v.muted = !v.muted; break;
+        case "f": case "F":
+          if (document.fullscreenElement) document.exitFullscreen();
+          else v.requestFullscreen?.();
+          break;
+        case "n": case "N": onNext(); break;
+        case "p": case "P": onPrev(); break;
+        case "Home": e.preventDefault(); v.currentTime = 0; break;
+        case "End":  e.preventDefault(); v.currentTime = v.duration || 0; break;
+        case ",": salta(-1 / 30); break;   // cuadro atras (aprox 30fps)
+        case ".": salta(1 / 30); break;
+        default:
+          // 0-9 salta a ese porcentaje de la duracion
+          if (/^[0-9]$/.test(e.key) && v.duration) v.currentTime = (v.duration * Number(e.key)) / 10;
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onNext, onPrev]);
+  }, [onClose, onNext, onPrev, esVideo]);
 
   // Drag logic for video
   const startDrag = (e) => {
@@ -644,6 +685,7 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
               ))}
             </div>
             <video
+              ref={videoRef}
               key={src} src={src}
               className="block rounded-xl"
               style={{ maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}

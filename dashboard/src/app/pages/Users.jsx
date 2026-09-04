@@ -2,18 +2,23 @@ import { useState, useEffect } from "react";
 import { viernesApi } from "@/lib/apis/viernes";
 import { ConfirmModal, Modal } from "@viernes/ui/react";
 
+// Debe reflejar las claves NO restringidas por rol de AppSidebar.jsx.
+// Una clave que falte aqui no se puede desactivar: canAccess() la deja pasar.
 const ALL_SECTIONS = [
   { key: "overview",    label: "Overview" },
-  { key: "gmail",       label: "Gmail" },
   { key: "chat",        label: "Chat IA" },
+  { key: "gmail",       label: "Gmail" },
   { key: "docs",        label: "Documentos" },
+  { key: "tareas",      label: "Tareas" },
   { key: "notas",       label: "Notas" },
+  { key: "qr",          label: "Generador QR" },
   { key: "passwords",   label: "Contraseñas" },
+  { key: "spotify",     label: "Spotify" },
   { key: "website",     label: "Website" },
-  { key: "piezas",      label: "Piezas 3D" },
-  { key: "catalogo",    label: "Catálogo" },
+  { key: "piezas",      label: "Piezas" },
+  { key: "filamentos",  label: "Filamentos" },
   { key: "inventario",  label: "Inventario" },
-  { key: "redes",       label: "Redes Sociales" },
+  { key: "precios",     label: "Precios" },
 ];
 
 const DEFAULT_PERMISSIONS = Object.fromEntries(ALL_SECTIONS.map((s) => [s.key, true]));
@@ -385,7 +390,7 @@ export default function Users() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

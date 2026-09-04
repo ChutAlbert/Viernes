@@ -181,7 +181,6 @@ const WORKSPACES = [
       { to: "/app/piezas",     label: "Piezas",         icon: ICON_PIEZAS,     key: "piezas" },
       { to: "/app/filamentos", label: "Filamentos",     icon: ICON_FILAMENTO,  key: "filamentos" },
       { to: "/app/inventario", label: "Inventario",     icon: ICON_INVENTARIO, key: "inventario" },
-      { to: "/app/redes",      label: "Redes Sociales", icon: ICON_REDES,      key: "redes" },
       { to: "/app/precios",    label: "Precios",        icon: ICON_PRECIOS,    key: "precios", feature: "precios" },
     ],
   },

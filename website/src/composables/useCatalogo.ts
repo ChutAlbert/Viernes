@@ -26,6 +26,20 @@ export interface ImagenProducto {
   orden: number
 }
 
+// Un contacto unificado: puede ser red social, dato de contacto, o ambos
+export interface Contacto {
+  id: number
+  contact_type: string
+  label: string
+  value: string
+  is_active: boolean
+  areas: string
+  es_red: boolean
+  es_contacto: boolean
+  orden: number
+}
+
+// Forma que consumen las vistas de redes (nombre/url/icono)
 export interface RedSocial {
   id: number
   nombre: string
@@ -125,6 +139,20 @@ export function useProductos() {
   return { productos, loading, error }
 }
 
+// Filamentos globales: los colores son los mismos para todas las piezas.
+// Se administran en Dashboard -> Filamentos (toggle "Mostrar en el sitio").
+export function useFilamentos() {
+  const filamentos = ref<Filamento[]>([])
+  const loading = ref(true)
+
+  get<Filamento[]>('/catalogo/public/filamentos')
+    .then(data => { filamentos.value = data })
+    .catch(() => { filamentos.value = [] })
+    .finally(() => { loading.value = false })
+
+  return { filamentos, loading }
+}
+
 export function useProducto(slug: string) {
   const producto = ref<Producto | null>(null)
   const loading = ref(true)
@@ -138,12 +166,31 @@ export function useProducto(slug: string) {
   return { producto, loading, error }
 }
 
+// Las redes ya viven en website_contacts marcadas con es_red
 export function useRedes() {
   const redes = ref<RedSocial[]>([])
-  get<RedSocial[]>('/redes/public')
-    .then(data => { redes.value = data })
+  get<Contacto[]>('/website/contacts')
+    .then(data => {
+      redes.value = data
+        .filter(c => c.es_red)
+        .map(c => ({
+          id: c.id,
+          nombre: c.label,
+          url: hrefDe(c),
+          icono: c.contact_type,
+          orden: c.orden,
+          activo: c.is_active,
+        }))
+    })
     .catch(() => {})
   return { redes }
+}
+
+export function hrefDe(c: { contact_type: string; value: string }): string {
+  if (c.contact_type === 'email') return `mailto:${c.value}`
+  if (c.contact_type === 'phone') return `tel:${c.value}`
+  if (c.contact_type === 'whatsapp') return `https://wa.me/${c.value.replace(/\D/g, '')}`
+  return c.value
 }
 
 export async function calcularPrecio(payload: {

@@ -257,10 +257,10 @@ def get_producto_publico(slug: str, db: Session = Depends(get_db)):
 
 @router.get("/public/filamentos", response_model=List[FilamentoOut])
 def list_filamentos_publico(db: Session = Depends(get_db)):
-    """Filamentos activos y en stock para el website."""
+    """Filamentos activos para el website. El stock es interno: no afecta lo que se muestra."""
     return (
         db.query(CatalogoFilamento)
-        .filter(CatalogoFilamento.activo == True, CatalogoFilamento.en_stock == True)
+        .filter(CatalogoFilamento.activo == True)
         .order_by(CatalogoFilamento.tipo_material, CatalogoFilamento.nombre)
         .all()
     )

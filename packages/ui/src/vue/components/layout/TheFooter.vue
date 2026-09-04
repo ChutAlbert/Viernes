@@ -33,7 +33,7 @@ function scrollTo(href: string) {
     </div>
     <div class="container footer-bottom">
       <p class="copyright">© {{ year }} SODIGIC. Todos los derechos reservados.</p>
-      <p class="made-with">Hecho con ♥ en México</p>
+      <p class="made-with">Hecho en México</p>
     </div>
   </footer>
 </template>

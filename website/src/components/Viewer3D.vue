@@ -3,22 +3,28 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js'
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps<{
   fileUrl: string | null       // URL pública del STL/3MF
-  color: string                // hex color del filamento (modo un color)
+  color: string | null         // hex del filamento; null = colores originales del archivo
   tipoMaterial: string         // "PLA" | "PLA+" | "PETG" (para aspecto visual)
   tamano: number               // mm elegido
   tamanoBase: number           // mm base del producto
-  multicolor?: boolean         // si true, respeta los colores del 3mf
 }>()
+
+const emit = defineEmits<{ (e: 'loading', v: boolean): void }>()
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const loading = ref(false)
+watch(loading, v => emit('loading', v), { immediate: true })
+// ponytail: token en vez de AbortController; los loaders de three no aceptan signal
+let cargaToken = 0
 const errorMsg = ref('')
+// null en props.color = respetar los colores que trae el archivo
 
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
@@ -35,7 +41,8 @@ function materialProps(tipo: string): { roughness: number; metalness: number } {
   return { roughness: 0.78, metalness: 0.0 } // PLA por defecto
 }
 
-function buildMaterial(): THREE.MeshStandardMaterial {
+function buildMaterial(): THREE.MeshStandardMaterial | null {
+  if (!props.color) return null   // sin color elegido: no se pinta nada
   const { roughness, metalness } = materialProps(props.tipoMaterial)
   return new THREE.MeshStandardMaterial({
     color: new THREE.Color(props.color),
@@ -48,6 +55,7 @@ function buildMaterial(): THREE.MeshStandardMaterial {
 function getScale(): number {
   return props.tamanoBase > 0 ? props.tamano / props.tamanoBase : 1
 }
+
 
 // ─── Inicializar Three.js ────────────────────────────────────────────────────
 function init() {
@@ -115,6 +123,7 @@ function onResize() {
 // ─── Cargar modelo ───────────────────────────────────────────────────────────
 async function loadModel(url: string) {
   if (!scene) return
+  const token = ++cargaToken
   loading.value = true
   errorMsg.value = ''
 
@@ -137,25 +146,31 @@ async function loadModel(url: string) {
       group = await new Promise<THREE.Group>((res, rej) =>
         loader.load(url, res, undefined, rej)
       )
+    } else if (ext === 'obj') {
+      const loader = new OBJLoader()
+      group = await new Promise<THREE.Group>((res, rej) =>
+        loader.load(url, res, undefined, rej)
+      )
     } else {
       errorMsg.value = `Formato .${ext} no soportado en el visor`
       loading.value = false
       return
     }
 
+    if (token !== cargaToken) return   // otra carga la adelanto
+
     const mat = buildMaterial()
 
     if (geometry) {
       geometry.computeVertexNormals()
-      mesh = new THREE.Mesh(geometry, mat)
+      mesh = new THREE.Mesh(geometry, mat ?? new THREE.MeshStandardMaterial({ color: 0xd8dee9, roughness: 0.75 }))
       mesh.castShadow = true
       // STL exporters use Z-up; Three.js uses Y-up
       mesh.rotation.x = -Math.PI / 2
     } else if (group) {
       group.traverse(child => {
         if ((child as THREE.Mesh).isMesh) {
-          // Multicolor: respetar los materiales/colores del 3mf. Un color: pintar todo igual.
-          if (!props.multicolor) (child as THREE.Mesh).material = mat
+          if (mat) (child as THREE.Mesh).material = mat   // sin mat = colores originales
           child.castShadow = true
         }
       })
@@ -179,7 +194,7 @@ async function loadModel(url: string) {
     errorMsg.value = 'No se pudo cargar el archivo 3D'
     console.error(e)
   } finally {
-    loading.value = false
+    if (token === cargaToken) loading.value = false
   }
 }
 
@@ -198,19 +213,23 @@ function fitCamera(box: THREE.Box3) {
 }
 
 // ─── Watchers reactivos ───────────────────────────────────────────────────────
-// Recargar al cambiar archivo o modo color (para respetar/limpiar los colores del 3mf)
-watch(() => [props.fileUrl, props.multicolor], () => {
-  if (props.fileUrl) loadModel(props.fileUrl)
+watch(() => props.fileUrl, (url) => {
+  if (url) loadModel(url)
   else if (mesh && scene) { scene.remove(mesh); mesh = null }
 })
 
 watch(() => [props.color, props.tipoMaterial], () => {
-  if (!mesh || props.multicolor) return  // en multicolor se respetan los colores del 3mf
+  // sin mesh todavia: la carga en curso ya lee props.color al terminar
+  if (!mesh) return
   const mat = buildMaterial()
+  if (!mat) {
+    // Volver a "colores originales": recargar el archivo para restaurar sus materiales
+    if (props.fileUrl) loadModel(props.fileUrl)
+    return
+  }
   mesh.traverse(child => {
     if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = mat
   })
-  // También es un mesh directo
   if ((mesh as THREE.Mesh).isMesh) (mesh as THREE.Mesh).material = mat
 })
 
