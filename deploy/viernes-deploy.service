@@ -4,9 +4,10 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+# Como el dueno del repo: git necesita su llave SSH, no la de root
+User=jesus
+Group=jesus
 WorkingDirectory=/var/www/viernes
 # DATABASE_URL lo necesita pg_dump; se lee del .env del backend
 EnvironmentFile=/var/www/viernes/backend/.env
 ExecStart=/var/www/viernes/deploy/deploy.sh
-# Evita que dos deploys se encimen
-ExecCondition=/usr/bin/flock -n /run/viernes-deploy.lock /bin/true

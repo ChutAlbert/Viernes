@@ -11,6 +11,20 @@ PY="$REPO/backend/.venv/bin/python"
 
 cd "$REPO"
 
+# Este script corre como el dueno del repo (no root): git necesita SU llave SSH.
+# Lo unico privilegiado es el restart, via una regla de sudoers acotada.
+if [ "$(id -u)" = "0" ]; then
+  echo "No lo corras con sudo: root no tiene la llave SSH de GitHub."
+  echo "Corrolo como $(stat -c %U "$REPO"): $0"
+  exit 1
+fi
+
+# pg_dump necesita DATABASE_URL. systemd la pasa por EnvironmentFile,
+# pero en una corrida manual hay que leerla del .env.
+if [ -z "${DATABASE_URL:-}" ] && [ -f "$REPO/backend/.env" ]; then
+  set -a; . "$REPO/backend/.env"; set +a
+fi
+
 # ── ¿hay algo nuevo? ─────────────────────────────────────────────────────────
 git fetch --quiet origin "$RAMA"
 LOCAL=$(git rev-parse HEAD)
@@ -64,5 +78,5 @@ else
 fi
 
 # ── reiniciar backend al final ───────────────────────────────────────────────
-systemctl restart "$SERVICIO"
+sudo -n /usr/bin/systemctl restart "$SERVICIO"
 echo "=== Deploy OK: $(git rev-parse --short HEAD) ==="
