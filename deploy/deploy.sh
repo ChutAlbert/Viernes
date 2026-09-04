@@ -19,10 +19,11 @@ if [ "$(id -u)" = "0" ]; then
   exit 1
 fi
 
-# pg_dump necesita DATABASE_URL. systemd la pasa por EnvironmentFile,
-# pero en una corrida manual hay que leerla del .env.
+# pg_dump necesita DATABASE_URL. NO usar `source`: las contrasenas con $ o
+# backticks las expande bash y rompe. Lo lee el mismo parser que el backend.
 if [ -z "${DATABASE_URL:-}" ] && [ -f "$REPO/backend/.env" ]; then
-  set -a; . "$REPO/backend/.env"; set +a
+  DATABASE_URL=$("$PY" -c "import os;from dotenv import load_dotenv;load_dotenv(r'$REPO/backend/.env');print(os.getenv('DATABASE_URL',''))")
+  export DATABASE_URL
 fi
 
 # ── ¿hay algo nuevo? ─────────────────────────────────────────────────────────
