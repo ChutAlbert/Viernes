@@ -70,7 +70,7 @@ const { productos, loading } = useProductos()
           <p class="pb-title">¿Tienes una figura en mente?</p>
           <p class="pb-text">Podemos imprimir casi cualquier diseño a partir de una imagen, foto o descripción. Contáctanos y lo hacemos realidad.</p>
         </div>
-        <a href="/contacto" class="pb-cta">Solicitar figura personalizada →</a>
+        <router-link to="/contacto" class="pb-cta">Solicitar figura personalizada →</router-link>
       </div>
 
       <!-- CTA -->

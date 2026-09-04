@@ -509,6 +509,140 @@ function MediaCard({ item, aesKey, onClick, onEdit, onDelete, deleting, shouldLo
   );
 }
 
+// ─── Reproductor de video ─────────────────────────────────────────────────────
+function fmtTiempo(seg) {
+  if (!isFinite(seg) || seg < 0) return "0:00";
+  const m = Math.floor(seg / 60);
+  const r = Math.floor(seg % 60);
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+const VELOCIDADES = [0.5, 1, 1.5, 2];
+
+function IconoCtrl({ d, relleno }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24"
+      fill={relleno ? "currentColor" : "none"} stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {d}
+    </svg>
+  );
+}
+
+// Barra propia en vez de `controls`: los nativos no siguen el tema.
+// El estado se sincroniza con eventos del <video>, asi que los atajos de
+// teclado del Lightbox se reflejan aqui sin cablearlos dos veces.
+function VideoPlayer({ src, videoRef }) {
+  const cajaRef = useRef(null);
+  const [reproduciendo, setReproduciendo] = useState(true);
+  const [t, setT] = useState(0);
+  const [dur, setDur] = useState(0);
+  const [vol, setVol] = useState(1);
+  const [silenciado, setSilenciado] = useState(false);
+  const [velocidad, setVelocidad] = useState(1);
+  const [visible, setVisible] = useState(true);
+  const ocultar = useRef(null);
+
+  const despertar = () => {
+    setVisible(true);
+    clearTimeout(ocultar.current);
+    ocultar.current = setTimeout(() => {
+      if (videoRef.current && !videoRef.current.paused) setVisible(false);
+    }, 2500);
+  };
+
+  useEffect(() => () => clearTimeout(ocultar.current), []);
+
+  const v = () => videoRef.current;
+  const alternarPlay = () => { const el = v(); if (el) el.paused ? el.play() : el.pause(); };
+
+  const pantallaCompleta = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else cajaRef.current?.requestFullscreen?.();
+  };
+
+  const cambiarVelocidad = () => {
+    const el = v(); if (!el) return;
+    el.playbackRate = VELOCIDADES[(VELOCIDADES.indexOf(velocidad) + 1) % VELOCIDADES.length];
+  };
+
+  const progreso = dur > 0 ? (t / dur) * 100 : 0;
+
+  return (
+    <div ref={cajaRef} className="relative" onMouseMove={despertar} onMouseLeave={() => { if (videoRef.current && !videoRef.current.paused) setVisible(false); }}>
+      <video
+        ref={videoRef}
+        key={src} src={src}
+        className="block rounded-xl"
+        style={{ maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}
+        autoPlay loop
+        onClick={alternarPlay}
+        onPlay={() => { setReproduciendo(true); despertar(); }}
+        onPause={() => { setReproduciendo(false); setVisible(true); }}
+        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => { setDur(e.currentTarget.duration); setVol(e.currentTarget.volume); }}
+        onVolumeChange={(e) => { setVol(e.currentTarget.volume); setSilenciado(e.currentTarget.muted); }}
+        onRateChange={(e) => setVelocidad(e.currentTarget.playbackRate)}
+      />
+
+      <div
+        className="absolute left-0 right-0 bottom-0 px-3 pb-2 pt-6 rounded-b-xl transition-opacity duration-200"
+        style={{
+          background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)",
+          opacity: visible ? 1 : 0,
+          pointerEvents: visible ? "auto" : "none",
+        }}
+      >
+        <input
+          type="range" min="0" max={dur || 0} step="0.1" value={t}
+          onChange={(e) => { const el = v(); if (el) el.currentTime = Number(e.target.value); }}
+          className="w-full h-1 cursor-pointer"
+          style={{ accentColor: "var(--c-accent)" }}
+          aria-label="Progreso"
+        />
+
+        <div className="flex items-center gap-3 mt-1 text-white">
+          <button onClick={alternarPlay} title={reproduciendo ? "Pausar (espacio)" : "Reproducir (espacio)"}>
+            {reproduciendo
+              ? <IconoCtrl relleno d={<><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></>} />
+              : <IconoCtrl relleno d={<polygon points="6 3 20 12 6 21"/>} />}
+          </button>
+
+          <button onClick={() => { const el = v(); if (el) el.muted = !el.muted; }} title="Silenciar (m)">
+            {silenciado || vol === 0
+              ? <IconoCtrl d={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></>} />
+              : <IconoCtrl d={<><polygon points="11 5 6 9 2 9 2 15 6 15 11 19"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></>} />}
+          </button>
+
+          <input
+            type="range" min="0" max="1" step="0.05" value={silenciado ? 0 : vol}
+            onChange={(e) => { const el = v(); if (el) { el.volume = Number(e.target.value); el.muted = false; } }}
+            className="w-16 h-1 cursor-pointer"
+            style={{ accentColor: "var(--c-accent)" }}
+            aria-label="Volumen"
+          />
+
+          <span className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.75)" }}>
+            {fmtTiempo(t)} / {fmtTiempo(dur)}
+          </span>
+
+          <div className="flex-1" />
+
+          <button onClick={cambiarVelocidad} title="Velocidad"
+            className="text-xs font-semibold px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(255,255,255,0.12)" }}>
+            {velocidad}x
+          </button>
+
+          <button onClick={pantallaCompleta} title="Pantalla completa (f)">
+            <IconoCtrl d={<><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
 function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
   const item = items[index];
@@ -684,13 +818,7 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
                 <div key={i} className="w-1 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.35)" }} />
               ))}
             </div>
-            <video
-              ref={videoRef}
-              key={src} src={src}
-              className="block rounded-xl"
-              style={{ maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}
-              controls autoPlay loop
-            />
+            <VideoPlayer src={src} videoRef={videoRef} />
           </div>
         ) : (
           <img key={src} src={src}
