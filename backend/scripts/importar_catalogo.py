@@ -103,7 +103,13 @@ def main():
         print("\n--- SIMULACION. Agrega --go para importar de verdad ---")
         return
 
-    cli = httpx.Client(base_url=args.api.rstrip("/"), timeout=300)
+    # local_address fuerza salida por IPv4: la regla WAF de Cloudflare esta
+    # sobre la IPv4, y por IPv6 la conexion cae en el Managed Challenge.
+    cli = httpx.Client(
+        base_url=args.api.rstrip("/"),
+        timeout=300,
+        transport=httpx.HTTPTransport(local_address="0.0.0.0", retries=2),
+    )
     cli.headers["Authorization"] = f"Bearer {token(cli)}"
 
     existentes = {p["nombre"] for p in cli.get("/catalogo/productos").raise_for_status().json()}

@@ -6,7 +6,8 @@ import sys
 import httpx
 
 API = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
-cli = httpx.Client(base_url=API, timeout=30)
+cli = httpx.Client(base_url=API, timeout=30,
+                   transport=httpx.HTTPTransport(local_address="0.0.0.0"))
 
 print(f"API: {API}")
 r = cli.get("/health")
