@@ -534,6 +534,7 @@ function IconoCtrl({ d, relleno }) {
 // teclado del Lightbox se reflejan aqui sin cablearlos dos veces.
 function VideoPlayer({ src, videoRef }) {
   const cajaRef = useRef(null);
+  const [enPantallaCompleta, setEnPantallaCompleta] = useState(false);
   const [reproduciendo, setReproduciendo] = useState(true);
   const [t, setT] = useState(0);
   const [dur, setDur] = useState(0);
@@ -553,6 +554,13 @@ function VideoPlayer({ src, videoRef }) {
 
   useEffect(() => () => clearTimeout(ocultar.current), []);
 
+  // El tope de 900px es para el lightbox; en pantalla completa estorba.
+  useEffect(() => {
+    const alCambiar = () => setEnPantallaCompleta(document.fullscreenElement === cajaRef.current);
+    document.addEventListener("fullscreenchange", alCambiar);
+    return () => document.removeEventListener("fullscreenchange", alCambiar);
+  }, []);
+
   const v = () => videoRef.current;
   const alternarPlay = () => { const el = v(); if (el) el.paused ? el.play() : el.pause(); };
 
@@ -569,12 +577,18 @@ function VideoPlayer({ src, videoRef }) {
   const progreso = dur > 0 ? (t / dur) * 100 : 0;
 
   return (
-    <div ref={cajaRef} className="relative" onMouseMove={despertar} onMouseLeave={() => { if (videoRef.current && !videoRef.current.paused) setVisible(false); }}>
+    <div ref={cajaRef} className="relative"
+      style={enPantallaCompleta
+        ? { width: "100vw", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }
+        : undefined}
+      onMouseMove={despertar} onMouseLeave={() => { if (videoRef.current && !videoRef.current.paused) setVisible(false); }}>
       <video
         ref={videoRef}
         key={src} src={src}
-        className="block rounded-xl"
-        style={{ maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}
+        className={enPantallaCompleta ? "block" : "block rounded-xl"}
+        style={enPantallaCompleta
+          ? { width: "100%", height: "100%", objectFit: "contain" }
+          : { maxWidth: "min(90vw, 900px)", maxHeight: "calc(100vh - 180px)" }}
         autoPlay loop
         onClick={alternarPlay}
         onPlay={() => { setReproduciendo(true); despertar(); }}
@@ -718,7 +732,7 @@ function Lightbox({ items, index, aesKey, onClose, onNext, onPrev }) {
         case "m": case "M": v.muted = !v.muted; break;
         case "f": case "F":
           if (document.fullscreenElement) document.exitFullscreen();
-          else v.requestFullscreen?.();
+          else (v.parentElement ?? v).requestFullscreen?.();
           break;
         case "n": case "N": onNext(); break;
         case "p": case "P": onPrev(); break;
