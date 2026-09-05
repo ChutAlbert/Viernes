@@ -43,7 +43,10 @@ echo "=== Deploy $(date -Is): $LOCAL -> $REMOTO ==="
 NUEVAS=$(git diff --name-only --diff-filter=A "$LOCAL" "$REMOTO" -- backend/alembic/versions/ || true)
 if [ -n "$NUEVAS" ]; then
   for f in $NUEVAS; do
-    if git show "$REMOTO:$f" | grep -qE '\bop\.(drop_table|drop_column)\('; then
+    # Solo el cuerpo de upgrade(): el downgrade() casi siempre trae drops
+    # y ahi son inofensivos, solo corren si pides revertir a mano.
+    UPGRADE=$(git show "$REMOTO:$f" | sed -n '/^def upgrade/,/^def downgrade/p')
+    if printf '%s' "$UPGRADE" | grep -qE 'op\.(drop_table|drop_column)\('; then
       if [ "${PERMITIR_DROPS:-0}" != "1" ]; then
         echo "ABORTADO: $f contiene drop_table/drop_column."
         echo "Revísala a mano y corre: PERMITIR_DROPS=1 $0"
