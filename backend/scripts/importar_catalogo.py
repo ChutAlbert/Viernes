@@ -80,6 +80,8 @@ def main():
     ap.add_argument("--sin-archivos", action="store_true",
                     help="sube solo nombres y fotos, no los .3mf/.stl (mucho mas ligero)")
     ap.add_argument("--solo", type=int, default=0, help="limita a N modelos, para probar")
+    ap.add_argument("--publicar", action="store_true",
+                    help="crea ya visible en el portal (por defecto entra apagado para revisar)")
     args = ap.parse_args()
 
     modelos = escanear(args.raiz)
@@ -136,9 +138,13 @@ def main():
             "descripcion": f"Categoria: {m['categoria']}",
             "archivo_3d_url": archivo_url,
             "foto_preview_url": fotos_url[0] if fotos_url else preview_url,
-            "publicado": vendida,
-            "es_vendida": vendida,
-            "activo": True,
+            # Todo entra apagado: nada visible ni descargable en el portal hasta
+            # que se revise a mano. /public/archivo exige publicado AND activo,
+            # asi que estas dos banderas tambien bloquean la descarga del 3D.
+            "publicado": args.publicar,
+            "activo": args.publicar,
+            "ver_3d": args.publicar,  # visor 3D apagado hasta revisar cada pieza
+            "es_vendida": vendida,    # dato historico, no afecta visibilidad
         })
         if r.status_code not in (200, 201):
             print(f"      ERROR creando {m['nombre']}: {r.status_code} {r.text[:120]}")
@@ -148,7 +154,8 @@ def main():
         for orden, url in enumerate(fotos_url):
             cli.post(f"/catalogo/productos/{pid}/imagenes", json={"url": url, "orden": orden})
 
-        estado = "VENDIDA" if vendida else "borrador"
+        estado = "vendida" if vendida else "nueva"
+        estado += "/apagada" if not args.publicar else "/publicada"
         print(f"  [{i}/{len(modelos)}] {estado:<8} #{pid} {m['nombre'][:45]} "
               f"({len(fotos_url)} fotos)")
         log.append([pid, m["categoria"], m["nombre"], estado, archivo_url or "", len(fotos_url)])

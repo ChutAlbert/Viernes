@@ -204,7 +204,7 @@ def list_productos_publico(db: Session = Depends(get_db)):
         .options(
             selectinload(CatalogoProducto.filamentos).selectinload(CatalogoProductoFilamento.filamento),
         )
-        .filter(CatalogoProducto.publicado == True, CatalogoProducto.activo == True)
+        .filter(CatalogoProducto.publicado == True)
         .order_by(CatalogoProducto.created_at.desc())
         .all()
     )
@@ -229,6 +229,7 @@ def list_productos_publico(db: Session = Depends(get_db)):
             "tamano_maximo_mm": p.tamano_maximo_mm,
             "permite_multicolor": p.permite_multicolor,
             "publicado": p.publicado,
+            "ver_3d": p.ver_3d,
             "created_at": p.created_at,
             "precio_desde": precio_desde,
         })
@@ -246,7 +247,6 @@ def get_producto_publico(slug: str, db: Session = Depends(get_db)):
         .filter(
             CatalogoProducto.slug == slug,
             CatalogoProducto.publicado == True,
-            CatalogoProducto.activo == True,
         )
         .first()
     )
@@ -282,7 +282,6 @@ def calcular_precio_endpoint(payload: CalcularPrecioRequest, db: Session = Depen
     """
     producto = db.query(CatalogoProducto).filter(
         CatalogoProducto.id == payload.producto_id,
-        CatalogoProducto.activo == True,
     ).first()
     if not producto:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
@@ -324,7 +323,6 @@ async def archivo_3d_publico(filename: str, db: Session = Depends(get_db)):
 
     en_producto = db.query(CatalogoProducto).filter(
         CatalogoProducto.publicado == True,
-        CatalogoProducto.activo == True,
         CatalogoProducto.archivo_3d_url == url_relativa,
     ).first()
 
@@ -333,7 +331,6 @@ async def archivo_3d_publico(filename: str, db: Session = Depends(get_db)):
             CatalogoProductoFilamento.archivo_3d_url == url_relativa,
         ).join(CatalogoProducto).filter(
             CatalogoProducto.publicado == True,
-            CatalogoProducto.activo == True,
         ).first()
         if not en_filamento:
             raise HTTPException(status_code=404, detail="Archivo no encontrado")

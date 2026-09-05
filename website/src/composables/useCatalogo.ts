@@ -64,6 +64,7 @@ export interface ProductoListItem {
 }
 
 export interface Producto extends ProductoListItem {
+  ver_3d: boolean
   descripcion: string | null
   archivo_3d_url: string | null
   tamano_base_mm: number

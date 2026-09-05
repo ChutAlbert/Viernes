@@ -39,8 +39,11 @@ const hayFotos = computed(() => fotos.value.length > 0)
 const hay3d = computed(() => !!producto.value?.archivo_3d_url)
 
 // El visor 3D se habilita desde Dashboard -> Website -> Configuración
+// Tres condiciones: que haya archivo, que el sitio tenga el visor prendido,
+// y que esta pieza en particular no lo tenga apagado desde el dashboard.
 const ver3dActivo = computed(() => settings.value.ver_3d_activo !== 'false')
-const puedeVer3d = computed(() => hay3d.value && ver3dActivo.value)
+const ver3dPieza = computed(() => producto.value?.ver_3d !== false)
+const puedeVer3d = computed(() => hay3d.value && ver3dActivo.value && ver3dPieza.value)
 
 // Si la pieza no tiene fotos, arranca en 3D
 watch(producto, () => {

@@ -67,6 +67,8 @@ class CatalogoProducto(Base):
 
     # ── Estado unificado (borrador / catálogo / vendida) ──────────────────────
     publicado: Mapped[bool] = mapped_column(Boolean, default=False)   # visible en el catálogo público
+    # Permite apagar el visor 3D de UNA pieza aunque tenga archivo subido.
+    ver_3d: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     es_vendida: Mapped[bool] = mapped_column(Boolean, default=False)  # registrada como pieza vendida
 
     # ── Datos de venta (cuando es_vendida / encargo) ──────────────────────────

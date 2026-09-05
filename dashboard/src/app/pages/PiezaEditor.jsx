@@ -255,7 +255,7 @@ export default function PiezaEditor() {
             <span style={S.lbl}>Estado</span>
             <Toggle label="Publicar en catálogo" hint="Visible en el sitio público de Sodigic." on={!!p.publicado} onChange={set("publicado")} />
             <Toggle label="Marcar como vendida" hint="Se registra como pieza vendida." on={!!p.es_vendida} onChange={set("es_vendida")} />
-            <Toggle label="Activo" on={p.activo !== false} onChange={set("activo")} />
+            <Toggle label="Ver en 3D" hint="Muestra el visor del modelo en el sitio. Apágalo si el archivo no se ve bien." on={p.ver_3d !== false} onChange={set("ver_3d")} />
 
             <div className="grid grid-cols-2 gap-3" style={{ borderTop: "1px solid var(--c-border)", marginTop: 12, paddingTop: 8 }}>
               <Toggle label="Permite multicolor" on={!!p.permite_multicolor} onChange={set("permite_multicolor")} />

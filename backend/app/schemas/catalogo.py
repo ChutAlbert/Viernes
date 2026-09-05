@@ -70,6 +70,7 @@ class ProductoBase(BaseModel):
     activo: bool = True
     # Estado unificado
     publicado: bool = False
+    ver_3d: bool = True
     es_vendida: bool = False
     # Datos de venta (JSON como string; la UI hace parse)
     tipo_venta: str = "venta_general"
