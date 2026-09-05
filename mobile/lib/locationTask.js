@@ -1,7 +1,6 @@
 import { Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
-import * as BackgroundFetch from 'expo-background-fetch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TASK_NAME = 'VIERNES_LOCATION';
@@ -24,10 +23,10 @@ export async function getOrCreateDeviceId() {
   return id;
 }
 
-async function postLocation(deviceId, token) {
-  const loc = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
+async function postLocation(deviceId, token, coords = null) {
+  const loc = coords
+    ? { coords }
+    : await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   const deviceName = Platform.OS === 'android' ? 'Android' : 'iOS';
   const res = await fetch(`${API_BASE}/locations/update`, {
     method: 'POST',
@@ -48,15 +47,14 @@ async function postLocation(deviceId, token) {
   if (data.update_interval) {
     const stored = await AsyncStorage.getItem(INTERVAL_KEY);
     if (String(data.update_interval) !== stored) {
-      // En Expo Go no hay BackgroundFetch; el reporte en primer plano no debe caerse por eso
+      // Reprogramar puede fallar sin permisos; el reporte en primer plano no debe caerse por eso
       try { await registerLocationTask(data.update_interval); } catch {}
     }
   }
 }
 
 // Reporta la ubicacion con la app abierta. Solo necesita permiso de primer
-// plano, asi que SI funciona en Expo Go, a diferencia del task en segundo
-// plano (Expo 52 saco TaskManager/BackgroundFetch de Expo Go).
+// plano, asi que funciona incluso sin el permiso de segundo plano concedido.
 export async function reportLocationNow() {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -70,16 +68,18 @@ export async function reportLocationNow() {
   }
 }
 
-// Must be defined at module top level before app boots
-TaskManager.defineTask(TASK_NAME, async () => {
+// Debe definirse al cargar el modulo, antes de que arranque la app.
+// Con startLocationUpdatesAsync el sistema nos entrega las ubicaciones.
+TaskManager.defineTask(TASK_NAME, async ({ data, error }) => {
+  if (error) return;
   try {
     const deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
     const token = await AsyncStorage.getItem(TOKEN_KEY);
-    if (!deviceId || !token) return BackgroundFetch.BackgroundFetchResult.NoData;
-    await postLocation(deviceId, token);
-    return BackgroundFetch.BackgroundFetchResult.NewData;
+    if (!deviceId || !token) return;
+    const ultima = data?.locations?.[data.locations.length - 1];
+    await postLocation(deviceId, token, ultima?.coords ?? null);
   } catch {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    // sin red o token vencido: se reintenta en la siguiente actualizacion
   }
 });
 
@@ -90,13 +90,24 @@ export async function registerLocationTask(intervalMinutes = 15) {
     const bg = await Location.requestBackgroundPermissionsAsync();
     if (bg.status !== 'granted') return false;
 
-    const isReg = await TaskManager.isTaskRegisteredAsync(TASK_NAME);
-    if (isReg) await BackgroundFetch.unregisterTaskAsync(TASK_NAME);
+    if (await Location.hasStartedLocationUpdatesAsync(TASK_NAME)) {
+      await Location.stopLocationUpdatesAsync(TASK_NAME);
+    }
 
-    await BackgroundFetch.registerTaskAsync(TASK_NAME, {
-      minimumInterval: intervalMinutes * 60,
-      stopOnTerminate: false,
-      startOnBoot: true,
+    const ms = intervalMinutes * 60 * 1000;
+    await Location.startLocationUpdatesAsync(TASK_NAME, {
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: ms,
+      distanceInterval: 50,
+      deferredUpdatesInterval: ms,
+      pausesUpdatesAutomatically: false,
+      showsBackgroundLocationIndicator: true,
+      // Android exige notificacion visible para seguir con la app cerrada
+      foregroundService: {
+        notificationTitle: 'Viernes',
+        notificationBody: 'Compartiendo ubicacion',
+        notificationColor: '#7c3aed',
+      },
     });
     await AsyncStorage.setItem(INTERVAL_KEY, String(intervalMinutes));
     return true;
@@ -107,8 +118,9 @@ export async function registerLocationTask(intervalMinutes = 15) {
 
 export async function unregisterLocationTask() {
   try {
-    const isReg = await TaskManager.isTaskRegisteredAsync(TASK_NAME);
-    if (isReg) await BackgroundFetch.unregisterTaskAsync(TASK_NAME);
+    if (await Location.hasStartedLocationUpdatesAsync(TASK_NAME)) {
+      await Location.stopLocationUpdatesAsync(TASK_NAME);
+    }
   } catch {}
 }
 
