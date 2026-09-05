@@ -68,20 +68,20 @@ def _apply(task: Task, payload: TaskIn):
 
 
 @router.get("")
-def list_tasks(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    tasks = db.query(Task).order_by(Task.completed.asc(), Task.created_at.desc()).all()
+def list_tasks(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    tasks = db.query(Task).filter(Task.user_id == user.id).order_by(Task.completed.asc(), Task.created_at.desc()).all()
     return [_parse(t) for t in tasks]
 
 
 @router.get("/pending")
-def pending_tasks(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    tasks = db.query(Task).filter(Task.completed == False).order_by(Task.created_at.desc()).all()
+def pending_tasks(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    tasks = db.query(Task).filter(Task.user_id == user.id).filter(Task.completed == False).order_by(Task.created_at.desc()).all()
     return [_parse(t) for t in tasks]
 
 
 @router.post("")
-def create_task(payload: TaskIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    task = Task()
+def create_task(payload: TaskIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    task = Task(user_id=user.id)
     _apply(task, payload)
     db.add(task)
     db.commit()
@@ -90,8 +90,8 @@ def create_task(payload: TaskIn, db: Session = Depends(get_db), _=Depends(get_cu
 
 
 @router.put("/{task_id}")
-def update_task(task_id: int, payload: TaskIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def update_task(task_id: int, payload: TaskIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    task = db.query(Task).filter(Task.user_id == user.id).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     _apply(task, payload)
@@ -102,8 +102,8 @@ def update_task(task_id: int, payload: TaskIn, db: Session = Depends(get_db), _=
 
 
 @router.patch("/{task_id}/complete")
-def toggle_complete(task_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def toggle_complete(task_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    task = db.query(Task).filter(Task.user_id == user.id).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     task.completed = not task.completed
@@ -114,8 +114,8 @@ def toggle_complete(task_id: int, db: Session = Depends(get_db), _=Depends(get_c
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+def delete_task(task_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    task = db.query(Task).filter(Task.user_id == user.id).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     if task.voice_note_filename:
@@ -133,9 +133,9 @@ async def upload_audio(
     task_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = db.query(Task).filter(Task.user_id == user.id).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     TASKS_AUDIO_DIR.mkdir(parents=True, exist_ok=True)

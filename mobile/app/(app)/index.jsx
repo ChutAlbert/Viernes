@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
+import { useSelector } from 'react-redux';
 import { viernesApi } from '../../lib/api/viernes';
 import { useTheme, useStyles, typography, spacing, radius } from '../../lib/theme';
 
@@ -54,6 +55,9 @@ function TaskItem({ task, onComplete }) {
 
 export default function OverviewScreen() {
   const styles = useStyles(makeStyles);
+  // Un usuario comun no ve visitas del sitio ni alertas de inventario
+  const user = useSelector((st) => st.auth.user);
+  const esAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const [visits, setVisits]   = useState(null);
   const [tasks, setTasks]     = useState([]);
   const [alertas, setAlertas] = useState([]);
@@ -62,14 +66,14 @@ export default function OverviewScreen() {
 
   const load = useCallback(async () => {
     const [v, t, a] = await Promise.allSettled([
-      viernesApi.visitStats(),
+      esAdmin ? viernesApi.visitStats() : Promise.resolve(null),
       viernesApi.pendingTasks(),
-      viernesApi.getInventarioAlertas(),
+      esAdmin ? viernesApi.getInventarioAlertas() : Promise.resolve([]),
     ]);
     if (v.status === 'fulfilled') setVisits(v.value);
     if (t.status === 'fulfilled') setTasks(t.value);
-    if (a.status === 'fulfilled') setAlertas(a.value);
-  }, []);
+    if (a.status === 'fulfilled') setAlertas(a.value ?? []);
+  }, [esAdmin]);
 
   useEffect(() => { load(); }, []);
 
@@ -104,16 +108,20 @@ export default function OverviewScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Visitas */}
-      <Text style={styles.sectionTitle}>Visitas al sitio web</Text>
-      <View style={styles.grid2}>
-        <GradientCard label="Total histórico" value={fmt(visits?.total)}        accent="#5b21b6" />
-        <GradientCard label="Últimos 30 días" value={fmt(visits?.last_30_days)} accent="#0e7490" />
-      </View>
-      <View style={[styles.grid2, { marginTop: spacing.sm }]}>
-        <StatCard label="Esta semana" value={fmt(visits?.last_7_days)} />
-        <StatCard label="Hoy"         value={fmt(visits?.today)} />
-      </View>
+      {/* Visitas — solo admin */}
+      {esAdmin && (
+        <>
+          <Text style={styles.sectionTitle}>Visitas al sitio web</Text>
+          <View style={styles.grid2}>
+            <GradientCard label="Total histórico" value={fmt(visits?.total)}        accent="#5b21b6" />
+            <GradientCard label="Últimos 30 días" value={fmt(visits?.last_30_days)} accent="#0e7490" />
+          </View>
+          <View style={[styles.grid2, { marginTop: spacing.sm }]}>
+            <StatCard label="Esta semana" value={fmt(visits?.last_7_days)} />
+            <StatCard label="Hoy"         value={fmt(visits?.today)} />
+          </View>
+        </>
+      )}
 
       {/* Tareas pendientes */}
       <View style={styles.card}>

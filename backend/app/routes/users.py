@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.user import User
 from app.core.security import hash_password
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_super_admin
 from app.schemas.users import UserCreate, UserUpdate, UserOut, DEFAULT_PERMISSIONS
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -30,13 +30,13 @@ def _serialize(user: User) -> dict:
 
 
 @router.get("", response_model=list[UserOut])
-def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def list_users(db: Session = Depends(get_db), _: User = Depends(require_super_admin)):
     users = db.query(User).order_by(User.id).all()
     return [_serialize(u) for u in users]
 
 
 @router.post("", response_model=UserOut, status_code=201)
-def create_user(payload: UserCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def create_user(payload: UserCreate, db: Session = Depends(get_db), _: User = Depends(require_super_admin)):
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email ya en uso")
 
@@ -63,7 +63,7 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    current: User = Depends(require_admin),
+    current: User = Depends(require_super_admin),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -95,7 +95,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current: User = Depends(require_admin),
+    current: User = Depends(require_super_admin),
 ):
     if current.id == user_id:
         raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")

@@ -25,8 +25,8 @@ ALLOWED_IMAGE = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 ALLOWED_VIDEO = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 
 
-def _get_config(db: Session) -> GalleryConfig | None:
-    return db.query(GalleryConfig).first()
+def _get_config(db: Session, user) -> GalleryConfig | None:
+    return db.query(GalleryConfig).filter(GalleryConfig.user_id == user.id).first()
 
 
 def _today_visits(db: Session) -> int:
@@ -54,8 +54,8 @@ def _serialize(item: GalleryItem) -> dict:
 # ─── Config / Setup ───────────────────────────────────────────────────────────
 
 @router.get("/config")
-def get_config(db: Session = Depends(get_db), _=Depends(require_super_admin)):
-    cfg = _get_config(db)
+def get_config(db: Session = Depends(get_db), user=Depends(require_super_admin)):
+    cfg = _get_config(db, user)
     return {"configured": cfg is not None}
 
 
@@ -63,13 +63,13 @@ def get_config(db: Session = Depends(get_db), _=Depends(require_super_admin)):
 def setup_passphrase(
     payload: dict,
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
     passphrase = (payload.get("passphrase") or "").strip()
     if len(passphrase) < 3:
         raise HTTPException(status_code=400, detail="La frase clave debe tener al menos 3 caracteres")
 
-    cfg = _get_config(db)
+    cfg = _get_config(db, user)
     kdf_salt = base64.b64encode(os.urandom(32)).decode()
     hashed = _pwd.hash(passphrase)
 
@@ -77,7 +77,7 @@ def setup_passphrase(
         cfg.passphrase_hash = hashed
         cfg.kdf_salt = kdf_salt
     else:
-        cfg = GalleryConfig(passphrase_hash=hashed, kdf_salt=kdf_salt)
+        cfg = GalleryConfig(passphrase_hash=hashed, kdf_salt=kdf_salt, user_id=user.id)
         db.add(cfg)
 
     db.commit()
@@ -88,11 +88,11 @@ def setup_passphrase(
 def verify_passphrase(
     payload: dict,
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
     passphrase = (payload.get("passphrase") or "").strip()
     today = _today_visits(db)
-    cfg = _get_config(db)
+    cfg = _get_config(db, user)
 
     if not cfg:
         return {"ok": False, "today_visits": today}
@@ -110,9 +110,9 @@ def list_items(
     name: str = "",
     tags: str = "",
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
-    items = [_serialize(i) for i in db.query(GalleryItem).order_by(GalleryItem.created_at.desc()).all()]
+    items = [_serialize(i) for i in db.query(GalleryItem).filter(GalleryItem.user_id == user.id).order_by(GalleryItem.created_at.desc()).all()]
 
     if name:
         q = name.lower()
@@ -125,7 +125,7 @@ def list_items(
 
 
 @router.get("/tags")
-def list_tags(db: Session = Depends(get_db), _=Depends(require_super_admin)):
+def list_tags(db: Session = Depends(get_db), user=Depends(require_super_admin)):
     tag_set: set[str] = set()
     for (raw,) in db.query(GalleryItem.tags).all():
         if raw:
@@ -141,9 +141,9 @@ def list_tags(db: Session = Depends(get_db), _=Depends(require_super_admin)):
 def get_file(
     item_id: int,
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
-    item = db.query(GalleryItem).filter(GalleryItem.id == item_id).first()
+    item = db.query(GalleryItem).filter(GalleryItem.user_id == user.id).filter(GalleryItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="No encontrado")
 
@@ -166,7 +166,7 @@ async def upload_item(
     media_type: str = Form(...),
     tags: str = Form("[]"),
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
     if media_type not in ("image", "video"):
         raise HTTPException(status_code=400, detail="media_type debe ser 'image' o 'video'")
@@ -185,6 +185,7 @@ async def upload_item(
         parsed_tags = []
 
     item = GalleryItem(
+        user_id=user.id,
         filename=filename,
         display_name=display_name.strip(),
         media_type=media_type,
@@ -201,9 +202,9 @@ def update_item(
     item_id: int,
     payload: dict,
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
-    item = db.query(GalleryItem).filter(GalleryItem.id == item_id).first()
+    item = db.query(GalleryItem).filter(GalleryItem.user_id == user.id).filter(GalleryItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="No encontrado")
     if "display_name" in payload:
@@ -219,9 +220,9 @@ def update_item(
 def delete_item(
     item_id: int,
     db: Session = Depends(get_db),
-    _=Depends(require_super_admin),
+    user=Depends(require_super_admin),
 ):
-    item = db.query(GalleryItem).filter(GalleryItem.id == item_id).first()
+    item = db.query(GalleryItem).filter(GalleryItem.user_id == user.id).filter(GalleryItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="No encontrado")
     f = GALLERY_DIR / item.filename

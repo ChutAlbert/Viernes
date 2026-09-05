@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.db import get_db
 from app.models.device_location import DeviceLocation
-from app.core.deps import get_current_user, require_admin
+from app.core.deps import get_current_user, require_super_admin
 from app.models.user import User
 
 router = APIRouter(prefix="/locations", tags=["locations"])
@@ -74,7 +74,7 @@ def update_location(
 
 
 @router.get("")
-def list_devices(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def list_devices(db: Session = Depends(get_db), _: User = Depends(require_super_admin)):
     devices = db.query(DeviceLocation).order_by(DeviceLocation.last_seen.desc()).all()
     return [_serialize(d) for d in devices]
 
@@ -95,7 +95,7 @@ def needs_refresh(
 def request_update(
     device_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_super_admin),
 ):
     device = db.query(DeviceLocation).filter(DeviceLocation.device_id == device_id).first()
     if not device:
@@ -110,7 +110,7 @@ def update_device(
     device_id: str,
     payload: DeviceEdit,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_super_admin),
 ):
     device = db.query(DeviceLocation).filter(DeviceLocation.device_id == device_id).first()
     if not device:
@@ -134,7 +134,7 @@ def update_device(
 def delete_device(
     device_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    _: User = Depends(require_super_admin),
 ):
     device = db.query(DeviceLocation).filter(DeviceLocation.device_id == device_id).first()
     if not device:

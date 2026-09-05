@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { viernesApi } from "../../lib/apis/viernes";
 import { ConfirmModal } from "@viernes/ui/react";
@@ -258,7 +259,33 @@ function SystemStatusWidget() {
   );
 }
 
+// Home personal: un usuario comun no tiene por que ver visitas del sitio,
+// alertas de inventario ni el estado de la infraestructura.
+function HomePersonal({ nombre }) {
+  return (
+    <div className="space-y-5 max-w-[1400px]">
+      <div>
+        <h1 className="text-xl font-semibold" style={{ color: "var(--c-text)" }}>
+          Hola, {nombre}
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "var(--c-text-4)" }}>
+          Esto es lo tuyo para hoy.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <PendingTasksWidget />
+        </div>
+        <WeatherWidget />
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
+  const user = useSelector((s) => s.auth.user);
+  const esAdmin = user?.role === "admin" || user?.role === "super_admin";
   const [visits, setVisits] = useState(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -267,7 +294,7 @@ export default function Dashboard() {
     viernesApi.visitStats().then(setVisits).catch(() => {});
   };
 
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => { if (esAdmin) loadStats(); }, [esAdmin]);
 
   const fmt = (n) => (n == null ? "—" : n.toLocaleString("es-MX"));
 
@@ -281,6 +308,10 @@ export default function Dashboard() {
       setClearing(false);
     }
   };
+
+  if (!esAdmin) {
+    return <HomePersonal nombre={user?.name?.split(" ")[0] || user?.email || ""} />;
+  }
 
   return (
     <div className="space-y-5 max-w-[1400px]">

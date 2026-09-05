@@ -40,14 +40,15 @@ class NoteIn(BaseModel):
 
 
 @router.get("")
-def list_notes(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    notes = db.query(Note).order_by(Note.pinned.desc(), Note.updated_at.desc()).all()
+def list_notes(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    notes = db.query(Note).filter(Note.user_id == user.id).order_by(Note.pinned.desc(), Note.updated_at.desc()).all()
     return [_parse(n) for n in notes]
 
 
 @router.post("")
-def create_note(payload: NoteIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def create_note(payload: NoteIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
     note = Note(
+        user_id=user.id,
         title=payload.title,
         content=payload.content,
         color=payload.color,
@@ -62,8 +63,8 @@ def create_note(payload: NoteIn, db: Session = Depends(get_db), _=Depends(get_cu
 
 
 @router.put("/{note_id}")
-def update_note(note_id: int, payload: NoteIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    note = db.query(Note).filter(Note.id == note_id).first()
+def update_note(note_id: int, payload: NoteIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    note = db.query(Note).filter(Note.user_id == user.id).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     note.title = payload.title
@@ -78,8 +79,8 @@ def update_note(note_id: int, payload: NoteIn, db: Session = Depends(get_db), _=
 
 
 @router.delete("/{note_id}")
-def delete_note(note_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    note = db.query(Note).filter(Note.id == note_id).first()
+def delete_note(note_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    note = db.query(Note).filter(Note.user_id == user.id).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     for att in json.loads(note.attachments or "[]"):
@@ -97,9 +98,9 @@ async def upload_attachment(
     note_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.user_id == user.id).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     NOTES_DIR.mkdir(parents=True, exist_ok=True)
@@ -121,9 +122,9 @@ def delete_attachment(
     note_id: int,
     filename: str,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    note = db.query(Note).filter(Note.id == note_id).first()
+    note = db.query(Note).filter(Note.user_id == user.id).filter(Note.id == note_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     kept = []

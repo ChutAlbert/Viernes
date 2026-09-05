@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, DateTime
+from sqlalchemy import String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 from app.db import Base
@@ -8,6 +8,8 @@ class PasswordEntry(Base):
     __tablename__ = "password_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Privado por usuario: antes estas tablas eran globales
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(500))           # plaintext: service name
     username_hint: Mapped[str] = mapped_column(String(500), default="")  # plaintext: email/user hint
     url: Mapped[str] = mapped_column(String(2000), default="")
@@ -23,5 +25,7 @@ class VaultConfig(Base):
     __tablename__ = "vault_config"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Privado por usuario: antes estas tablas eran globales
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     salt: Mapped[str] = mapped_column(String(100))   # base64(random 32 bytes)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

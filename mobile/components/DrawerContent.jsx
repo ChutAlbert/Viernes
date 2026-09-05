@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logoutThunk } from '../store/slices/authSlice';
 import { useTheme, useStyles, THEMES, typography, spacing, radius } from '../lib/theme';
 
@@ -32,24 +32,25 @@ const WORKSPACES = [
     key: 'sodigic', label: 'Sodigic', color: '#f59e0b',
     sub: 'El negocio: catálogo, producción y web.',
     items: [
-      { route: '/(app)/website',    label: 'Website',        key: 'website' },
-      { route: '/(app)/catalogo',   label: 'Catálogo',       key: 'catalogo' },
-      { route: '/(app)/piezas',     label: 'Piezas 3D',      key: 'piezas' },
-      { route: '/(app)/inventario', label: 'Inventario',     key: 'inventario' },
-      { route: '/(app)/redes',      label: 'Redes Sociales', key: 'redes' },
+      { route: '/(app)/website',    label: 'Website',    key: 'website' },
+      { route: '/(app)/piezas',     label: 'Piezas',     key: 'piezas' },
+      { route: '/(app)/filamentos', label: 'Filamentos', key: 'filamentos' },
+      { route: '/(app)/inventario', label: 'Inventario', key: 'inventario' },
+      { route: '/(app)/contactos',  label: 'Contactos',  key: 'website' },
     ],
   },
   {
     key: 'admin', label: 'Admin', color: '#10b981', adminOnly: true,
     sub: 'Gestión del sistema y accesos.',
     items: [
-      { route: '/(app)/usuarios', label: 'Usuarios', key: 'usuarios', roles: ['admin', 'super_admin'] },
+      { route: '/(app)/usuarios', label: 'Usuarios', key: 'usuarios', roles: ['super_admin'] },
     ],
   },
 ];
 
+// El espacio Admin lo ve solo el super_admin (el dueno), no todo admin.
 function isAdminUser(user) {
-  return user?.role === 'admin' || user?.role === 'super_admin';
+  return user?.role === 'super_admin';
 }
 
 function canAccess(key, user) {
@@ -72,18 +73,17 @@ function visibleWorkspaces(user) {
   });
 }
 
-function isActiveRoute(route, pathname) {
-  if (route === '/(app)/') {
-    return pathname === '/(app)' || pathname === '/(app)/' || pathname === '/(app)/index' || pathname === '/';
-  }
-  return pathname === route || pathname.startsWith(route + '/');
+// usePathname() de expo-router devuelve la ruta SIN el grupo: /website, no
+// /(app)/website. Normalizamos ambos lados para que comparen igual.
+function sinGrupos(p) {
+  return (p || '').replace(/\/\([^)]*\)/g, '') || '/';
 }
 
-function findWorkspaceKey(pathname, user) {
-  for (const ws of visibleWorkspaces(user)) {
-    if (ws.items.some((it) => it.route && isActiveRoute(it.route, pathname))) return ws.key;
-  }
-  return 'viernes';
+function isActiveRoute(route, pathname) {
+  const r = sinGrupos(route);
+  const actual = sinGrupos(pathname);
+  if (r === '/') return actual === '/' || actual === '/index';
+  return actual === r || actual.startsWith(r + '/');
 }
 
 function getInitials(name, email) {
@@ -100,20 +100,7 @@ export default function DrawerContent() {
   const styles = useStyles(makeStyles);
 
   const spaces = visibleWorkspaces(user);
-  const [activeKey, setActiveKey] = useState(() => findWorkspaceKey(pathname, user));
-
-  useEffect(() => {
-    setActiveKey(findWorkspaceKey(pathname, user));
-  }, [pathname, user]);
-
-  const activeWs = spaces.find((w) => w.key === activeKey) || spaces[0];
-  const items = activeWs ? visibleItems(activeWs, user) : [];
-
-  const switchWorkspace = (ws) => {
-    setActiveKey(ws.key);
-    const first = visibleItems(ws, user).find((it) => it.route);
-    if (first) router.push(first.route);
-  };
+  const insets = useSafeAreaInsets();
 
   const isAdmin = isAdminUser(user);
   const initials = getInitials(user?.name, user?.email);
@@ -123,60 +110,37 @@ export default function DrawerContent() {
   return (
     <View style={styles.root}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.logo}><Text style={styles.logoText}>V</Text></View>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
+        <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
         <Text style={styles.brandName}>Viernes</Text>
       </View>
 
-      {/* Workspace switcher */}
-      <View style={styles.switcherWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
-          {spaces.map((ws) => {
-            const on = ws.key === activeKey;
-            return (
-              <TouchableOpacity
-                key={ws.key}
-                onPress={() => switchWorkspace(ws)}
-                activeOpacity={0.7}
-                style={[styles.pill, on && { backgroundColor: ws.color + '22', borderColor: ws.color + '66' }]}
-              >
-                <View style={[styles.pillDot, { backgroundColor: ws.color, opacity: on ? 1 : 0.5 }]} />
-                <Text style={[styles.pillLabel, on && { color: ws.color }]}>{ws.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Active workspace header */}
-      {activeWs && (
-        <View style={styles.spaceHead}>
-          <Text style={styles.spaceKicker}>Espacio</Text>
-          <View style={styles.spaceTitleRow}>
-            <View style={[styles.spaceChip, { backgroundColor: activeWs.color }]} />
-            <Text style={styles.spaceTitle}>{activeWs.label}</Text>
-          </View>
-          <Text style={styles.spaceSub}>{activeWs.sub}</Text>
-        </View>
-      )}
-
-      {/* Contextual item list */}
+      {/* Todos los espacios en un solo scroll: con pestañas quedaban ocultos */}
       <ScrollView style={styles.nav} showsVerticalScrollIndicator={false}>
-        {items.map((it, i) => {
-          if (it.group) return <Text key={`g-${i}`} style={styles.groupLabel}>{it.group}</Text>;
-          const active = isActiveRoute(it.route, pathname);
-          return (
-            <TouchableOpacity
-              key={it.route}
-              style={[styles.navItem, active && styles.navItemActive]}
-              onPress={() => router.push(it.route)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.activeBar, { backgroundColor: activeWs.color, opacity: active ? 1 : 0 }]} />
-              <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {spaces.map((ws) => (
+          <View key={ws.key} style={styles.space}>
+            <View style={styles.spaceTitleRow}>
+              <View style={[styles.spaceChip, { backgroundColor: ws.color }]} />
+              <Text style={[styles.spaceTitle, { color: ws.color }]}>{ws.label}</Text>
+            </View>
+
+            {visibleItems(ws, user).map((it, i) => {
+              if (it.group) return <Text key={`g-${ws.key}-${i}`} style={styles.groupLabel}>{it.group}</Text>;
+              const active = isActiveRoute(it.route, pathname);
+              return (
+                <TouchableOpacity
+                  key={it.route}
+                  style={[styles.navItem, active && styles.navItemActive]}
+                  onPress={() => router.push(it.route)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.activeBar, { backgroundColor: ws.color, opacity: active ? 1 : 0 }]} />
+                  <Text style={[styles.navLabel, active && styles.navLabelActive]}>{it.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
       </ScrollView>
 
       {/* Theme picker */}
@@ -220,22 +184,15 @@ export default function DrawerContent() {
 const makeStyles = (colors) => StyleSheet.create({
   root:          { flex: 1, backgroundColor: colors.shell },
   header:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border },
-  logo:          { width: 30, height: 30, borderRadius: radius.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  logoText:      { color: '#fff', fontWeight: '700', fontSize: typography.base },
+  logo:          { width: 30, height: 30 },
+  space:         { marginBottom: spacing.lg },
   brandName:     { color: colors.text, fontWeight: '600', fontSize: typography.base, letterSpacing: 0.5 },
 
-  switcherWrap:  { borderBottomWidth: 1, borderBottomColor: colors.border },
-  switcher:      { paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.sm },
-  pill:          { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, borderWidth: 1, borderColor: 'transparent', backgroundColor: colors.hover },
-  pillDot:       { width: 8, height: 8, borderRadius: 4 },
-  pillLabel:     { color: colors.text3, fontSize: typography.sm, fontWeight: '600' },
 
   spaceHead:     { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  spaceKicker:   { color: colors.text4, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.4 },
   spaceTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
   spaceChip:     { width: 10, height: 10, borderRadius: 3 },
   spaceTitle:    { color: colors.text, fontSize: typography.lg, fontWeight: '700' },
-  spaceSub:      { color: colors.text3, fontSize: typography.xs, marginTop: 4 },
 
   nav:           { flex: 1, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   groupLabel:    { color: colors.text4, fontSize: typography.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.2, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs },

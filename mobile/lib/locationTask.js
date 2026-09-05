@@ -48,8 +48,25 @@ async function postLocation(deviceId, token) {
   if (data.update_interval) {
     const stored = await AsyncStorage.getItem(INTERVAL_KEY);
     if (String(data.update_interval) !== stored) {
-      await registerLocationTask(data.update_interval);
+      // En Expo Go no hay BackgroundFetch; el reporte en primer plano no debe caerse por eso
+      try { await registerLocationTask(data.update_interval); } catch {}
     }
+  }
+}
+
+// Reporta la ubicacion con la app abierta. Solo necesita permiso de primer
+// plano, asi que SI funciona en Expo Go, a diferencia del task en segundo
+// plano (Expo 52 saco TaskManager/BackgroundFetch de Expo Go).
+export async function reportLocationNow() {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return false;
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!token) return false;
+    await postLocation(await getOrCreateDeviceId(), token);
+    return true;
+  } catch {
+    return false;
   }
 }
 

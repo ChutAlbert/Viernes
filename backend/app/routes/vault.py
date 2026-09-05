@@ -36,20 +36,20 @@ class EntryOut(BaseModel):
 # ── Vault config (salt) ────────────────────────────────────────────────────────
 
 @router.get("/config")
-def get_config(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    cfg = db.query(VaultConfig).first()
+def get_config(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    cfg = db.query(VaultConfig).filter(VaultConfig.user_id == user.id).first()
     if not cfg:
         return {"initialized": False, "salt": None}
     return {"initialized": True, "salt": cfg.salt}
 
 
 @router.post("/config")
-def init_vault(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    existing = db.query(VaultConfig).first()
+def init_vault(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    existing = db.query(VaultConfig).filter(VaultConfig.user_id == user.id).first()
     if existing:
         return {"salt": existing.salt}
     salt = base64.b64encode(secrets.token_bytes(32)).decode()
-    cfg = VaultConfig(salt=salt)
+    cfg = VaultConfig(salt=salt, user_id=user.id)
     db.add(cfg)
     db.commit()
     return {"salt": salt}
@@ -58,13 +58,13 @@ def init_vault(db: Session = Depends(get_db), _=Depends(get_current_user)):
 # ── Entries CRUD ───────────────────────────────────────────────────────────────
 
 @router.get("/entries", response_model=list[EntryOut])
-def list_entries(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return db.query(PasswordEntry).order_by(PasswordEntry.updated_at.desc()).all()
+def list_entries(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return db.query(PasswordEntry).filter(PasswordEntry.user_id == user.id).order_by(PasswordEntry.updated_at.desc()).all()
 
 
 @router.post("/entries", response_model=EntryOut)
-def create_entry(payload: EntryIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    entry = PasswordEntry(**payload.model_dump())
+def create_entry(payload: EntryIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    entry = PasswordEntry(**payload.model_dump(), user_id=user.id)
     db.add(entry)
     db.commit()
     db.refresh(entry)
@@ -72,8 +72,8 @@ def create_entry(payload: EntryIn, db: Session = Depends(get_db), _=Depends(get_
 
 
 @router.put("/entries/{entry_id}", response_model=EntryOut)
-def update_entry(entry_id: int, payload: EntryIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    entry = db.query(PasswordEntry).filter(PasswordEntry.id == entry_id).first()
+def update_entry(entry_id: int, payload: EntryIn, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    entry = db.query(PasswordEntry).filter(PasswordEntry.user_id == user.id).filter(PasswordEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entrada no encontrada")
     for k, v in payload.model_dump().items():
@@ -85,8 +85,8 @@ def update_entry(entry_id: int, payload: EntryIn, db: Session = Depends(get_db),
 
 
 @router.delete("/entries/{entry_id}")
-def delete_entry(entry_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    entry = db.query(PasswordEntry).filter(PasswordEntry.id == entry_id).first()
+def delete_entry(entry_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    entry = db.query(PasswordEntry).filter(PasswordEntry.user_id == user.id).filter(PasswordEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entrada no encontrada")
     db.delete(entry)

@@ -19,6 +19,7 @@ import argparse
 import csv
 import os
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -59,6 +60,21 @@ def escanear(raiz: Path):
                 "fotos": fotos,
             })
     return modelos
+
+
+def subir(cli: httpx.Client, ruta: str, path, intentos: int = 3):
+    """Sube un archivo reintentando ante cortes de red. None si nunca paso."""
+    for n in range(1, intentos + 1):
+        try:
+            with open(path, "rb") as fh:
+                return cli.post(ruta, files={"file": (path.name, fh)})
+        except (httpx.HTTPError, OSError) as e:
+            if n == intentos:
+                print(f"      fallo tras {intentos} intentos: {path.name} ({type(e).__name__})")
+                return None
+            espera = 3 * n
+            print(f"      reintento {n}/{intentos - 1} en {espera}s: {type(e).__name__}")
+            time.sleep(espera)
 
 
 def token(cli: httpx.Client) -> str:
@@ -112,6 +128,11 @@ def main():
     )
     cli.headers["Authorization"] = f"Bearer {token(cli)}"
 
+    # Cloudflare corta las subidas en 100 MB; contra localhost no aplica.
+    local = "127.0.0.1" in args.api or "localhost" in args.api
+    tope = MAX_3D if local else 95 * 1024 * 1024
+    grandes, fallos = [], []
+
     existentes = {p["nombre"] for p in cli.get("/catalogo/productos").raise_for_status().json()}
     print(f"Ya hay {len(existentes)} productos en el catalogo; esos se saltan.\n")
 
@@ -123,20 +144,28 @@ def main():
 
         archivo_url = preview_url = None
         if m["archivo"] and not args.sin_archivos:
-            with open(m["archivo"], "rb") as fh:
-                r = cli.post("/files/upload", files={"file": (m["archivo"].name, fh)})
-            if r.status_code == 200:
-                archivo_url = r.json()["url"]
-                preview_url = r.json().get("preview_url")   # render a color del 3mf
+            peso = m["archivo"].stat().st_size
+            if peso > tope:
+                print(f"      OMITIDO {m['archivo'].name} ({peso/1e6:.0f} MB > "
+                      f"{tope/1e6:.0f} MB, limite de Cloudflare). Subelo a mano.")
+                grandes.append((m["nombre"], m["archivo"], peso))
             else:
-                print(f"      aviso: no subio {m['archivo'].name} ({r.status_code})")
+                r = subir(cli, "/files/upload", m["archivo"])
+                if r is not None and r.status_code == 200:
+                    archivo_url = r.json()["url"]
+                    preview_url = r.json().get("preview_url")   # render a color del 3mf
+                else:
+                    est = r.status_code if r is not None else "sin respuesta"
+                    print(f"      aviso: no subio {m['archivo'].name} ({est})")
+                    fallos.append((m["nombre"], m["archivo"].name, str(est)))
 
         fotos_url = []
         for f in m["fotos"]:
-            with open(f, "rb") as fh:
-                r = cli.post("/images/upload", files={"file": (f.name, fh)})
-            if r.status_code == 200:
+            r = subir(cli, "/images/upload", f)
+            if r is not None and r.status_code == 200:
                 fotos_url.append(r.json()["url"])
+            else:
+                fallos.append((m["nombre"], f.name, "foto"))
 
         vendida = bool(fotos_url)
         r = cli.post("/catalogo/productos", json={

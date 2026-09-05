@@ -14,6 +14,7 @@ import {
   unregisterLocationTask,
   getOrCreateDeviceId,
   checkAndRefreshIfNeeded,
+  reportLocationNow,
 } from '../lib/locationTask';
 
 function AuthGate() {
@@ -42,10 +43,19 @@ function AuthGate() {
       return;
     }
     // Ensure device ID exists then register background task
-    getOrCreateDeviceId().then(() => registerLocationTask());
+    // (en Expo Go esto no prende: TaskManager no existe ahi)
+    getOrCreateDeviceId().then(() => registerLocationTask().catch(() => {}));
+
+    // Respaldo que si corre en Expo Go: reportar con la app abierta.
+    reportLocationNow();
+    const ubic = setInterval(reportLocationNow, 5 * 60_000);
+
     // Foreground poll every 30s to react to server-requested refreshes
     pollRef.current = setInterval(checkAndRefreshIfNeeded, 30_000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      clearInterval(ubic);
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [token, restored]);
 
   return null;

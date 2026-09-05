@@ -188,10 +188,10 @@ const WORKSPACES = [
     key: "admin", label: "Admin", color: "#10b981", adminOnly: true,
     sub: "Gestión del sistema y accesos.",
     items: [
-      { to: "/app/usuarios",    label: "Usuarios",    icon: ICON_USERS,   key: "usuarios",    roles: ["admin", "super_admin"] },
+      { to: "/app/usuarios",    label: "Usuarios",    icon: ICON_USERS,   key: "usuarios",    roles: ["super_admin"] },
       { to: "/app/galeria",     label: "Visitas",     icon: ICON_GALLERY, key: "galeria",     roles: ["super_admin"] },
-      { to: "/app/ubicaciones", label: "Ubicaciones", icon: ICON_MAP,     key: "ubicaciones", roles: ["admin", "super_admin"] },
-      { to: "/app/config",      label: "Configuración", icon: ICON_CONFIG, key: "config",      roles: ["admin", "super_admin"] },
+      { to: "/app/ubicaciones", label: "Ubicaciones", icon: ICON_MAP,     key: "ubicaciones", roles: ["super_admin"] },
+      { to: "/app/config",      label: "Configuración", icon: ICON_CONFIG, key: "config",      roles: ["super_admin"] },
     ],
   },
 ];
@@ -206,8 +206,9 @@ function canAccess(key, user) {
   return user.permissions[key] !== false;
 }
 
+// El espacio Admin lo ve solo el super_admin (el dueno), no todo admin.
 function isAdminUser(user) {
-  return user?.role === "admin" || user?.role === "super_admin";
+  return user?.role === "super_admin";
 }
 
 function visibleItems(ws, user) {

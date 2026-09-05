@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Text, DateTime
+from sqlalchemy import String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.db import Base
@@ -9,6 +9,8 @@ class GalleryItem(Base):
     __tablename__ = "gallery_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Privado por usuario: antes estas tablas eran globales
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     media_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "image" | "video"
@@ -22,5 +24,7 @@ class GalleryConfig(Base):
     __tablename__ = "gallery_config"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Privado por usuario: antes estas tablas eran globales
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     passphrase_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     kdf_salt: Mapped[str] = mapped_column(String(255), nullable=False)
