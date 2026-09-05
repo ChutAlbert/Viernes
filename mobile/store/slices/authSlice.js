@@ -33,7 +33,10 @@ export const logoutThunk = createAsyncThunk('auth/logout', async () => {
 const authSlice = createSlice({
   name: 'auth',
   initialState: { token: null, user: null, loading: false, error: null, restored: false },
-  reducers: {},
+  reducers: {
+    // Arranca sin sesion: hay token guardado pero lo protege la huella
+    bloqueadoPorHuella(s) { s.restored = true; s.token = null; s.user = null; },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(loginThunk.pending,   (s) => { s.loading = true; s.error = null; })
@@ -47,5 +50,7 @@ const authSlice = createSlice({
       .addCase(logoutThunk.fulfilled, (s) => { s.token = null; s.user = null; });
   },
 });
+
+export const { bloqueadoPorHuella } = authSlice.actions;
 
 export default authSlice.reducer;

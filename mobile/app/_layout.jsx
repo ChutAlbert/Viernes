@@ -6,8 +6,11 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as bio from '../lib/biometria';
+import { TOKEN_KEY } from '../lib/api/client';
 import { store } from '../store';
-import { restoreAuthThunk } from '../store/slices/authSlice';
+import { restoreAuthThunk, bloqueadoPorHuella } from '../store/slices/authSlice';
 import { ThemeProvider, useTheme } from '../lib/theme';
 import {
   registerLocationTask,
@@ -25,7 +28,15 @@ function AuthGate() {
   const pollRef = useRef(null);
 
   useEffect(() => {
-    dispatch(restoreAuthThunk());
+    (async () => {
+      // Con huella activada no abrimos la sesion sola: primero la pedimos
+      const hayToken = await AsyncStorage.getItem(TOKEN_KEY);
+      if (hayToken && (await bio.disponible()) && (await bio.activada())) {
+        dispatch(bloqueadoPorHuella());
+        return;
+      }
+      dispatch(restoreAuthThunk());
+    })();
   }, []);
 
   useEffect(() => {
