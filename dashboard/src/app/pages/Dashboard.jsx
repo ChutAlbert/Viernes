@@ -223,29 +223,47 @@ function WeatherWidget() {
   );
 }
 
+function fechaCorta(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 function SystemStatusWidget() {
-  const [backendOk, setBackendOk] = useState(null);
+  const [salud, setSalud] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    viernesApi.health()
-      .then((d) => setBackendOk(d?.status === "ok"))
-      .catch(() => setBackendOk(false));
+    viernesApi.health().then(setSalud).catch(() => setError(true));
   }, []);
 
+  const deploy = salud?.deploy;
+  const backendOk = !error && salud?.status === "ok";
+
+  // Solo estados reales: los de antes estaban escritos a mano y siempre
+  // decian "Activo" aunque el servicio estuviera caido.
   const services = [
-    { label: "Backend API",   status: backendOk === null ? null : backendOk ? "ok" : "warn" },
-    { label: "Ollama (LLM)",  status: "ok" },
-    { label: "Base de datos", status: "ok" },
-    { label: "Gmail OAuth",   status: "warn" },
+    { label: "Backend API",   status: !salud && !error ? null : backendOk ? "ok" : "warn" },
+    { label: "Base de datos", status: !salud && !error ? null : salud?.db ? "ok" : "warn" },
+    {
+      label: "Último deploy",
+      status: !deploy ? null : deploy.ok ? "ok" : "warn",
+      detalle: deploy ? (deploy.ok ? fechaCorta(deploy.fecha) : deploy.mensaje) : "sin datos",
+    },
   ];
 
   return (
     <Card className="h-full">
       <p className="font-semibold text-sm mb-4" style={{ color: "var(--c-text)" }}>Estado del sistema</p>
       <div className="space-y-3">
-        {services.map(({ label, status }) => (
-          <div key={label} className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: "var(--c-text-3)" }}>{label}</span>
+        {services.map(({ label, status, detalle }) => (
+          <div key={label} className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-xs" style={{ color: "var(--c-text-3)" }}>{label}</span>
+              {detalle ? (
+                <p className="text-[10px] truncate" style={{ color: "var(--c-text-4)" }}>{detalle}</p>
+              ) : null}
+            </div>
             <span className="flex items-center gap-1.5 text-xs font-medium"
               style={{ color: status === "ok" ? "#22c55e" : status === "warn" ? "#f59e0b" : "var(--c-text-4)" }}>
               <span className="w-1.5 h-1.5 rounded-full"

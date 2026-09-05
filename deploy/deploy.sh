@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
 # Despliegue de Viernes. Lo dispara deploy.timer cada minuto.
 # Si no hay commits nuevos, sale sin hacer nada.
-set -euo pipefail
+set -Eeuo pipefail
 
 REPO=/var/www/viernes
 RAMA=main
 SERVICIO=viernes-backend
 RESPALDOS=/var/backups/viernes
 PY="$REPO/backend/.venv/bin/python"
+ESTADO="$REPO/data/deploy_estado.json"
+
+# Deja rastro de como acabo el deploy. Sin esto, un fallo bajo systemd es
+# silencioso: el timer reintenta cada minuto y nadie se entera.
+escribir_estado() {
+  mkdir -p "$(dirname "$ESTADO")" 2>/dev/null || return 0
+  printf '{"ok":%s,"commit":"%s","fecha":"%s","mensaje":"%s"}
+'     "$1" "$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo desconocido)"     "$(date -Is)" "$2" > "$ESTADO" 2>/dev/null || true
+}
+
+trap 'escribir_estado false "fallo en la linea $LINENO"' ERR
 
 cd "$REPO"
 
@@ -40,6 +51,7 @@ if ! command -v npm >/dev/null 2>&1; then
   export PATH
 fi
 if ! command -v npm >/dev/null 2>&1; then
+  escribir_estado false "npm no encontrado en el PATH"
   echo "ABORTADO: no encuentro npm. Agrega su ruta al PATH del servicio:"
   echo "  systemctl edit viernes-deploy.service   ->   Environment=PATH=/ruta/a/node/bin:/usr/bin:/bin"
   exit 1
@@ -68,6 +80,7 @@ if [ -n "$NUEVAS" ]; then
     UPGRADE=$(git show "$REMOTO:$f" | sed -n '/^def upgrade/,/^def downgrade/p')
     if printf '%s' "$UPGRADE" | grep -qE 'op\.(drop_table|drop_column)\('; then
       if [ "${PERMITIR_DROPS:-0}" != "1" ]; then
+        escribir_estado false "migracion con drops sin revisar: $f"
         echo "ABORTADO: $f contiene drop_table/drop_column."
         echo "Revísala a mano y corre: PERMITIR_DROPS=1 $0"
         exit 1
@@ -119,4 +132,5 @@ fi
 
 # ── reiniciar backend al final ───────────────────────────────────────────────
 sudo -n /usr/bin/systemctl restart "$SERVICIO"
+escribir_estado true "ok"
 echo "=== Deploy OK: $(git rev-parse --short HEAD) ==="
