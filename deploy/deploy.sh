@@ -26,6 +26,26 @@ if [ -z "${DATABASE_URL:-}" ] && [ -f "$REPO/backend/.env" ]; then
   export DATABASE_URL
 fi
 
+# systemd arranca con un PATH minimo y sin cargar ~/.bashrc, asi que node
+# instalado con nvm no aparece. Lo buscamos antes de necesitarlo.
+if ! command -v npm >/dev/null 2>&1; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  # shellcheck disable=SC1091
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+fi
+if ! command -v npm >/dev/null 2>&1; then
+  for d in "$NVM_DIR"/versions/node/*/bin /usr/local/bin /usr/bin /opt/node/bin; do
+    [ -x "$d/npm" ] && PATH="$d:$PATH" && break
+  done
+  export PATH
+fi
+if ! command -v npm >/dev/null 2>&1; then
+  echo "ABORTADO: no encuentro npm. Agrega su ruta al PATH del servicio:"
+  echo "  systemctl edit viernes-deploy.service   ->   Environment=PATH=/ruta/a/node/bin:/usr/bin:/bin"
+  exit 1
+fi
+echo "npm: $(command -v npm) ($(npm -v))"
+
 # ── ¿hay algo nuevo? ─────────────────────────────────────────────────────────
 git fetch --quiet origin "$RAMA"
 LOCAL=$(git rev-parse HEAD)
