@@ -94,7 +94,8 @@ export default function Piezas() {
             return (
               <button key={p.id} onClick={() => navigate(`/app/piezas/${p.id}`)} style={S.item}>
                 <div style={{ height: 120, borderRadius: 10, overflow: "hidden", background: "var(--c-hover)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {img ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {img ? <img src={img} alt="" loading="lazy" decoding="async"
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                        : <span style={{ color: "var(--c-text-4)", fontSize: 28 }}>◈</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10 }}>
