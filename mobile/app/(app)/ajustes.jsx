@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { Screen } from '../../components/Screen';
 import * as bio from '../../lib/biometria';
 import {
   registerLocationTask,
   unregisterLocationTask,
-  sendLocationNow,
   getOrCreateDeviceId,
   TASK_NAME,
 } from '../../lib/locationTask';
@@ -87,14 +86,6 @@ export default function AjustesScreen() {
     }
   };
 
-  const enviarAhora = async () => {
-    setOcupado(true);
-    const ok = await sendLocationNow();
-    setOcupado(false);
-    Alert.alert(ok ? 'Enviada' : 'No se pudo',
-      ok ? 'Tu ubicación se envió al servidor.' : 'Revisa el permiso de ubicación y tu conexión.');
-  };
-
   return (
     <Screen padded={false}>
       <ScrollView contentContainerStyle={styles.lista}>
@@ -120,9 +111,6 @@ export default function AjustesScreen() {
             onCambio={cambiarUbicacion}
             deshabilitado={ocupado}
           />
-          <TouchableOpacity style={styles.boton} onPress={enviarAhora} disabled={ocupado} activeOpacity={0.8}>
-            <Text style={styles.botonTexto}>Enviar mi ubicación ahora</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.seccion}>Dispositivo</Text>
@@ -150,9 +138,4 @@ const makeStyles = (colors) => StyleSheet.create({
   filaTitulo: { color: colors.text, fontSize: typography.base, fontWeight: '600' },
   filaDetalle: { color: colors.text4, fontSize: typography.xs, marginTop: 2, lineHeight: 16 },
   mono: { color: colors.text2, fontSize: typography.sm, marginTop: 2 },
-  boton: {
-    borderWidth: 1, borderColor: colors.borderMed, borderRadius: radius.md,
-    paddingVertical: 10, alignItems: 'center', marginTop: 2,
-  },
-  botonTexto: { color: colors.text2, fontSize: typography.sm, fontWeight: '600' },
 });
