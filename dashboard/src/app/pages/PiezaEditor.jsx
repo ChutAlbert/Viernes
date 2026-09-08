@@ -152,6 +152,11 @@ function Galeria({ productoId, imagenes, principal, onPrincipal, onCambio }) {
   );
 }
 
+function parseCalculo(txt) {
+  if (!txt) return null;
+  try { return JSON.parse(txt); } catch { return null; }
+}
+
 export default function PiezaEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -219,7 +224,13 @@ export default function PiezaEditor() {
       </div>
 
       {/* Cálculo — misma calculadora que Precios (multi-parte) */}
-      {tab === "calculo" && <PartsCalculator config={pcfg} />}
+      {tab === "calculo" && (
+        <PartsCalculator
+          config={pcfg}
+          inicial={parseCalculo(p.calculo_partes)}
+          onCambio={(c) => set("calculo_partes")(JSON.stringify(c))}
+        />
+      )}
 
       {/* General (incluye lo de Catálogo) */}
       {tab === "general" && (

@@ -1,39 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Select from "@components/Select";
 import { partCost, mxn, num, int } from "@/lib/pricing";
 
 // Calculadora multi-parte reutilizable (la misma en Precios y en el editor de Piezas).
 // Fuente única: lib/pricing.js.
 
-function ColorPicker({ palette, selected, multi, onChange }) {
-  const toggle = (hex) => {
-    if (multi) onChange(selected.includes(hex) ? selected.filter((h) => h !== hex) : [...selected, hex]);
-    else onChange([hex]);
-  };
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {palette.map((c) => {
-        const on = selected.includes(c.hex);
-        return (
-          <button key={c.hex} type="button" title={c.name} onClick={() => toggle(c.hex)}
-            style={{ width: 26, height: 26, borderRadius: 8, background: c.hex, cursor: "pointer",
-                     border: on ? "2px solid var(--c-accent-text)" : "1px solid var(--c-border-med)" }} />
-        );
-      })}
-    </div>
-  );
-}
-
 function newPart(config) {
   return { key: Date.now() + Math.random(), name: "", filamentId: config.materials[0]?.id,
-           multi: true, colors: [config.colors[0]?.hex].filter(Boolean), size: "grande", h: 0, m: 60, g: 30 };
+           multi: false, size: "grande", h: 0, m: 60, g: 30 };
 }
 
-export default function PartsCalculator({ config }) {
-  const [parts, setParts] = useState(() => [newPart(config)]);
-  const [paintOn, setPaintOn] = useState(false);
-  const [paintH, setPaintH] = useState(2);
-  const [paintMat, setPaintMat] = useState(80);
+// `inicial` rehidrata el calculo guardado; `onCambio` lo reporta hacia arriba
+// para que el editor lo persista. Sin esto vivia solo en memoria y se perdia
+// al cambiar de pestana.
+export default function PartsCalculator({ config, inicial = null, onCambio = null }) {
+  const [parts, setParts] = useState(() =>
+    inicial?.parts?.length
+      ? inicial.parts.map((x, i) => ({ ...newPart(config), ...x, key: x.key ?? i }))
+      : [newPart(config)]);
+  const [paintOn, setPaintOn] = useState(() => !!inicial?.paintOn);
+  const [paintH, setPaintH] = useState(() => inicial?.paintH ?? 2);
+  const [paintMat, setPaintMat] = useState(() => inicial?.paintMat ?? 80);
+
+  // Al montar no reportamos: marcaria la pieza como modificada sin que el
+  // usuario tocara nada, y dispararia un guardado en cada visita a la pestana.
+  const montado = useRef(false);
+  useEffect(() => {
+    if (!montado.current) { montado.current = true; return; }
+    if (onCambio) onCambio({ parts, paintOn, paintH, paintMat });
+  }, [parts, paintOn, paintH, paintMat]);
 
   const setPart = (key, patch) => setParts((ps) => ps.map((p) => (p.key === key ? { ...p, ...patch } : p)));
   const addPart = () => setParts((ps) => [...ps, newPart(config)]);
@@ -65,14 +60,9 @@ export default function PartsCalculator({ config }) {
               <div style={S.field}>
                 <span style={S.lbl}>Modo de color</span>
                 <Select value={p.multi ? "multi" : "single"}
-                  onChange={(v) => setPart(p.key, { multi: v === "multi", colors: v === "multi" ? p.colors : p.colors.slice(0, 1) })}
+                  onChange={(v) => setPart(p.key, { multi: v === "multi" })}
                   options={[{ value: "single", label: "Un color" }, { value: "multi", label: "Multicolor" }]} />
               </div>
-            </div>
-
-            <div style={{ ...S.field, marginTop: 10 }}>
-              <span style={S.lbl}>{p.multi ? "Colores" : "Color"}</span>
-              <ColorPicker palette={config.colors} selected={p.colors} multi={p.multi} onChange={(cols) => setPart(p.key, { colors: cols })} />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-2.5">
