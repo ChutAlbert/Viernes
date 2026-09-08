@@ -40,6 +40,9 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), _: User = De
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email ya en uso")
 
+    if payload.role == "super_admin":
+        raise HTTPException(status_code=403, detail="El rol super_admin no se asigna desde la app")
+
     perms = payload.permissions if payload.permissions is not None else DEFAULT_PERMISSIONS
     # admins don't need a permissions blob
     perms_json = None if payload.role == "admin" else json.dumps(perms)
@@ -79,7 +82,11 @@ def update_user(
         user.name = payload.name
     if payload.password:
         user.password_hash = hash_password(payload.password)
-    if payload.role is not None:
+    if payload.role is not None and payload.role != user.role:
+        if payload.role == "super_admin":
+            raise HTTPException(status_code=403, detail="El rol super_admin no se asigna desde la app")
+        if user.role == "super_admin":
+            raise HTTPException(status_code=403, detail="No se puede cambiar el rol del super administrador")
         user.role = payload.role
     if payload.is_active is not None:
         user.is_active = payload.is_active

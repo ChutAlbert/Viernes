@@ -124,7 +124,7 @@ function AddModal({ visible, onClose, onAdd }) {
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Rol</Text>
             <View style={styles.roleRow}>
-              {['user', 'admin', 'super_admin'].map((r) => (
+              {['user', 'admin'].map((r) => (
                 <TouchableOpacity
                   key={r}
                   style={[styles.roleBtn, role === r && styles.roleBtnActive]}
@@ -155,13 +155,20 @@ function EditModal({ user, onClose, onSave }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const [role, setRole] = useState(user.role);
+  const [nombre, setNombre] = useState(user.name || '');
+  const [correo, setCorreo] = useState(user.email || '');
+  const [pass, setPass] = useState('');
   const [perms, setPerms] = useState({ ...DEFAULT_PERMS, ...(user.permissions || {}) });
 
   const toggle = (key) => setPerms((p) => ({ ...p, [key]: !p[key] }));
 
   const submit = async () => {
+    if (!correo.trim()) { Alert.alert('Falta el correo', 'El usuario necesita un correo.'); return; }
     const permissions = (role === 'admin' || role === 'super_admin') ? null : perms;
-    await onSave(user.id, { role, permissions });
+    const cambios = { role, permissions, name: nombre.trim(), email: correo.trim() };
+    // Solo mandamos contrasena si escribio una nueva
+    if (pass.trim()) cambios.password = pass.trim();
+    await onSave(user.id, cambios);
     onClose();
   };
 
@@ -181,11 +188,35 @@ function EditModal({ user, onClose, onSave }) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.editBody}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.editBody}
+          keyboardShouldPersistTaps="handled">
+          {/* Datos */}
+          <Text style={styles.sectionHeader}>Datos</Text>
+          {[
+            { label: 'Nombre', value: nombre, set: setNombre, placeholder: 'Nombre completo' },
+            { label: 'Correo', value: correo, set: setCorreo, placeholder: 'correo@ejemplo.com', keyboard: 'email-address' },
+            { label: 'Nueva contraseña', value: pass, set: setPass, placeholder: 'Dejar vacío para no cambiarla', secure: true },
+          ].map(({ label, value, set, placeholder, keyboard, secure }) => (
+            <View key={label} style={styles.field}>
+              <Text style={styles.fieldLabel}>{label}</Text>
+              <TextInput
+                style={styles.input}
+                value={value}
+                onChangeText={set}
+                placeholder={placeholder}
+                placeholderTextColor={colors.text4}
+                keyboardType={keyboard || 'default'}
+                secureTextEntry={secure}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          ))}
+
           {/* Rol */}
           <Text style={styles.sectionHeader}>Rol</Text>
           <View style={styles.roleRow}>
-            {['user', 'admin', 'super_admin'].map((r) => (
+            {['user', 'admin'].map((r) => (
               <TouchableOpacity
                 key={r}
                 style={[styles.roleBtn, role === r && styles.roleBtnActive]}
@@ -239,7 +270,12 @@ export default function UsuariosScreen() {
   const [showAdd, setShowAdd]       = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-  const load = useCallback(() => viernesApi.listUsers().then(setUsers).catch(() => {}), []);
+  // Igual que el dashboard: el super_admin no se lista ni se edita desde aqui
+  const load = useCallback(
+    () => viernesApi.listUsers()
+      .then((todos) => setUsers(todos.filter((u) => u.role !== 'super_admin')))
+      .catch(() => {}),
+    []);
   useEffect(() => { load(); }, []);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
