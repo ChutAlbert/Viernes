@@ -38,6 +38,7 @@ export default function AppLayout() {
       <Drawer.Screen name="contactos"  options={{ title: 'Contactos' }} />
       <Drawer.Screen name="qr"         options={{ title: 'Generador QR' }} />
       <Drawer.Screen name="passwords"  options={{ title: 'Contraseñas' }} />
+      <Drawer.Screen name="ajustes"    options={{ title: 'Ajustes' }} />
       <Drawer.Screen name="usuarios"   options={{ title: 'Usuarios' }} />
     </Drawer>
   );

@@ -26,6 +26,7 @@ const WORKSPACES = [
       { group: 'Utilidades' },
       { route: '/(app)/qr',        label: 'Generador QR', key: 'qr' },
       { route: '/(app)/passwords', label: 'Contraseñas',  key: 'passwords' },
+      { route: '/(app)/ajustes',   label: 'Ajustes',      key: 'overview' },
     ],
   },
   {

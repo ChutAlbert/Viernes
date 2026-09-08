@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const TASK_NAME = 'VIERNES_LOCATION';
+export const TASK_NAME = 'VIERNES_LOCATION';
 const DEVICE_ID_KEY = 'viernes_device_id';
 const INTERVAL_KEY = 'viernes_location_interval';
 
