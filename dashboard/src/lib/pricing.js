@@ -1,60 +1,101 @@
-// Lógica de precios compartida: la usan la calculadora "Precios" y el editor de Piezas.
-// Fuente única de verdad para que nunca diverjan.
-import { useState, useEffect } from "react";
+// Sistema de precios de Sodigic. Fuente única: la pantalla Precios y la pestaña
+// Cálculo del editor de piezas importan de aquí.
+//
+// Se calcula COSTO REAL y luego se aplica margen, en vez de esconder la ganancia
+// dentro de una tarifa. Una sola fórmula para todo: lo que cambia entre piezas
+// son los números, no la lógica.
+//
+// Sin React a propósito: así se puede verificar con `node pricing.check.mjs`.
+// El hook de configuración vive en usePricingConfig.js.
 
 export const DEFAULT_CONFIG = {
   materials: [
-    { id: "pla",  label: "PLA / PLA+", minRate: 0.60, gRate: 0.50 },
-    { id: "petg", label: "PETG",       minRate: 0.80, gRate: 0.70 },
-    { id: "tpu",  label: "TPU",        minRate: 1.00, gRate: 0.90 },
+    { id: "pla",  label: "PLA / PLA+", cost: 0.40, market: 1.20 },
+    { id: "petg", label: "PETG",       cost: 0.52, market: 1.50 },
+    { id: "tpu",  label: "TPU",        cost: 0.70, market: 2.00 },
   ],
-  colors: [
-    { name: "Negro",   hex: "#1a1a1a" }, { name: "Blanco",  hex: "#f5f5f5" },
-    { name: "Gris",    hex: "#8a8a8a" }, { name: "Rojo",    hex: "#e11d48" },
-    { name: "Naranja", hex: "#f59e0b" }, { name: "Amarillo",hex: "#eab308" },
-    { name: "Verde",   hex: "#22c55e" }, { name: "Azul",    hex: "#3b82f6" },
-    { name: "Morado",  hex: "#8b5cf6" },
-  ],
-  machine_hr: 6.85,
-  filament_g: 0.315,
+  machine_hr: 6.85,   // desgaste, luz y mantenimiento; es tiempo de la máquina
+  waste_pct: 0.12,    // fallidas, calibraciones, filamento perdido
+  labor_hr: 120,      // tu tiempo con las manos
   paint_hr: 100,
+  min_price: 80,      // piso: en piezas chicas el costo no refleja lo que valen
+  multicolor_fees: [0, 30, 60, 90, 120, 150],
   margins: [
     { label: "+40%",  mult: 1.4 },
     { label: "+60%",  mult: 1.6, highlight: true },
     { label: "+100%", mult: 2.0 },
   ],
+  volume_discounts: [
+    { min: 2,  max: 4,    pct: 0.05 },
+    { min: 5,  max: 9,    pct: 0.10 },
+    { min: 10, max: null, pct: 0.15 },
+  ],
 };
 
-const KEY = "sodigic_pricing_config";
-
 export const num = (v) => parseFloat(v) || 0;
-export const int = (v) => Math.max(0, parseInt(v) || 0);
+export const int = (v) => parseInt(v, 10) || 0;
 export const mins = (h, m) => int(h) * 60 + int(m);
-export const mxn = (n) => `$${Number(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} MXN`;
+export const mxn = (v) =>
+  `$${(Math.round(v * 100) / 100).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
 
-export function loadConfig() {
-  try {
-    const saved = localStorage.getItem(KEY);
-    return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
-  } catch { return DEFAULT_CONFIG; }
+function material(config, id) {
+  return config.materials.find((m) => m.id === id) || config.materials[0];
 }
 
-export function useConfig() {
-  const [config, setConfig] = useState(loadConfig);
-  useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(config)); } catch {}
-  }, [config]);
-  return [config, setConfig];
-}
-
-// part: { filamentId, multi, colors[], size:'grande'|'chica', h, m, g }
+/** parte: { filamentId, h, m, g }. Devuelve solo material + máquina. */
 export function partCost(p, config) {
-  const mat = config.materials.find((m) => m.id === p.filamentId) || config.materials[0];
-  const minutes = mins(p.h, p.m);
-  if (p.multi) {
-    return num(p.g) * config.filament_g + (minutes / 60) * config.machine_hr;
-  }
-  const t = minutes * (mat ? mat.minRate : 0);
-  const g = p.size === "grande" ? num(p.g) * (mat ? mat.gRate : 0) : 0;
-  return t + g;
+  const mat = material(config, p.filamentId);
+  const gramos = num(p.g) * (mat ? mat.cost : 0);
+  const horas = (mins(p.h, p.m) / 60) * config.machine_hr;
+  return gramos + horas;
+}
+
+/** Tarifa de venta del mercado. Informativa: no entra en el precio. */
+export function marketReference(parts, config) {
+  return parts.reduce((s, p) => {
+    const mat = material(config, p.filamentId);
+    return s + num(p.g) * (mat ? mat.market : 0);
+  }, 0);
+}
+
+export function volumeDiscount(cantidad, config) {
+  const n = int(cantidad) || 1;
+  const r = config.volume_discounts.find((d) => n >= d.min && (d.max == null || n <= d.max));
+  return r ? r.pct : 0;
+}
+
+/**
+ * pieza: { parts, laborHours, multicolorFee, painting: {enabled, hours, materials}, qty }
+ * Devuelve el desglose completo y los precios por margen.
+ */
+export function piecePrice(pieza, config) {
+  const parts = pieza.parts ?? [];
+  const impresion = parts.reduce((s, p) => s + partCost(p, config), 0);
+  const merma = impresion * config.waste_pct;
+  const mano = num(pieza.laborHours) * config.labor_hr;
+
+  const pin = pieza.painting ?? {};
+  const pintado = pin.enabled ? num(pin.hours) * config.paint_hr + num(pin.materials) : 0;
+  const multicolor = num(pieza.multicolorFee);
+
+  const total = impresion + merma + mano + pintado + multicolor;
+  const desc = volumeDiscount(pieza.qty, config);
+
+  const precios = config.margins.map((m) => {
+    // El mínimo se aplica antes del descuento: es el piso de UNA pieza
+    const conMargen = Math.max(total * m.mult, config.min_price);
+    return {
+      ...m,
+      unidad: conMargen * (1 - desc),
+      minimoAplicado: total * m.mult < config.min_price,
+    };
+  });
+
+  return {
+    impresion, merma, mano, pintado, multicolor, total,
+    referencia: marketReference(parts, config),
+    descuento: desc,
+    cantidad: int(pieza.qty) || 1,
+    precios,
+  };
 }

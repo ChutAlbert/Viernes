@@ -5,103 +5,184 @@ Documenta el sistema de precios de Sodigic: la calculadora de la pantalla
 mismo código, [`dashboard/src/lib/pricing.js`](../dashboard/src/lib/pricing.js),
 para que nunca den resultados distintos.
 
+Los ejemplos de este documento se verifican solos:
+`node dashboard/src/lib/pricing.check.mjs`.
+
 ---
 
 ## La idea en una línea
 
-Una pieza se compone de **partes**. Cada parte tiene su propio costo, se suman
-todas, se le agrega el pintado si aplica, y sobre ese total se ofrecen tres
-márgenes de venta.
+Una pieza se compone de **partes**. Se suma el costo real de todas, se agregan
+los extras y la mano de obra, y sobre ese total se ofrecen tres márgenes — con
+un precio mínimo que protege las piezas chicas.
 
 ```
-Costo base = (suma de las partes) + pintado
-Precio     = Costo base × margen
+Costo total = material + máquina + merma + mano de obra + extras
+Precio      = MAX(Costo total × margen, precio mínimo)
 ```
+
+**Una sola fórmula para todo:** chica o grande, un color o multicolor. Lo que
+cambia entre piezas son los números, no la lógica.
 
 ---
 
-## Modo de color: la decisión que más cambia el precio
+## Por qué se cobra así
 
-Cada parte se calcula con **una de dos fórmulas**, según el modo de color.
-No es una etiqueta: son dos lógicas de negocio distintas.
+Cobrar solo por gramos deja fuera las impresiones lentas. Cobrar solo por tiempo
+castiga las piezas ligeras y regala el filamento. Y cobrar por una "tarifa
+comercial por minuto" esconde el costo real: cuando no sabes cuánto te cuesta
+una pieza, no sabes si la estás vendiendo bien.
 
-### Un color
-
-Cobra por **tarifa comercial del material**. Es el modo por defecto.
-
-```
-costo = minutos × tarifa_por_minuto
-      + gramos  × tarifa_por_gramo     ← solo si el tamaño es Grande
-```
-
-### Multicolor
-
-Ignora el material y cobra por **costo real de operación**: lo que gastas en
-filamento más lo que cuesta tener la máquina encendida.
-
-```
-costo = gramos × costo_filamento_por_gramo
-      + horas  × costo_maquina_por_hora
-```
-
-**Por qué son distintas:** una impresión multicolor consume filamento de varios
-carretes y ocupa la máquina más tiempo por los cambios de color. Cobrarla con la
-tarifa por minuto del material no reflejaría ese gasto.
+Por eso el sistema calcula **costo real** y luego aplica margen. Así siempre ves
+las dos cosas: tu piso y tu ganancia.
 
 ---
 
-## Tamaño: Chica o Grande
+## Los cinco componentes del costo
 
-Solo aparece y solo aplica en **Un color**, porque es la única fórmula que lo usa.
+### 1. Material
 
-| Tamaño | Qué se cobra |
+```
+material = gramos × costo_filamento[material]
+```
+
+Los gramos del laminador, siempre. Incluyen soportes, purga y torres de limpieza,
+así que no hay que sumarlos aparte.
+
+### 2. Máquina
+
+```
+maquina = horas × costo_maquina_por_hora
+```
+
+Cubre desgaste, electricidad y mantenimiento. Es un costo bajo por hora, porque
+la máquina imprime sola: no es tu tiempo, es su tiempo.
+
+### 3. Merma
+
+```
+merma = (material + maquina) × porcentaje_merma
+```
+
+Impresiones fallidas, calibraciones, filamento perdido. No es opcional: en el
+promedio de los trabajos, un porcentaje siempre se pierde. Si no se cobra aquí,
+se paga con la ganancia de los que sí salieron.
+
+### 4. Mano de obra
+
+```
+mano_de_obra = horas_trabajo × tarifa_mano_obra
+```
+
+**Campo manual.** Solo horas realmente trabajadas con las manos: laminado,
+orientación, retiro de soportes, lijado, pegado y ensamble.
+
+No se calcula automáticamente por número de partes — laminar una figura de ocho
+piezas es un solo trabajo, no ocho. Se llena a criterio y puede quedar en cero
+cuando la pieza no lo amerite.
+
+Es el componente que más se olvida y el que más peso tiene en piezas grandes.
+
+### 5. Extras
+
+```
+multicolor  = monto fijo elegido ($30 a $150)
+pintado     = horas × tarifa_pintado + materiales
+```
+
+**Multicolor ya no es una fórmula aparte.** Antes tenía su propia lógica de
+cálculo, lo que hacía que la misma pieza costara tres precios distintos según el
+modo elegido. Ahora es un extra fijo que cubre el trabajo de cambios de color y
+configuración; el filamento de purga ya viene contado en los gramos.
+
+Ambos extras se suman una sola vez al total de la pieza, no por parte.
+
+---
+
+## El precio mínimo: cómo se cobran las piezas chicas
+
+En una pieza pequeña el costo real **no tiene relación con lo que vale**. Un
+llavero de 8 g y 25 minutos:
+
+```
+Material      8 g × $0.40      =  $3.20
+Máquina   25 min ÷ 60 × $6.85  =  $2.85
+Merma 12%                      =  $0.73
+                                  -----
+Costo                             $6.78   →  ×1.6 = $10.85
+```
+
+Once pesos. El cálculo está bien; el problema es que en piezas chicas lo que
+cobras no es el plástico, es el laminado, el manejo, el empaque, el traslado al
+evento y el hecho de que la pieza exista.
+
+Por eso el precio pasa por un piso:
+
+```
+precio = MAX(costo_total × margen, precio_minimo)
+```
+
+Guía práctica por rango:
+
+| Peso | Cómo cotizar |
 |---|---|
-| **Grande** | Tiempo **y** gramos |
-| **Chica** | Solo tiempo — los gramos no se cobran |
+| **Menos de 80 g** | Precio de lista fijo (llavero $80, pokeball $150). La calculadora solo confirma que no pierdes dinero. |
+| **80–300 g** | Fórmula, con piso de $200 |
+| **300 g o más** | Fórmula pura — aquí ya manda el costo real |
 
-Por eso, al elegir Chica, el campo de gramos se deshabilita: escribir un número
-ahí no cambiaría nada.
-
-En **Multicolor** el selector no aparece. Esa fórmula siempre cobra los gramos,
-así que el tamaño no cambiaría el resultado y mostrarlo solo confundiría.
+Para el catálogo de eventos conviene guardar el precio fijo en la pieza. Cotizar
+un llavero de $80 no debería costar llenar ocho campos.
 
 ---
 
-## Colores
+## Referencia de mercado
 
-**Ya no se eligen por pieza.** Los colores son globales: se activan y desactivan
-desde **Filamentos**, y aplican a todas las piezas del catálogo.
+Junto al resultado se muestra un segundo número, **que no afecta el precio**:
 
-Antes cada pieza tenía su propia paleta, lo que obligaba a repetir el mismo
-trabajo en cada una. Los colores tampoco afectan el precio en ninguna de las dos
-fórmulas — lo que sí lo afecta es el **modo** (uno o varios) y el **material**.
+```
+referencia = gramos × tarifa_mercado[material]
+```
+
+Es la tarifa de venta que se maneja en el mercado mexicano de impresión 3D
+—alrededor de $1.20/g en PLA— y que ya trae margen incluido. Sirve como semáforo:
+
+- Si tu precio queda **muy por debajo**, probablemente falta mano de obra o el
+  margen es corto.
+- Si queda **muy por encima**, el laminado está caro: demasiado relleno, paredes
+  de más o soportes evitables. La palanca está en el slicer, no en la fórmula.
+
+No es un método alterno de cobro. Es una verificación gratis.
 
 ---
 
 ## Valores configurados
 
-### Tarifas por material — solo para Un color
+### Costo de filamento por gramo
 
-| Material | Por minuto | Por gramo |
-|---|---|---|
-| PLA / PLA+ | $0.60 | $0.50 |
-| PETG | $0.80 | $0.70 |
-| TPU | $1.00 | $0.90 |
+| Material | Costo |
+|---|---|
+| PLA / PLA+ | $0.40 |
+| PETG | $0.52 |
+| TPU | $0.70 |
 
-### Costos de operación — solo para Multicolor
+### Operación
 
 | Concepto | Valor |
 |---|---|
-| Filamento por gramo | $0.315 |
 | Máquina por hora | $6.85 |
+| Merma / riesgo | 12% |
+| Mano de obra por hora | $120 |
+| Pintado por hora | $100 |
+| Precio mínimo | $80 |
+| Extra multicolor | $30 – $150 |
 
-### Pintado
+### Referencia de mercado (informativa)
 
-```
-costo = horas × $100 + materiales
-```
-
-Se activa con una casilla y se suma una sola vez al total, no por parte.
+| Material | Por gramo |
+|---|---|
+| PLA / PLA+ | $1.20 |
+| PETG | $1.50 |
+| TPU | $2.00 |
 
 ### Márgenes
 
@@ -111,64 +192,110 @@ Se activa con una casilla y se suma una sola vez al total, no por parte.
 | **+60%** | **× 1.6** ← el sugerido, aparece resaltado |
 | +100% | × 2.0 |
 
+En piezas grandes el margen porcentual escala mal: ×1.6 sobre $50 son $30 de
+ganancia razonable, pero sobre $1,500 son $900 y el mercado empieza a decir que
+no. Arriba de $1,000 de costo conviene bajar a ×1.4.
+
+### Descuentos por volumen
+
+| Cantidad | Descuento |
+|---|---|
+| 2–4 piezas | 5% |
+| 5–9 piezas | 10% |
+| 10 o más | 15% |
+
+Aplican sobre el precio final, no sobre el costo.
+
 ---
 
-## Ejemplo completo
+## Ejemplos
 
-Pieza **Tyranitar**: PLA, multicolor, 1 hora, 30 gramos.
-
-```
-Filamento   30 g × $0.315  =  $9.45
-Máquina      1 h × $6.85   =  $6.85
-                              ------
-Costo base                    $16.30
-
-+40%   $22.82
-+60%   $26.08     ← sugerido
-+100%  $32.60
-```
-
-La misma pieza en **Un color · Grande** costaría muy distinto:
+### Llavero — 8 g, 25 min, sin trabajo manual
 
 ```
-Tiempo   60 min × $0.60  =  $36.00
-Gramos    30 g  × $0.50  =  $15.00
-                            ------
-Costo base                  $51.00
+Material                        $3.20
+Máquina                         $2.85
+Merma 12%                       $0.73
+Mano de obra                    $0.00
+                               ------
+Costo total                     $6.78
+
+×1.6 = $10.85  →  aplica mínimo  →  $80.00
+Referencia de mercado: $9.60
 ```
 
-Y en **Un color · Chica**, $36.00 — solo el tiempo.
+El mínimo manda. Es el resultado correcto.
 
-Tres precios muy distintos para la misma pieza. Por eso el modo y el tamaño se
-eligen a conciencia, no por costumbre.
+### Tyranitar 30 cm — 8 partes, 40 h, 800 g, 3 h de trabajo
+
+```
+Material     800 g × $0.40  =   $320
+Máquina       40 h × $6.85  =   $274
+Merma 12%                   =    $71.28
+Mano de obra   3 h × $120   =   $360
+                               ------
+Costo total                    $1,025.28
+
+×1.4 = $1,435
+×1.6 = $1,640     ← sugerido
+×2.0 = $2,050
+Referencia de mercado: $960
+```
+
+La referencia queda por debajo del precio, lo cual es esperado en una figura de
+ocho partes: la mano de obra pesa más que el plástico. Si la diferencia fuera
+mucho mayor, habría que revisar el laminado antes que el precio.
 
 ---
 
 ## Piezas de varias partes
 
 El botón **+ Agregar pieza / parte** sirve para lo que se imprime por separado y
-se ensambla: un porta-mando con base y figura aparte, por ejemplo.
+se ensambla. Cada parte lleva su propio material, tiempo y gramos, y aporta
+material y máquina al total.
 
-Cada parte lleva su propio material, modo, tamaño, tiempo y gramos, y se cobra
-con su propia fórmula. El costo base es la suma de todas.
+La merma, la mano de obra, los extras y el precio mínimo se aplican **al total
+de la pieza**, no parte por parte.
 
 Ponerle nombre a cada parte es opcional, pero ayuda a recordar por qué el
 cálculo quedó así cuando lo revises meses después.
 
 ---
 
+## Qué cambió respecto al sistema anterior
+
+| Antes | Ahora |
+|---|---|
+| Dos fórmulas según modo de color | Una sola fórmula |
+| Selector Chica / Grande que apagaba los gramos | Los gramos siempre cuentan; las chicas se protegen con el mínimo |
+| Tarifa comercial por minuto ($0.60/min) con margen encima | Costo real de máquina, margen aplicado una vez |
+| Multicolor con lógica propia | Multicolor como extra fijo |
+| Sin merma | Merma del 12% |
+| Mano de obra solo dentro del pintado | Mano de obra como componente propio |
+| Sin piso de precio | Precio mínimo con `MAX()` |
+| Sin descuentos | Descuentos por volumen |
+
+**Migración:** las piezas guardadas en `catalogo_productos.calculo_partes` traen
+los campos `size` y `multi`. Al recalcular, las que estaban en "Un color" van a
+cambiar de precio. Conviene correr el recálculo generando un reporte de
+antes/después y revisar a mano las que se muevan más del doble antes de publicar
+precios nuevos.
+
+---
+
 ## Dónde se cambia todo esto
 
-Las tarifas, costos, pintado y márgenes se editan en la pestaña de configuración
-de la pantalla **Precios**. Los valores de arriba son los que trae por defecto.
+Las tarifas, costos, merma, mano de obra, mínimo y márgenes se editan en la
+pestaña de configuración de la pantalla **Precios**.
 
-> **Ojo:** esa configuración se guarda en el `localStorage` del navegador, con la
-> clave `sodigic_pricing_config`. **No está en la base de datos.** Si cambias las
-> tarifas en una computadora, en otro navegador o en el móvil siguen las
-> anteriores. Para que sean iguales en todos lados habría que moverlas al backend.
+> **Pendiente:** esa configuración se guarda en el `localStorage` del navegador,
+> con la clave `sodigic_pricing_config`. **No está en la base de datos.** Si
+> cambias las tarifas en una computadora, en otro navegador o en el móvil siguen
+> las anteriores — puedes cotizar $1,800 desde la laptop y $2,400 desde el
+> celular sin notarlo. Debe moverse al backend.
 
 El cálculo de cada pieza sí se guarda en la base, en la columna
-`catalogo_productos.calculo_partes`, junto con el resto de la pieza.
+`catalogo_productos.calculo_partes`.
 
 ---
 
@@ -177,9 +304,26 @@ El cálculo de cada pieza sí se guarda en la base, en la columna
 Una parte es un objeto así:
 
 ```js
-{ filamentId: 'pla', multi: false, size: 'grande', h: 0, m: 60, g: 30, name: '' }
+{ filamentId: 'pla', h: 0, m: 60, g: 30, name: '' }
 ```
 
-La función que decide todo es `partCost(parte, config)`. Si algún día hay que
-cambiar cómo se cobra, **ese es el único lugar que se toca**: la pantalla Precios
-y el editor de piezas lo comparten.
+Desaparece `size`. `multi` deja de vivir en la parte y pasa al nivel de la pieza,
+como extra:
+
+```js
+{
+  parts: [...],
+  laborHours: 0,
+  multicolorFee: 0,
+  painting: { enabled: false, hours: 0, materials: 0 }
+}
+```
+
+El cálculo se separa en dos niveles:
+
+- **`partCost(parte, config)`** devuelve solo material + máquina de esa parte.
+- **`piecePrice(pieza, config)`** suma las partes, aplica merma, mano de obra,
+  extras, margen y el `MAX()` con el mínimo.
+
+Si algún día hay que cambiar cómo se cobra, esos son los dos únicos lugares que
+se tocan: la pantalla Precios y el editor de piezas los comparten.

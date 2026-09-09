@@ -4,7 +4,7 @@ import { viernesApi } from "../../lib/apis/viernes";
 import { API_BASE_URL } from "../../lib/apis/client";
 import Select from "@components/Select";
 import PartsCalculator from "@components/PartsCalculator";
-import { useConfig as usePricingConfig } from "@/lib/pricing";
+import { useConfig as usePricingConfig } from "@/lib/usePricingConfig";
 
 // Cálculo primero; Catálogo fusionado en General
 const TABS = [
