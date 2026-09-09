@@ -2,7 +2,7 @@
 // Los casos son los ejemplos de docs/precios.md: si cambian los números aquí,
 // el documento queda mintiendo.
 import assert from "node:assert/strict";
-import { DEFAULT_CONFIG as C, piecePrice, volumeDiscount } from "./pricing.js";
+import { DEFAULT_CONFIG as C, piecePrice, volumeDiscount, migrarConfig } from "./pricing.js";
 
 const cerca = (a, b, tol = 0.01) => Math.abs(a - b) <= tol;
 
@@ -59,4 +59,23 @@ const legacy = piecePrice(
   { parts: [{ filamentId: "pla", h: 40, m: 0, g: 800, size: "chica", multi: true }], laborHours: 3 }, C);
 assert(cerca(legacy.total, tyra.total), "size/multi viejos no deben alterar el costo");
 
-console.log("pricing: los 6 grupos de casos pasan");
+// ── Config vieja en localStorage: materiales con minRate/gRate y sin cost ────
+// Sin migrar, esos materiales pisan a los nuevos y todo el calculo da NaN.
+const configVieja = {
+  materials: [{ id: "pla", label: "PLA / PLA+", minRate: 0.60, gRate: 0.50 }],
+  machine_hr: 6.85, filament_g: 0.315, paint_hr: 100, margins: C.margins,
+};
+const migrada = migrarConfig(configVieja);
+assert.equal(migrada.materials[0].cost, 0.40, "debe recuperar el costo del material");
+assert.equal(migrada.materials[0].market, 1.20, "debe recuperar la tarifa de mercado");
+assert.equal(migrada.waste_pct, C.waste_pct, "debe traer los campos nuevos");
+
+const conVieja = piecePrice({ parts: [{ filamentId: "pla", h: 11, m: 17, g: 323.86 }] }, migrada);
+assert(Number.isFinite(conVieja.total), `config vieja migrada da ${conVieja.total}`);
+
+// Aunque llegue una config rota, nunca debe salir NaN
+const rota = piecePrice({ parts: [{ filamentId: "pla", h: 1, m: 0, g: 100 }] },
+  { ...C, materials: [{ id: "pla", label: "PLA" }] });
+assert(Number.isFinite(rota.total), `config rota da ${rota.total}`);
+
+console.log("pricing: los 8 grupos de casos pasan");

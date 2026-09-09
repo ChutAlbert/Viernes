@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DEFAULT_CONFIG } from "./pricing";
+import { DEFAULT_CONFIG, migrarConfig } from "./pricing";
 
 // Vive aparte de pricing.js para que ese archivo quede sin React y se pueda
 // verificar con node (src/lib/pricing.check.mjs).
@@ -11,7 +11,7 @@ const KEY = "sodigic_pricing_config";
 export function loadConfig() {
   try {
     const saved = localStorage.getItem(KEY);
-    return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
+    return saved ? migrarConfig(JSON.parse(saved)) : DEFAULT_CONFIG;
   } catch {
     return DEFAULT_CONFIG;
   }

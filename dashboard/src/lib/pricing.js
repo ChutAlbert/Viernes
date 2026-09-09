@@ -32,6 +32,25 @@ export const DEFAULT_CONFIG = {
   ],
 };
 
+// La config vieja guardada en localStorage trae materiales con minRate/gRate
+// y sin cost/market. Sin esto, esos materiales pisan a los nuevos y todo da NaN.
+export function migrarConfig(guardada) {
+  const cfg = { ...DEFAULT_CONFIG, ...(guardada ?? {}) };
+  cfg.materials = (cfg.materials ?? []).map((m) => {
+    const def = DEFAULT_CONFIG.materials.find((d) => d.id === m.id);
+    return {
+      id: m.id,
+      label: m.label ?? def?.label ?? m.id,
+      cost: m.cost ?? def?.cost ?? 0.4,
+      market: m.market ?? def?.market ?? 1.2,
+    };
+  });
+  for (const k of ["waste_pct", "labor_hr", "min_price", "multicolor_fees", "volume_discounts"]) {
+    if (cfg[k] == null) cfg[k] = DEFAULT_CONFIG[k];
+  }
+  return cfg;
+}
+
 export const num = (v) => parseFloat(v) || 0;
 export const int = (v) => parseInt(v, 10) || 0;
 export const mins = (h, m) => int(h) * 60 + int(m);
@@ -45,8 +64,8 @@ function material(config, id) {
 /** parte: { filamentId, h, m, g }. Devuelve solo material + máquina. */
 export function partCost(p, config) {
   const mat = material(config, p.filamentId);
-  const gramos = num(p.g) * (mat ? mat.cost : 0);
-  const horas = (mins(p.h, p.m) / 60) * config.machine_hr;
+  const gramos = num(p.g) * num(mat?.cost);
+  const horas = (mins(p.h, p.m) / 60) * num(config.machine_hr);
   return gramos + horas;
 }
 
@@ -54,7 +73,7 @@ export function partCost(p, config) {
 export function marketReference(parts, config) {
   return parts.reduce((s, p) => {
     const mat = material(config, p.filamentId);
-    return s + num(p.g) * (mat ? mat.market : 0);
+    return s + num(p.g) * num(mat?.market);
   }, 0);
 }
 
@@ -71,11 +90,11 @@ export function volumeDiscount(cantidad, config) {
 export function piecePrice(pieza, config) {
   const parts = pieza.parts ?? [];
   const impresion = parts.reduce((s, p) => s + partCost(p, config), 0);
-  const merma = impresion * config.waste_pct;
-  const mano = num(pieza.laborHours) * config.labor_hr;
+  const merma = impresion * num(config.waste_pct);
+  const mano = num(pieza.laborHours) * num(config.labor_hr);
 
   const pin = pieza.painting ?? {};
-  const pintado = pin.enabled ? num(pin.hours) * config.paint_hr + num(pin.materials) : 0;
+  const pintado = pin.enabled ? num(pin.hours) * num(config.paint_hr) + num(pin.materials) : 0;
   const multicolor = num(pieza.multicolorFee);
 
   const total = impresion + merma + mano + pintado + multicolor;
@@ -83,11 +102,11 @@ export function piecePrice(pieza, config) {
 
   const precios = config.margins.map((m) => {
     // El mínimo se aplica antes del descuento: es el piso de UNA pieza
-    const conMargen = Math.max(total * m.mult, config.min_price);
+    const conMargen = Math.max(total * m.mult, num(config.min_price));
     return {
       ...m,
       unidad: conMargen * (1 - desc),
-      minimoAplicado: total * m.mult < config.min_price,
+      minimoAplicado: total * m.mult < num(config.min_price),
     };
   });
 
