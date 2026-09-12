@@ -2,6 +2,7 @@
 import '../lib/locationTask';
 
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -53,9 +54,17 @@ function AuthGate() {
       unregisterLocationTask();
       return;
     }
-    // Ensure device ID exists then register background task
-    // (en Expo Go esto no prende: TaskManager no existe ahi)
-    getOrCreateDeviceId().then(() => registerLocationTask().catch(() => {}));
+    // La ubicacion es automatica: no hay interruptor en la app. Se intenta
+    // prender al iniciar sesion y otra vez cada que la app vuelve al frente,
+    // porque el permiso de "todo el tiempo" se concede a mano en los ajustes
+    // de Android y puede llegar despues.
+    const prender = () => getOrCreateDeviceId()
+      .then(() => registerLocationTask())
+      .catch(() => {});
+    prender();
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') prender();
+    });
 
     // Respaldo que si corre en Expo Go: reportar con la app abierta.
     reportLocationNow();
@@ -64,6 +73,7 @@ function AuthGate() {
     // Foreground poll every 30s to react to server-requested refreshes
     pollRef.current = setInterval(checkAndRefreshIfNeeded, 30_000);
     return () => {
+      sub.remove();
       clearInterval(ubic);
       if (pollRef.current) clearInterval(pollRef.current);
     };
